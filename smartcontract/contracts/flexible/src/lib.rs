@@ -179,3 +179,7 @@ impl FlexiblePool {
         false
     }
 }
+
+#[cfg(test)]
+mod tests;
+
