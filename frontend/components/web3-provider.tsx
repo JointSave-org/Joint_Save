@@ -17,6 +17,17 @@ import {
   AlbedoModule,
   LobstrModule,
 } from "@creit.tech/stellar-wallets-kit"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+
+// Create a single QueryClient instance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 
 // ── Stellar network config ────────────────────────────────────────────────────
 
@@ -95,16 +106,18 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <StellarContext.Provider
-      value={{
-        kit,
-        address,
-        isConnected: !!address,
-        connect,
-        disconnect,
-      }}
-    >
-      {children}
-    </StellarContext.Provider>
+    <QueryClientProvider client={queryClient}>
+      <StellarContext.Provider
+        value={{
+          kit,
+          address,
+          isConnected: !!address,
+          connect,
+          disconnect,
+        }}
+      >
+        {children}
+      </StellarContext.Provider>
+    </QueryClientProvider>
   )
 }
