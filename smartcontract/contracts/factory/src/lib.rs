@@ -111,3 +111,7 @@ impl JointSaveFactory {
             .unwrap_or(Vec::new(&env))
     }
 }
+
+#[cfg(test)]
+mod tests;
+
