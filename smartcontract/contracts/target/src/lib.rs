@@ -14,6 +14,7 @@ pub enum DataKey {
     TotalDeposited,
     Active,
     Unlocked,
+    Paused,
     Balance(Address),
 }
 
@@ -44,6 +45,7 @@ impl TargetPool {
         storage.set(&DataKey::TotalDeposited, &0i128);
         storage.set(&DataKey::Active, &true);
         storage.set(&DataKey::Unlocked, &false);
+        storage.set(&DataKey::Paused, &false);
     }
 
     pub fn deposit(env: Env, member: Address, amount: i128) {
@@ -51,6 +53,9 @@ impl TargetPool {
 
         let storage = env.storage().persistent();
         assert!(storage.get::<_, bool>(&DataKey::Active).unwrap(), "pool inactive");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
 
         let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
         assert!(Self::is_member(&members, &member), "not a member");
@@ -88,6 +93,9 @@ impl TargetPool {
         member.require_auth();
 
         let storage = env.storage().persistent();
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
         let unlocked: bool = storage.get(&DataKey::Unlocked).unwrap_or(false);
         assert!(unlocked, "target not reached yet");
 
@@ -113,6 +121,9 @@ impl TargetPool {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
 
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
         let unlocked: bool = storage.get(&DataKey::Unlocked).unwrap_or(false);
         assert!(!unlocked, "target reached, use withdraw");
 
@@ -136,6 +147,48 @@ impl TargetPool {
         env.events().publish((symbol_short!("refunded"),), ());
     }
 
+    // ── Emergency controls ─────────────────────────────────────────────────
+
+    pub fn pause(env: Env, admin: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        storage.set(&DataKey::Paused, &true);
+        env.events().publish((symbol_short!("paused"),), ());
+    }
+
+    pub fn unpause(env: Env, admin: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        storage.set(&DataKey::Paused, &false);
+        env.events().publish((symbol_short!("unpaused"),), ());
+    }
+
+    pub fn emergency_withdraw(env: Env, admin: Address, recipient: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(paused, "pool not paused");
+
+        let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+        let contract_balance = token_client.balance(&env.current_contract_address());
+
+        if contract_balance > 0 {
+            token_client.transfer(&env.current_contract_address(), &recipient, &contract_balance);
+        }
+
+        storage.set(&DataKey::TotalDeposited, &0i128);
+        env.events()
+            .publish((symbol_short!("emrg_wd"),), contract_balance);
+    }
+
     // ── Views ──────────────────────────────────────────────────────────────
 
     pub fn balance_of(env: Env, member: Address) -> i128 {
@@ -154,6 +207,17 @@ impl TargetPool {
         env.storage().persistent().get(&DataKey::TargetAmount).unwrap_or(0)
     }
 
+    pub fn is_paused(env: Env) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Paused)
+            .unwrap_or(false)
+    }
+
+    pub fn admin(env: Env) -> Address {
+        env.storage().persistent().get(&DataKey::Admin).unwrap()
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     fn is_member(members: &Vec<Address>, who: &Address) -> bool {
@@ -166,4 +230,3 @@ impl TargetPool {
 
 #[cfg(test)]
 mod tests;
-

@@ -797,3 +797,73 @@ export async function fetchFlexibleState(
     userBalance,
   }
 }
+
+export async function fetchIsPaused(contractId: string): Promise<boolean> {
+  try {
+    const val = await viewCall(contractId, "is_paused")
+    return val.switch().name === "scvBool" ? val.b() : false
+  } catch {
+    return false
+  }
+}
+
+export async function fetchPoolAdmin(contractId: string): Promise<string | null> {
+  try {
+    const val = await viewCall(contractId, "admin")
+    return val.switch().name === "scvAddress" ? Address.fromScVal(val).toString() : null
+  } catch {
+    return null
+  }
+}
+
+// ── Pause / Unpause hooks ─────────────────────────────────────────────────────
+
+export function usePausePool(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const pause = async (): Promise<string | undefined> => {
+    if (!kit || !address || !contractId) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(new Contract(normalizeId(contractId)).call("pause", addressVal(address)))
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { pause, isLoading }
+}
+
+export function useUnpausePool(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const unpause = async (): Promise<string | undefined> => {
+    if (!kit || !address || !contractId) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(new Contract(normalizeId(contractId)).call("unpause", addressVal(address)))
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { unpause, isLoading }
+}

@@ -24,6 +24,7 @@ fn test_happy_path() {
 
     // Setup actors
     let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
     let relayer = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
@@ -42,6 +43,7 @@ fn test_happy_path() {
     // Initialize pool
     client.initialize(
         &token_address,
+        &admin,
         &members,
         &deposit_amount,
         &round_duration,
@@ -52,6 +54,7 @@ fn test_happy_path() {
 
     // Verify initial state
     assert!(client.is_active());
+    assert!(!client.is_paused());
     assert_eq!(client.current_round(), 0);
     assert_eq!(client.members().len(), 3);
     assert_eq!(client.next_payout_time(), env.ledger().timestamp() + round_duration);
@@ -110,6 +113,7 @@ fn test_non_member_deposit_rejection() {
     let token_client = token::StellarAssetClient::new(&env, &token_address);
 
     let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
     let non_member = Address::generate(&env);
@@ -120,6 +124,7 @@ fn test_non_member_deposit_rejection() {
 
     client.initialize(
         &token_address,
+        &admin,
         &members,
         &100i128,
         &100u64,
@@ -149,6 +154,7 @@ fn test_duplicate_deposit_rejection() {
     let token_client = token::StellarAssetClient::new(&env, &token_address);
 
     let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
 
@@ -158,6 +164,7 @@ fn test_duplicate_deposit_rejection() {
 
     client.initialize(
         &token_address,
+        &admin,
         &members,
         &100i128,
         &100u64,
@@ -190,6 +197,7 @@ fn test_premature_payout_rejection() {
     let token_client = token::StellarAssetClient::new(&env, &token_address);
 
     let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
     let relayer = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
@@ -200,6 +208,7 @@ fn test_premature_payout_rejection() {
 
     client.initialize(
         &token_address,
+        &admin,
         &members,
         &100i128,
         &100u64,
@@ -237,6 +246,7 @@ fn test_fee_deduction() {
     let token_interface_client = token::Client::new(&env, &token_address);
 
     let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
     let relayer = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
@@ -248,6 +258,7 @@ fn test_fee_deduction() {
     // Treasury fee = 20% (2000 BPS), Relayer fee = 10% (1000 BPS)
     client.initialize(
         &token_address,
+        &admin,
         &members,
         &1000i128,
         &100u64,
@@ -290,6 +301,7 @@ fn test_pool_marks_inactive() {
     let token_client = token::StellarAssetClient::new(&env, &token_address);
 
     let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
     let relayer = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
@@ -300,6 +312,7 @@ fn test_pool_marks_inactive() {
 
     client.initialize(
         &token_address,
+        &admin,
         &members,
         &100i128,
         &100u64,
@@ -346,6 +359,7 @@ fn test_deposit_inactive_pool() {
     let token_client = token::StellarAssetClient::new(&env, &token_address);
 
     let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
     let relayer = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
@@ -356,6 +370,7 @@ fn test_deposit_inactive_pool() {
 
     client.initialize(
         &token_address,
+        &admin,
         &members,
         &100i128,
         &100u64,
@@ -383,7 +398,226 @@ fn test_deposit_inactive_pool() {
     client.deposit(&member_a);
 }
 
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_deposit_fails_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
 
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
 
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
 
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
 
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    token_client.mint(&member_a, &100i128);
+
+    // Pause then attempt deposit
+    client.pause(&admin);
+    client.deposit(&member_a);
+}
+
+#[test]
+fn test_pause_unpause_deposit_cycle() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    token_client.mint(&member_a, &300i128);
+
+    // Pool active and not paused — deposit succeeds
+    assert!(!client.is_paused());
+    client.deposit(&member_a);
+    assert!(client.has_deposited(&member_a));
+
+    // Pause the pool
+    client.pause(&admin);
+    assert!(client.is_paused());
+
+    // Unpause the pool
+    client.unpause(&admin);
+    assert!(!client.is_paused());
+
+    // Deposit for member_b should succeed after unpause
+    token_client.mint(&member_b, &100i128);
+    client.deposit(&member_b);
+    assert!(client.has_deposited(&member_b));
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn test_non_admin_pause_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let non_admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    client.pause(&non_admin);
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn test_non_admin_emergency_withdraw_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let non_admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let recipient = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    token_client.mint(&member_a, &100i128);
+    client.deposit(&member_a);
+
+    // Pause with real admin first so the paused check passes
+    client.pause(&admin);
+    client.emergency_withdraw(&non_admin, &recipient);
+}
+
+#[test]
+fn test_emergency_withdraw_drains_contract() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+    let token_iface = token::Client::new(&env, &token_address);
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let recipient = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    token_client.mint(&member_a, &100i128);
+    token_client.mint(&member_b, &100i128);
+
+    client.deposit(&member_a);
+    client.deposit(&member_b);
+
+    // Pause then emergency withdraw
+    client.pause(&admin);
+    client.emergency_withdraw(&admin, &recipient);
+
+    assert_eq!(token_iface.balance(&recipient), 200);
+}

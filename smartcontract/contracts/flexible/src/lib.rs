@@ -7,6 +7,7 @@ use soroban_sdk::{
 #[contracttype]
 pub enum DataKey {
     Token,
+    Admin,
     Treasury,
     Members,
     MinimumDeposit,
@@ -15,6 +16,7 @@ pub enum DataKey {
     YieldEnabled,
     TotalBalance,
     Active,
+    Paused,
     Balance(Address),
 }
 
@@ -26,6 +28,7 @@ impl FlexiblePool {
     pub fn initialize(
         env: Env,
         token: Address,
+        admin: Address,
         members: Vec<Address>,
         minimum_deposit: i128,
         withdrawal_fee_bps: u32,
@@ -38,6 +41,7 @@ impl FlexiblePool {
 
         let storage = env.storage().persistent();
         storage.set(&DataKey::Token, &token);
+        storage.set(&DataKey::Admin, &admin);
         storage.set(&DataKey::Treasury, &treasury);
         storage.set(&DataKey::Members, &members);
         storage.set(&DataKey::MinimumDeposit, &minimum_deposit);
@@ -46,6 +50,7 @@ impl FlexiblePool {
         storage.set(&DataKey::YieldEnabled, &yield_enabled);
         storage.set(&DataKey::TotalBalance, &0i128);
         storage.set(&DataKey::Active, &true);
+        storage.set(&DataKey::Paused, &false);
     }
 
     pub fn deposit(env: Env, member: Address, amount: i128) {
@@ -54,6 +59,9 @@ impl FlexiblePool {
         let storage = env.storage().persistent();
         let active: bool = storage.get(&DataKey::Active).unwrap();
         assert!(active, "pool inactive");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
 
         let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
         assert!(Self::is_member(&members, &member), "not a member");
@@ -83,6 +91,9 @@ impl FlexiblePool {
         assert!(amount > 0, "amount must be > 0");
 
         let storage = env.storage().persistent();
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
         let balance: i128 = storage
             .get(&DataKey::Balance(member.clone()))
             .unwrap_or(0);
@@ -115,6 +126,9 @@ impl FlexiblePool {
         admin.require_auth();
 
         let storage = env.storage().persistent();
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
         let yield_enabled: bool = storage.get(&DataKey::YieldEnabled).unwrap_or(false);
         assert!(yield_enabled, "yield disabled");
         assert!(yield_amount > 0, "yield must be > 0");
@@ -136,6 +150,48 @@ impl FlexiblePool {
         storage.set(&DataKey::TotalBalance, &(total + yield_amount));
         env.events()
             .publish((symbol_short!("yield"),), yield_amount);
+    }
+
+    // ── Emergency controls ─────────────────────────────────────────────────
+
+    pub fn pause(env: Env, admin: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        storage.set(&DataKey::Paused, &true);
+        env.events().publish((symbol_short!("paused"),), ());
+    }
+
+    pub fn unpause(env: Env, admin: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        storage.set(&DataKey::Paused, &false);
+        env.events().publish((symbol_short!("unpaused"),), ());
+    }
+
+    pub fn emergency_withdraw(env: Env, admin: Address, recipient: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(paused, "pool not paused");
+
+        let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+        let contract_balance = token_client.balance(&env.current_contract_address());
+
+        if contract_balance > 0 {
+            token_client.transfer(&env.current_contract_address(), &recipient, &contract_balance);
+        }
+
+        storage.set(&DataKey::TotalBalance, &0i128);
+        env.events()
+            .publish((symbol_short!("emrg_wd"),), contract_balance);
     }
 
     // ── Views ──────────────────────────────────────────────────────────────
@@ -168,6 +224,17 @@ impl FlexiblePool {
             .unwrap_or(false)
     }
 
+    pub fn is_paused(env: Env) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Paused)
+            .unwrap_or(false)
+    }
+
+    pub fn admin(env: Env) -> Address {
+        env.storage().persistent().get(&DataKey::Admin).unwrap()
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     fn is_member(members: &Vec<Address>, who: &Address) -> bool {
@@ -182,4 +249,3 @@ impl FlexiblePool {
 
 #[cfg(test)]
 mod tests;
-

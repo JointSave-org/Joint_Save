@@ -80,6 +80,16 @@ impl JointSaveFactory {
         storage.set(&DataKey::Treasury, &new_treasury);
     }
 
+    /// Emit a pause_all event signalling all registered pools should be paused.
+    /// Individual pool admins must call pause() on each contract separately.
+    pub fn pause_all(env: Env, admin: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        env.events().publish((symbol_short!("pause_all"), admin), ());
+    }
+
     // ── Views ──────────────────────────────────────────────────────────────
 
     pub fn token(env: Env) -> Address {

@@ -9,6 +9,7 @@ use soroban_sdk::{
 #[contracttype]
 pub enum DataKey {
     Token,
+    Admin,
     Treasury,
     Members,
     DepositAmount,
@@ -18,6 +19,7 @@ pub enum DataKey {
     CurrentRound,
     NextPayoutTime,
     Active,
+    Paused,
     HasDeposited(Address),
 }
 
@@ -32,6 +34,7 @@ impl RotationalPool {
     pub fn initialize(
         env: Env,
         token: Address,
+        admin: Address,
         members: Vec<Address>,
         deposit_amount: i128,
         round_duration: u64,
@@ -45,6 +48,7 @@ impl RotationalPool {
 
         let storage = env.storage().persistent();
         storage.set(&DataKey::Token, &token);
+        storage.set(&DataKey::Admin, &admin);
         storage.set(&DataKey::Treasury, &treasury);
         storage.set(&DataKey::Members, &members);
         storage.set(&DataKey::DepositAmount, &deposit_amount);
@@ -57,6 +61,7 @@ impl RotationalPool {
             &(env.ledger().timestamp() + round_duration),
         );
         storage.set(&DataKey::Active, &true);
+        storage.set(&DataKey::Paused, &false);
     }
 
     /// Member deposits their fixed contribution for the current round.
@@ -66,6 +71,9 @@ impl RotationalPool {
         let storage = env.storage().persistent();
         let active: bool = storage.get(&DataKey::Active).unwrap();
         assert!(active, "pool inactive");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
 
         let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
         assert!(Self::is_member(&members, &member), "not a member");
@@ -94,6 +102,9 @@ impl RotationalPool {
         let storage = env.storage().persistent();
         let active: bool = storage.get(&DataKey::Active).unwrap();
         assert!(active, "pool inactive");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
 
         let next_payout_time: u64 = storage.get(&DataKey::NextPayoutTime).unwrap();
         assert!(
@@ -163,6 +174,47 @@ impl RotationalPool {
         }
     }
 
+    // ── Emergency controls ─────────────────────────────────────────────────
+
+    pub fn pause(env: Env, admin: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        storage.set(&DataKey::Paused, &true);
+        env.events().publish((symbol_short!("paused"),), ());
+    }
+
+    pub fn unpause(env: Env, admin: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        storage.set(&DataKey::Paused, &false);
+        env.events().publish((symbol_short!("unpaused"),), ());
+    }
+
+    pub fn emergency_withdraw(env: Env, admin: Address, recipient: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(paused, "pool not paused");
+
+        let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+        let contract_balance = token_client.balance(&env.current_contract_address());
+
+        if contract_balance > 0 {
+            token_client.transfer(&env.current_contract_address(), &recipient, &contract_balance);
+        }
+
+        env.events()
+            .publish((symbol_short!("emrg_wd"),), contract_balance);
+    }
+
     // ── Views ──────────────────────────────────────────────────────────────
 
     pub fn is_active(env: Env) -> bool {
@@ -170,6 +222,17 @@ impl RotationalPool {
             .persistent()
             .get(&DataKey::Active)
             .unwrap_or(false)
+    }
+
+    pub fn is_paused(env: Env) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Paused)
+            .unwrap_or(false)
+    }
+
+    pub fn admin(env: Env) -> Address {
+        env.storage().persistent().get(&DataKey::Admin).unwrap()
     }
 
     pub fn current_round(env: Env) -> u32 {
@@ -214,4 +277,3 @@ impl RotationalPool {
 
 #[cfg(test)]
 mod tests;
-
