@@ -7,16 +7,18 @@ import { Calendar, TrendingUp, Users, Clock, Loader2, RefreshCw, AlertTriangle }
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { useState, useEffect, useCallback } from "react"
+import { useToast } from "@/hooks/use-toast"
+import { useStellar } from "@/components/web3-provider"
 import {
   fetchRotationalState, fetchTargetState, fetchFlexibleState,
   fetchIsPaused,
   stroopsToXlm, RotationalPoolState, TargetPoolState, FlexiblePoolState,
 } from "@/hooks/useJointSaveContracts"
-import { useStellar } from "@/components/web3-provider"
 
 interface GroupData {
   id: string; name: string; type: "rotational" | "target" | "flexible"
   status: "active" | "completed" | "paused"; description: string | null
+  creator_address: string
   total_saved: number; target_amount: number | null; progress: number
   members_count: number; next_payout: string | null; next_recipient: string | null
   created_at: string; contribution_amount: number | null; frequency: string | null
@@ -25,6 +27,7 @@ interface GroupData {
 
 export function GroupDetails({ groupId }: { groupId: string }) {
   const { address } = useStellar()
+  const { toast } = useToast()
   const [group, setGroup] = useState<GroupData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -157,9 +160,24 @@ export function GroupDetails({ groupId }: { groupId: string }) {
               {onchainState && <Badge variant="outline" className="text-xs">Live onchain</Badge>}
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => group && fetchOnchainData(group)} disabled={onchainLoading}>
+          <div className="flex items-center gap-2">
+            {group.creator_address && address && group.creator_address.toLowerCase() === address.toLowerCase() && (
+              <Button variant="outline" onClick={async () => {
+                try {
+                  const url = `https://joint-save.vercel.app/join/${group.contract_address}`
+                  await navigator.clipboard.writeText(url)
+                  toast({ title: 'Link copied!' })
+                } catch (e) {
+                  toast({ title: 'Failed to copy link' })
+                }
+              }}>
+                Share Invite Link
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={() => group && fetchOnchainData(group)} disabled={onchainLoading}>
             <RefreshCw className={`h-4 w-4 ${onchainLoading ? "animate-spin" : ""}`} />
           </Button>
+          </div>
         </div>
 
         {group.description && <p className="text-muted-foreground mb-6">{group.description}</p>}
