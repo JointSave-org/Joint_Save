@@ -33,7 +33,7 @@ Thank you for your interest in JointSave! We welcome contributions from everyone
 Clone the repo and install dependencies:
 
 ```bash
-git clone https://github.com/anomalyco/Joint_Save.git
+git clone https://github.com/JointSave-org/Joint_Save.git
 cd Joint_Save
 ```
 
