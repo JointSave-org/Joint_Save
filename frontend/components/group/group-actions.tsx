@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, ArrowUpRight, ArrowDownLeft, AlertCircle, CheckCircle2, ShieldOff, ShieldCheck } from "lucide-react"
+import { Loader2, ArrowUpRight, ArrowDownLeft, ShieldOff, ShieldCheck, ExternalLink } from "lucide-react"
 import { useStellar } from "@/components/web3-provider"
 import {
   useRotationalDeposit, useTriggerPayout,
@@ -14,6 +14,7 @@ import {
   usePausePool, useUnpausePool,
 } from "@/hooks/useJointSaveContracts"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useToast } from "@/hooks/use-toast"
 
 interface GroupActionsProps {
   groupId: string
@@ -43,8 +44,7 @@ export function GroupActions({ groupId, poolAddress, poolType, isPaused = false,
   const isAdmin = !!address && !!poolAdmin && address.toUpperCase() === poolAdmin.toUpperCase()
   const [depositAmount, setDepositAmount] = useState("")
   const [withdrawAmount, setWithdrawAmount] = useState("")
-  const [error, setError] = useState("")
-  const [successMsg, setSuccessMsg] = useState("")
+  const { toast } = useToast()
 
   const rotationalDeposit = useRotationalDeposit(poolAddress)
   const triggerPayout = useTriggerPayout(poolAddress)
@@ -59,10 +59,9 @@ export function GroupActions({ groupId, poolAddress, poolType, isPaused = false,
   const isPending = !poolAddress || poolAddress === "pending_deployment"
 
   const handleDeposit = async () => {
-    setError(""); setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
-    if (isPaused) return setError("Pool is paused. Deposits are disabled.")
+    if (!address) return toast({ variant: "destructive", title: "Wallet not connected", description: "Please connect your wallet first" })
+    if (isPending) return toast({ variant: "destructive", title: "Contract not deployed", description: "Contract not yet deployed." })
+    if (isPaused) return toast({ variant: "destructive", title: "Pool paused", description: "Pool is paused. Deposits are disabled." })
     try {
       let txHash: string | undefined
       if (poolType === "rotational") txHash = await rotationalDeposit.deposit()
@@ -71,17 +70,27 @@ export function GroupActions({ groupId, poolAddress, poolType, isPaused = false,
 
       if (txHash) {
         await logActivity(groupId, "deposit", address, depositAmount || null, txHash)
-        setSuccessMsg("Deposit successful!")
+        toast({
+          variant: "success",
+          title: "Deposit successful!",
+          description: `${depositAmount || "0"} XLM deposited into the pool.`,
+          action: <Button variant="outline" size="sm" className="border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900" asChild>
+            <a href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3 mr-1" /> View on Explorer
+            </a>
+          </Button>,
+        })
         setDepositAmount("")
       }
-    } catch (e: any) { setError(e.message || "Transaction failed") }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Transaction failed", description: e.message || "Transaction failed" })
+    }
   }
 
   const handleWithdraw = async () => {
-    setError(""); setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
-    if (isPaused) return setError("Pool is paused. Withdrawals are disabled.")
+    if (!address) return toast({ variant: "destructive", title: "Wallet not connected", description: "Please connect your wallet first" })
+    if (isPending) return toast({ variant: "destructive", title: "Contract not deployed", description: "Contract not yet deployed." })
+    if (isPaused) return toast({ variant: "destructive", title: "Pool paused", description: "Pool is paused. Withdrawals are disabled." })
     try {
       let txHash: string | undefined
       if (poolType === "target") txHash = await targetWithdraw.withdraw()
@@ -89,59 +98,114 @@ export function GroupActions({ groupId, poolAddress, poolType, isPaused = false,
 
       if (txHash) {
         await logActivity(groupId, "withdraw", address, withdrawAmount || null, txHash)
-        setSuccessMsg("Withdrawal successful!")
+        toast({
+          variant: "success",
+          title: "Withdrawal successful!",
+          description: `${withdrawAmount || "0"} XLM withdrawn from the pool.`,
+          action: <Button variant="outline" size="sm" className="border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900" asChild>
+            <a href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3 mr-1" /> View on Explorer
+            </a>
+          </Button>,
+        })
         setWithdrawAmount("")
       }
-    } catch (e: any) { setError(e.message || "Transaction failed") }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Transaction failed", description: e.message || "Transaction failed" })
+    }
   }
 
   const handleTriggerPayout = async () => {
-    setError(""); setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
-    if (isPaused) return setError("Pool is paused. Payouts are disabled.")
+    if (!address) return toast({ variant: "destructive", title: "Wallet not connected", description: "Please connect your wallet first" })
+    if (isPending) return toast({ variant: "destructive", title: "Contract not deployed", description: "Contract not yet deployed." })
+    if (isPaused) return toast({ variant: "destructive", title: "Pool paused", description: "Pool is paused. Payouts are disabled." })
     try {
       const txHash = await triggerPayout.trigger()
       if (txHash) {
         await logActivity(groupId, "payout", address, null, txHash)
-        setSuccessMsg("Payout triggered!")
+        toast({
+          variant: "success",
+          title: "Payout triggered!",
+          description: "You earned a relayer fee for triggering the payout.",
+          action: <Button variant="outline" size="sm" className="border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900" asChild>
+            <a href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3 mr-1" /> View on Explorer
+            </a>
+          </Button>,
+        })
       }
-    } catch (e: any) { setError(e.message || "Transaction failed") }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Transaction failed", description: e.message || "Transaction failed" })
+    }
   }
 
   const handleRefund = async () => {
-    setError(""); setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
+    if (!address) return toast({ variant: "destructive", title: "Wallet not connected", description: "Please connect your wallet first" })
+    if (isPending) return toast({ variant: "destructive", title: "Contract not deployed", description: "Contract not yet deployed." })
     try {
       const txHash = await targetRefund.refund()
       if (txHash) {
         await logActivity(groupId, "refund", address, null, txHash)
-        setSuccessMsg("Refund initiated!")
+        toast({
+          variant: "success",
+          title: "Refund initiated!",
+          description: "Your refund request has been submitted.",
+          action: <Button variant="outline" size="sm" className="border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900" asChild>
+            <a href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3 mr-1" /> View on Explorer
+            </a>
+          </Button>,
+        })
       }
-    } catch (e: any) { setError(e.message || "Transaction failed") }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Transaction failed", description: e.message || "Transaction failed" })
+    }
   }
 
   const handlePause = async () => {
-    setError(""); setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
+    if (!address) return toast({ variant: "destructive", title: "Wallet not connected", description: "Please connect your wallet first" })
+    if (isPending) return toast({ variant: "destructive", title: "Contract not deployed", description: "Contract not yet deployed." })
     try {
-      await pausePool.pause()
-      setSuccessMsg("Pool paused successfully.")
+      const txHash = await pausePool.pause()
+      toast({
+        variant: "success",
+        title: "Pool paused successfully.",
+        description: "All transactions are now disabled.",
+        ...(txHash ? {
+          action: <Button variant="outline" size="sm" className="border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900" asChild>
+            <a href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3 mr-1" /> View on Explorer
+            </a>
+          </Button>,
+        } : {}),
+      })
       onPauseChange?.()
-    } catch (e: any) { setError(e.message || "Transaction failed") }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Transaction failed", description: e.message || "Transaction failed" })
+    }
   }
 
   const handleUnpause = async () => {
-    setError(""); setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
+    if (!address) return toast({ variant: "destructive", title: "Wallet not connected", description: "Please connect your wallet first" })
+    if (isPending) return toast({ variant: "destructive", title: "Contract not deployed", description: "Contract not yet deployed." })
     try {
-      await unpausePool.unpause()
-      setSuccessMsg("Pool unpaused successfully.")
+      const txHash = await unpausePool.unpause()
+      toast({
+        variant: "success",
+        title: "Pool unpaused successfully.",
+        description: "Transactions are now enabled.",
+        ...(txHash ? {
+          action: <Button variant="outline" size="sm" className="border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900" asChild>
+            <a href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3 mr-1" /> View on Explorer
+            </a>
+          </Button>,
+        } : {}),
+      })
       onPauseChange?.()
-    } catch (e: any) { setError(e.message || "Transaction failed") }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Transaction failed", description: e.message || "Transaction failed" })
+    }
   }
 
   const isDepositLoading =
@@ -159,19 +223,6 @@ export function GroupActions({ groupId, poolAddress, poolType, isPaused = false,
     <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
 
-      {error && (
-        <div className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive mb-4">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
-
-      {successMsg && (
-        <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary mb-4">
-          <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-          <p className="text-sm">{successMsg}</p>
-        </div>
-      )}
 
       {isPaused && (
         <div className="p-3 rounded-lg bg-destructive/10 text-destructive mb-4 text-sm font-medium">
