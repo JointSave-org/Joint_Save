@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, X, Loader2, AlertCircle } from "lucide-react"
+import { Plus, X, Loader2, ExternalLink } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useStellar } from "@/components/web3-provider"
 import { useDeployPool, useInitializePool, useRegisterPool, getRpc } from "@/hooks/useJointSaveContracts"
+import { useToast } from "@/hooks/use-toast"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -31,8 +32,8 @@ export function TargetForm() {
   const router = useRouter()
   const { address } = useStellar()
   const [members, setMembers] = useState<string[]>([""])
-  const [error, setError] = useState("")
   const [step, setStep] = useState<"idle" | "deploying" | "initializing" | "registering" | "saving">("idle")
+  const { toast } = useToast()
   const [formData, setFormData] = useState({ name: "", description: "", targetAmount: "", deadline: "" })
 
   const { deploy } = useDeployPool()
@@ -49,13 +50,12 @@ export function TargetForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    if (!address) return setError("Please connect your wallet first")
-    if (validMembers.length < 2) return setError("Need at least 2 valid Stellar addresses (you + 1 other)")
-    if (!formData.name) return setError("Please enter a group name")
-    if (!formData.targetAmount) return setError("Please enter a target amount")
-    if (!formData.deadline) return setError("Please select a deadline")
-    if (new Date(formData.deadline) <= new Date()) return setError("Deadline must be in the future")
+    if (!address) return toast({ variant: "destructive", title: "Wallet not connected", description: "Please connect your wallet first" })
+    if (validMembers.length < 2) return toast({ variant: "destructive", title: "Invalid members", description: "Need at least 2 valid Stellar addresses (you + 1 other)" })
+    if (!formData.name) return toast({ variant: "destructive", title: "Missing name", description: "Please enter a group name" })
+    if (!formData.targetAmount) return toast({ variant: "destructive", title: "Missing target", description: "Please enter a target amount" })
+    if (!formData.deadline) return toast({ variant: "destructive", title: "Missing deadline", description: "Please select a deadline" })
+    if (new Date(formData.deadline) <= new Date()) return toast({ variant: "destructive", title: "Invalid deadline", description: "Deadline must be in the future" })
 
     try {
       setStep("deploying")
@@ -99,7 +99,7 @@ export function TargetForm() {
       const pool = await res.json()
       router.push(`/dashboard/group/${pool.id}`)
     } catch (err: any) {
-      setError(err.message || "Failed to create group")
+      toast({ variant: "destructive", title: "Failed to create group", description: err.message || "Failed to create group" })
       setStep("idle")
     }
   }
@@ -119,12 +119,6 @@ export function TargetForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
-        <div className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
       {isCreating && (
         <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary">
           <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin" />

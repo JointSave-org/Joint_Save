@@ -5,8 +5,11 @@ import * as React from 'react'
 
 import type { ToastActionElement, ToastProps } from '@/components/ui/toast'
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_LIMIT = 5
+const TOAST_REMOVE_DELAY = 100000
+
+const DEFAULT_DURATION = 6000
+const ERROR_DURATION = 0 // manual dismiss
 
 type ToasterToast = ToastProps & {
   id: string
@@ -137,10 +140,11 @@ function dispatch(action: Action) {
   })
 }
 
-type Toast = Omit<ToasterToast, 'id'>
+type ToastInput = Omit<ToasterToast, 'id'>
 
-function toast({ ...props }: Toast) {
+function toast({ ...props }: ToastInput) {
   const id = genId()
+  const duration = props.variant === 'destructive' ? ERROR_DURATION : (props.duration ?? DEFAULT_DURATION)
 
   const update = (props: ToasterToast) =>
     dispatch({
@@ -155,11 +159,16 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
+      duration,
       onOpenChange: (open) => {
         if (!open) dismiss()
       },
     },
   })
+
+  if (duration > 0) {
+    setTimeout(() => dismiss(), duration)
+  }
 
   return {
     id: id,
@@ -187,5 +196,7 @@ function useToast() {
     dismiss: (toastId?: string) => dispatch({ type: 'DISMISS_TOAST', toastId }),
   }
 }
+
+export type { ToastInput }
 
 export { useToast, toast }
