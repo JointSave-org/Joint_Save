@@ -7,13 +7,13 @@ import { BackToTop } from "@/components/ui/back-to-top"
 import { useEffect } from "react"
 
 export default function DashboardPage() {
-  const { isConnected } = useStellar()
+  const { isConnected, isInitializing } = useStellar()
   useEffect(() => {
-    if (!isConnected) {
+    if (!isInitializing && !isConnected) {
       redirect("/")
     }
-  }, [isConnected])
-  if (!isConnected) {
+  }, [isInitializing, isConnected])
+  if (isInitializing || !isConnected) {
     return null
   }
   return (

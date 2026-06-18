@@ -48,6 +48,7 @@ interface StellarContextValue {
   address: string | null
   walletId: string | null
   isConnected: boolean
+  isInitializing: boolean
   connect: () => Promise<void>
   disconnect: () => void
 }
@@ -57,6 +58,7 @@ const StellarContext = createContext<StellarContextValue>({
   address: null,
   walletId: null,
   isConnected: false,
+  isInitializing: true,
   connect: async () => {},
   disconnect: () => {},
 })
@@ -71,6 +73,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   const [kit, setKit] = useState<StellarWalletsKit | null>(null)
   const [address, setAddress] = useState<string | null>(null)
   const [walletId, setWalletId] = useState<string | null>(null)
+  const [isInitializing, setIsInitializing] = useState(true)
 
   // Initialise the kit once on the client
   useEffect(() => {
@@ -90,6 +93,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
     const savedWalletId = localStorage.getItem("jointsave_wallet_id")
     if (savedAddress) setAddress(savedAddress)
     if (savedWalletId) setWalletId(savedWalletId)
+    setIsInitializing(false)
   }, [])
 
   const connect = useCallback(async () => {
@@ -123,6 +127,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
         address,
         walletId,
         isConnected: !!address,
+        isInitializing,
         connect,
         disconnect,
       }}

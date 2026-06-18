@@ -547,6 +547,8 @@ export interface RotationalPoolState {
   nextPayoutTime: number   // unix timestamp (seconds)
   hasDeposited: boolean    // for the querying user
   depositCount: number     // number of members who deposited in the current round
+  treasuryFeeBps: number | null
+  relayerFeeBps: number | null
 }
 
 export interface TargetPoolState {
@@ -593,6 +595,30 @@ async function viewCall(contractId: string, method: string, ...args: xdr.ScVal[]
   return (sim as rpc.Api.SimulateTransactionSuccessResponse).result!.retval
 }
 
+async function fetchContractStorage(contractId: string, keySymbol: string): Promise<xdr.ScVal | null> {
+  try {
+    const server = getRpc()
+    const ledgerKey = xdr.LedgerKey.contractData(
+      new xdr.LedgerKeyContractData({
+        contract: Address.fromString(normalizeId(contractId)).toScAddress(),
+        key: xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(keySymbol)]),
+        durability: xdr.ContractDataDurability.persistent(),
+      })
+    )
+    const response = await server.getLedgerEntries(ledgerKey)
+    if (response.entries && response.entries.length > 0) {
+      const entry = response.entries[0]
+      const rawXdr = entry.xdr || (entry.val && typeof (entry.val as any).toXDR === "function" ? (entry.val as any).toXDR("base64") : "")
+      if (!rawXdr) return null
+      const ledgerData = xdr.LedgerEntryData.fromXDR(rawXdr, "base64")
+      return ledgerData.contractData().val()
+    }
+  } catch (err) {
+    console.error(`Error fetching contract storage for ${keySymbol}:`, err)
+  }
+  return null
+}
+
 function scValToBigInt(val: xdr.ScVal): bigint {
   // i128 / u128 are stored as hi+lo parts
   if (val.switch().name === "scvI128") {
@@ -621,11 +647,13 @@ export async function fetchRotationalState(
   contractId: string,
   userAddress?: string
 ): Promise<RotationalPoolState> {
-  const [activeVal, roundVal, membersVal, payoutVal] = await Promise.all([
+  const [activeVal, roundVal, membersVal, payoutVal, treasurySc, relayerSc] = await Promise.all([
     viewCall(contractId, "is_active"),
     viewCall(contractId, "current_round"),
     viewCall(contractId, "members"),
     viewCall(contractId, "next_payout_time"),
+    fetchContractStorage(contractId, "TreasuryFeeBps"),
+    fetchContractStorage(contractId, "RelayerFeeBps"),
   ])
 
   const members = activeVal.switch().name !== "scvBool"
@@ -661,6 +689,9 @@ export async function fetchRotationalState(
     }
   }
 
+  const treasuryFeeBps = treasurySc && treasurySc.switch().name === "scvU32" ? treasurySc.u32() : null
+  const relayerFeeBps = relayerSc && relayerSc.switch().name === "scvU32" ? relayerSc.u32() : null
+
   return {
     isActive: activeVal.switch().name === "scvBool" ? activeVal.b() : false,
     currentRound: roundVal.switch().name === "scvU32" ? roundVal.u32() : 0,
@@ -668,6 +699,8 @@ export async function fetchRotationalState(
     nextPayoutTime: Number(scValToBigInt(payoutVal)),
     hasDeposited,
     depositCount,
+    treasuryFeeBps,
+    relayerFeeBps,
   }
 }
 

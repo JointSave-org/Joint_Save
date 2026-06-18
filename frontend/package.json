@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "lint": "next lint",
     "start": "next start"
   },
@@ -42,6 +42,7 @@
     "@react-native-async-storage/async-storage": "^1.24.0",
     "@stellar/stellar-sdk": "^15.0.1",
     "@supabase/supabase-js": "^2.75.1",
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.3.1",
     "@tanstack/react-query": "^5.90.5",
     "@vercel/analytics": "latest",
     "autoprefixer": "^10.4.20",
@@ -53,6 +54,7 @@
     "framer-motion": "latest",
     "geist": "latest",
     "input-otp": "1.4.1",
+    "lightningcss": "^1.32.0",
     "lucide-react": "^0.454.0",
     "next": "^16.2.4",
     "next-themes": "^0.4.6",

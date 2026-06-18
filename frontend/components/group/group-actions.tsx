@@ -266,15 +266,26 @@ export function GroupActions({
     try {
       // Fetch rotational pool state on-chain
       const state = await fetchRotationalState(poolAddress);
+      
+      if (state.treasuryFeeBps === null || state.relayerFeeBps === null) {
+        toastManager.error("Unable to load pool fee configuration. Please try again.");
+        return;
+      }
+
+      const treasuryFeeBps = state.treasuryFeeBps;
+      const relayerFeeBps = state.relayerFeeBps;
       const depositCount = state.depositCount;
       const currentRound = state.currentRound;
       const members = state.members;
       const beneficiary = members[currentRound] || "Unknown beneficiary";
 
+      const treasuryPercent = treasuryFeeBps / 100;
+      const relayerPercent = relayerFeeBps / 100;
+
       const contribution = parseFloat(poolData?.contribution_amount ?? "0");
       const totalCollected = contribution * depositCount;
-      const treasuryCut = totalCollected * 0.01; // 1% treasury fee
-      const relayerCut = totalCollected * 0.005; // 0.5% relayer fee
+      const treasuryCut = totalCollected * (treasuryFeeBps / 10000);
+      const relayerCut = totalCollected * (relayerFeeBps / 10000);
       const payoutAmount = totalCollected - treasuryCut - relayerCut;
 
       const shortAddress = (addr: string) =>
@@ -289,12 +300,12 @@ export function GroupActions({
             value: `${totalCollected.toFixed(2)} XLM (${depositCount}/${members.length} paid)`,
           },
           {
-            label: "Treasury Fee (1%)",
+            label: `Treasury Fee (${treasuryPercent}%)`,
             value: `-${treasuryCut.toFixed(2)} XLM`,
             isDeduction: true,
           },
           {
-            label: "Relayer Fee (0.5%)",
+            label: `Relayer Fee (${relayerPercent}%)`,
             value: `-${relayerCut.toFixed(2)} XLM`,
             isDeduction: true,
           },
@@ -402,7 +413,10 @@ export function GroupActions({
         </span>
       );
     }
-    return n  return (
+    return null;
+  };
+
+  return (
     <>
       {isPaused && (
         <div className="p-3 rounded-lg bg-destructive/10 text-destructive mb-4 text-sm font-medium">

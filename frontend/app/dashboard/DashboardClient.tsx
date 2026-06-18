@@ -7,15 +7,15 @@ import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
 import { useEffect } from "react"
 
 export default function DashboardClient() {
-  const { isConnected } = useStellar()
+  const { isConnected, isInitializing } = useStellar()
 
   useEffect(() => {
-    if (!isConnected) {
+    if (!isInitializing && !isConnected) {
       redirect("/")
     }
-  }, [isConnected])
+  }, [isInitializing, isConnected])
 
-  if (!isConnected) {
+  if (isInitializing || !isConnected) {
     return null
   }
 

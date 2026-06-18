@@ -8,7 +8,7 @@ import { useStellar } from "@/components/web3-provider"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { Copy, Check, ExternalLink, LogOut, ChevronDown, Menu } from "lucide-react"
+import { Copy, Check, ExternalLink, LogOut, ChevronDown } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
