@@ -34,6 +34,9 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
+      - name: Clean workspace
+        run: git clean -fdx
+
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
