@@ -1,27 +1,20 @@
-"use client";
+"use client"
 
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import {
-  Calendar,
-  TrendingUp,
-  Users,
-  Clock,
-  Loader2,
-  RefreshCw,
-  AlertTriangle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
+import { useState } from "react"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Calendar, TrendingUp, Users, Clock, Loader2, RefreshCw, AlertTriangle, Copy, Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { motion } from "framer-motion"
 import {
   stroopsToXlm,
   RotationalPoolState,
   TargetPoolState,
   FlexiblePoolState,
-} from "@/hooks/useJointSaveContracts";
-import { usePoolData } from "@/lib/data-layer/PoolDataProvider";
-import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions";
+} from "@/hooks/useJointSaveContracts"
+import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
+import { useToast } from "@/hooks/use-toast"
 
 interface GroupDetailsProps {
   groupId: string;
@@ -30,6 +23,9 @@ interface GroupDetailsProps {
 }
 
 export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
+  const [copied, setCopied] = useState(false)
+  const { toast } = useToast()
+
   // Use contract address as cache key when available; otherwise key on DB id.
   // The provider resolves DB data first, so the DB id key works fine too.
   const cacheKey =
@@ -46,6 +42,21 @@ export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
 
   const isPending = (addr: string) => !addr || addr === "pending_deployment";
   const formatType = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+  const handleCopy = async () => {
+    if (!group) return
+    try {
+      await navigator.clipboard.writeText(group.contract_address)
+      setCopied(true)
+      const { dismiss } = toast({ title: "Copied!", description: "Contract address copied to clipboard." })
+      setTimeout(() => {
+        setCopied(false)
+        dismiss()
+      }, 2000)
+    } catch {
+      toast({ title: "Failed to copy", description: "Please copy the address manually.", variant: "destructive" })
+    }
+  }
 
   if (isLoading && !group) {
     return (
@@ -322,10 +333,23 @@ export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
         )}
 
         {!isPending(group.contract_address) && (
-          <div className="mb-4 p-2 rounded bg-muted/30">
-            <p className="text-xs text-muted-foreground font-mono break-all">
+          <div className="mb-4 p-2 rounded bg-muted/30 flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground font-mono break-all min-w-0">
               Contract: {group.contract_address}
             </p>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0"
+              onClick={handleCopy}
+              aria-label="Copy contract address"
+            >
+              {copied ? (
+                <Check className="h-3 w-3 text-green-500" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+            </Button>
           </div>
         )}
 
