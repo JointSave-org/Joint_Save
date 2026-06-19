@@ -7,6 +7,7 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Web3Provider } from "@/components/web3-provider"
 import { PoolDataProvider } from "@/lib/data-layer/PoolDataProvider"
+import "@/lib/env"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Suspense } from "react"
 

@@ -109,6 +109,8 @@ For complete API documentation — functions, events, storage keys, error condit
    ```
 
 3. **Configure environment variables**
+   Use the inline comments in `frontend/.env.example` as the source of truth for each value. The frontend validates required variables during startup, so missing values fail fast with a clear `Missing required env var: ...` error.
+
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_key
