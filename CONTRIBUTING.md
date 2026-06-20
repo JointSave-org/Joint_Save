@@ -51,7 +51,7 @@ cargo build --target wasm32-unknown-unknown --release
 cd frontend
 pnpm install
 cp .env.example .env.local
-# Edit .env.local with your Supabase credentials and contract IDs
+# Edit .env.local using the comments in .env.example for value sources.
 ```
 
 ## Project Structure
@@ -154,6 +154,8 @@ pnpm build
 ### Environment Variables
 
 Copy `.env.example` to `.env.local` and fill in the values:
+
+`frontend/.env.example` includes inline comments for each variable, including where to find Supabase values, deployed Stellar contract IDs, and WASM hashes. The frontend imports `lib/env.ts` from the root layout, so missing required variables throw a clear startup error before a downstream component fails.
 
 | Variable | Description |
 |----------|-------------|
