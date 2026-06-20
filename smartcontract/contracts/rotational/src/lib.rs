@@ -191,6 +191,9 @@ impl RotationalPool {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
 
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
         let current_round: u32 = storage.get(&DataKey::CurrentRound).unwrap_or(0);
         assert!(current_round == 0, "round already started");
 
@@ -216,6 +219,9 @@ impl RotationalPool {
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
 
         let has_deposited: bool = storage
             .get(&DataKey::HasDeposited(member.clone()))

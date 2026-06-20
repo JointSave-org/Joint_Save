@@ -153,6 +153,9 @@ impl FlexiblePool {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
 
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
         let mut members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
         assert!(!Self::is_member(&members, &new_member), "already a member");
 
@@ -168,6 +171,9 @@ impl FlexiblePool {
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
 
         let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
         assert!(Self::is_member(&members, &member), "not a member");

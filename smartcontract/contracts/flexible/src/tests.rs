@@ -348,6 +348,27 @@ fn test_deploy_to_yield_tracks_amount() {
     assert_eq!(client.deployed_to_yield(), 200);
 }
 
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_add_member_fails_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
+    let member_c = Address::generate(&env);
+    client.pause(&admin);
+    client.add_member(&admin, &member_c);
+}
+
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_remove_member_fails_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, member_a, _member_b) = setup_pool(&env, false);
+    client.pause(&admin);
+    client.remove_member(&admin, &member_a);
+}
+
 // ── Mock strategy ─────────────────────────────────────────────────────────────
 
 mod mock_strategy {

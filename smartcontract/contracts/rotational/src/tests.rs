@@ -761,3 +761,126 @@ fn test_remove_last_beneficiary_completes_pool() {
 
     assert!(!client.is_active());
 }
+
+#[test]
+fn test_remove_member_general() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let relayer = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let member_c = Address::generate(&env);
+    let member_d = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    members.push_back(member_c.clone());
+    members.push_back(member_d.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    // Mints
+    token_client.mint(&member_a, &200i128);
+    token_client.mint(&member_b, &200i128);
+    token_client.mint(&member_c, &200i128);
+    token_client.mint(&member_d, &200i128);
+
+    // Initial state: current_round = 0 (beneficiary is member_a)
+    assert_eq!(client.current_round(), 0);
+
+    // Scenario A: Remove a member after current_round index.
+    // current_round = 0, we remove member_c (index 2).
+    // removed_index (2) > current_round (0), so current_round should remain 0.
+    client.remove_member(&admin, &member_c);
+    assert_eq!(client.current_round(), 0);
+    assert_eq!(client.members().len(), 3);
+    // Members list should now be [member_a, member_b, member_d]
+    assert_eq!(client.members().get(0).unwrap(), member_a);
+    assert_eq!(client.members().get(1).unwrap(), member_b);
+    assert_eq!(client.members().get(2).unwrap(), member_d);
+
+    // Deposit and trigger payout for Round 0 (member_a is beneficiary)
+    client.deposit(&member_a);
+    client.deposit(&member_b);
+    client.deposit(&member_d);
+    env.ledger().set_timestamp(100);
+    client.trigger_payout(&relayer);
+
+    // Now in Round 1 (beneficiary is member_b)
+    assert_eq!(client.current_round(), 1);
+
+    // Scenario B: Remove a member before current_round index.
+    // current_round = 1, we remove member_a (index 0).
+    // removed_index (0) < current_round (1), so current_round should shift down to 0.
+    client.remove_member(&admin, &member_a);
+    assert_eq!(client.current_round(), 0);
+    assert_eq!(client.members().len(), 2);
+    assert_eq!(client.members().get(0).unwrap(), member_b);
+    assert_eq!(client.members().get(1).unwrap(), member_d);
+}
+
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_add_member_fails_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let member_c = Address::generate(&env);
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+    client.pause(&admin);
+    client.add_member(&admin, &member_c);
+}
+
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_remove_member_fails_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+    client.pause(&admin);
+    client.remove_member(&admin, &member_b);
+}

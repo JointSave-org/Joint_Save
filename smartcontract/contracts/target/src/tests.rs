@@ -436,3 +436,46 @@ fn test_deposit_after_deadline_rejection() {
     // Should panic
     client.deposit(&member_a, &40i128);
 }
+
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_add_member_fails_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register_contract(None, TargetPool);
+    let client = TargetPoolClient::new(&env, &contract_id);
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let member_c = Address::generate(&env);
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    client.initialize(&token_address, &admin, &members, &100i128, &1000u32);
+    client.pause(&admin);
+    client.add_member(&admin, &member_c);
+}
+
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_remove_member_fails_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register_contract(None, TargetPool);
+    let client = TargetPoolClient::new(&env, &contract_id);
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    client.initialize(&token_address, &admin, &members, &100i128, &1000u32);
+    client.pause(&admin);
+    client.remove_member(&admin, &member_b);
+}

@@ -161,6 +161,9 @@ impl TargetPool {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
 
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
         let unlocked: bool = storage.get(&DataKey::Unlocked).unwrap_or(false);
         assert!(!unlocked, "pool unlocked");
 
@@ -179,6 +182,9 @@ impl TargetPool {
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
 
         let unlocked: bool = storage.get(&DataKey::Unlocked).unwrap_or(false);
         assert!(!unlocked, "pool unlocked");
