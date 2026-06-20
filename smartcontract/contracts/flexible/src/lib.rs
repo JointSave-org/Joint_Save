@@ -18,6 +18,8 @@ pub enum DataKey {
     Active,
     Paused,
     Balance(Address),
+    YieldStrategy,
+    DeployedToYield,
 }
 
 #[contract]
@@ -51,6 +53,7 @@ impl FlexiblePool {
         storage.set(&DataKey::TotalBalance, &0i128);
         storage.set(&DataKey::Active, &true);
         storage.set(&DataKey::Paused, &false);
+        storage.set(&DataKey::DeployedToYield, &0i128);
     }
 
     pub fn deposit(env: Env, member: Address, amount: i128) {
@@ -73,16 +76,13 @@ impl FlexiblePool {
         let token_client = token::Client::new(&env, &token_addr);
         token_client.transfer(&member, &env.current_contract_address(), &amount);
 
-        let prev: i128 = storage
-            .get(&DataKey::Balance(member.clone()))
-            .unwrap_or(0);
+        let prev: i128 = storage.get(&DataKey::Balance(member.clone())).unwrap_or(0);
         storage.set(&DataKey::Balance(member.clone()), &(prev + amount));
 
         let total: i128 = storage.get(&DataKey::TotalBalance).unwrap();
         storage.set(&DataKey::TotalBalance, &(total + amount));
 
-        env.events()
-            .publish((symbol_short!("deposit"), member), amount);
+        env.events().publish((symbol_short!("deposit"), member), amount);
     }
 
     pub fn withdraw(env: Env, member: Address, amount: i128) {
@@ -94,9 +94,7 @@ impl FlexiblePool {
         let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
         assert!(!paused, "pool paused");
 
-        let balance: i128 = storage
-            .get(&DataKey::Balance(member.clone()))
-            .unwrap_or(0);
+        let balance: i128 = storage.get(&DataKey::Balance(member.clone())).unwrap_or(0);
         assert!(balance >= amount, "insufficient balance");
 
         let fee_bps: u32 = storage.get(&DataKey::WithdrawalFeeBps).unwrap();
@@ -116,12 +114,10 @@ impl FlexiblePool {
         }
         token_client.transfer(&env.current_contract_address(), &member, &net);
 
-        env.events()
-            .publish((symbol_short!("withdraw"), member), net);
+        env.events().publish((symbol_short!("withdraw"), member), net);
     }
 
     /// Distribute yield proportionally to all members with a balance.
-    /// Called by an admin/relayer after yield is earned externally.
     pub fn distribute_yield(env: Env, admin: Address, yield_amount: i128) {
         admin.require_auth();
 
@@ -138,9 +134,7 @@ impl FlexiblePool {
 
         let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
         for m in members.iter() {
-            let bal: i128 = storage
-                .get(&DataKey::Balance(m.clone()))
-                .unwrap_or(0);
+            let bal: i128 = storage.get(&DataKey::Balance(m.clone())).unwrap_or(0);
             if bal > 0 {
                 let member_yield = (yield_amount * bal) / total;
                 storage.set(&DataKey::Balance(m.clone()), &(bal + member_yield));
@@ -148,11 +142,10 @@ impl FlexiblePool {
         }
 
         storage.set(&DataKey::TotalBalance, &(total + yield_amount));
-        env.events()
-            .publish((symbol_short!("yield"),), yield_amount);
+        env.events().publish((symbol_short!("yield"),), yield_amount);
     }
 
-    // ── Emergency controls ─────────────────────────────────────────────────
+    // ── Emergency controls ────────────────────────────────────────────────
 
     pub fn pause(env: Env, admin: Address) {
         admin.require_auth();
@@ -190,58 +183,126 @@ impl FlexiblePool {
         }
 
         storage.set(&DataKey::TotalBalance, &0i128);
-        env.events()
-            .publish((symbol_short!("emrg_wd"),), contract_balance);
+        env.events().publish((symbol_short!("emrg_wd"),), contract_balance);
     }
 
-    // ── Views ──────────────────────────────────────────────────────────────
+    // ── Yield strategy ────────────────────────────────────────────────────
+
+    /// Set the yield strategy contract address. Treasury-only, requires yield_enabled.
+    pub fn set_yield_strategy(env: Env, admin: Address, strategy: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        let yield_enabled: bool = storage.get(&DataKey::YieldEnabled).unwrap_or(false);
+        assert!(yield_enabled, "yield disabled");
+        storage.set(&DataKey::YieldStrategy, &strategy);
+        env.events().publish((symbol_short!("set_strat"),), strategy);
+    }
+
+    /// Deploy `amount` of pool funds to the yield strategy contract.
+    pub fn deploy_to_yield(env: Env, admin: Address, amount: i128) {
+        admin.require_auth();
+        assert!(amount > 0, "amount must be > 0");
+
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let strategy: Address = storage.get(&DataKey::YieldStrategy).expect("no strategy set");
+
+        let total: i128 = storage.get(&DataKey::TotalBalance).unwrap();
+        assert!(total >= amount, "insufficient pool balance");
+
+        let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+        token::Client::new(&env, &token_addr).transfer(
+            &env.current_contract_address(),
+            &strategy,
+            &amount,
+        );
+
+        let _: () = env.invoke_contract(
+            &strategy,
+            &symbol_short!("deploy"),
+            soroban_sdk::vec![&env, soroban_sdk::IntoVal::into_val(&amount, &env)],
+        );
+
+        let deployed: i128 = storage.get(&DataKey::DeployedToYield).unwrap_or(0);
+        storage.set(&DataKey::DeployedToYield, &(deployed + amount));
+
+        env.events().publish((symbol_short!("deployed"),), amount);
+    }
+
+    /// Harvest yield from the strategy and distribute proportionally.
+    pub fn harvest_yield(env: Env, admin: Address) {
+        admin.require_auth();
+
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let strategy: Address = storage.get(&DataKey::YieldStrategy).expect("no strategy set");
+
+        let yield_amount: i128 = env.invoke_contract(
+            &strategy,
+            &symbol_short!("harvest"),
+            soroban_sdk::vec![&env],
+        );
+
+        if yield_amount > 0 {
+            let total: i128 = storage.get(&DataKey::TotalBalance).unwrap();
+            let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+            for m in members.iter() {
+                let bal: i128 = storage.get(&DataKey::Balance(m.clone())).unwrap_or(0);
+                if bal > 0 && total > 0 {
+                    let share = (yield_amount * bal) / total;
+                    storage.set(&DataKey::Balance(m.clone()), &(bal + share));
+                }
+            }
+            storage.set(&DataKey::TotalBalance, &(total + yield_amount));
+            env.events().publish((symbol_short!("harvested"),), yield_amount);
+        }
+    }
+
+    // ── Views ─────────────────────────────────────────────────────────────
 
     pub fn balance_of(env: Env, member: Address) -> i128 {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Balance(member))
-            .unwrap_or(0)
+        env.storage().persistent().get(&DataKey::Balance(member)).unwrap_or(0)
     }
 
     pub fn total_balance(env: Env) -> i128 {
-        env.storage()
-            .persistent()
-            .get(&DataKey::TotalBalance)
-            .unwrap_or(0)
+        env.storage().persistent().get(&DataKey::TotalBalance).unwrap_or(0)
     }
 
     pub fn members(env: Env) -> Vec<Address> {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Members)
-            .unwrap_or(Vec::new(&env))
+        env.storage().persistent().get(&DataKey::Members).unwrap_or(Vec::new(&env))
     }
 
     pub fn is_active(env: Env) -> bool {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Active)
-            .unwrap_or(false)
+        env.storage().persistent().get(&DataKey::Active).unwrap_or(false)
     }
 
     pub fn is_paused(env: Env) -> bool {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Paused)
-            .unwrap_or(false)
+        env.storage().persistent().get(&DataKey::Paused).unwrap_or(false)
     }
 
     pub fn admin(env: Env) -> Address {
         env.storage().persistent().get(&DataKey::Admin).unwrap()
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
+    pub fn yield_strategy(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::YieldStrategy)
+    }
+
+    pub fn deployed_to_yield(env: Env) -> i128 {
+        env.storage().persistent().get(&DataKey::DeployedToYield).unwrap_or(0)
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
 
     fn is_member(members: &Vec<Address>, who: &Address) -> bool {
         for m in members.iter() {
-            if m == *who {
-                return true;
-            }
+            if m == *who { return true; }
         }
         false
     }

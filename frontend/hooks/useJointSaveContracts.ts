@@ -22,6 +22,9 @@ import {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const FACTORY_ID = process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID!
+// Optional — the reputation system is additive, so an unconfigured tracker
+// degrades to default scores instead of breaking pool creation/use.
+const REPUTATION_ID = process.env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID || ""
 const XLM_STROOPS = 10_000_000
 // 5 minutes — enough time for the user to review and sign in their wallet
 const TX_TIMEOUT = 300
@@ -351,6 +354,40 @@ export function useRegisterPool(poolType: "rotational" | "target" | "flexible") 
   return { register, isLoading }
 }
 
+// ── Reputation tracker wiring ─────────────────────────────────────────────────
+
+/** Point a freshly created pool at the shared ReputationTracker contract. */
+export function useSetReputationTracker() {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const setTracker = async (contractId: string): Promise<string | undefined> => {
+    if (!kit || !address || !contractId || !REPUTATION_ID) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(normalizeId(contractId)).call(
+            "set_reputation_tracker",
+            addressVal(address),
+            addressVal(REPUTATION_ID)
+          )
+        )
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { setTracker, isLoading }
+}
+
 // ── Rotational Pool actions ───────────────────────────────────────────────────
 
 export function useRotationalDeposit(contractId: string) {
@@ -546,6 +583,9 @@ export interface RotationalPoolState {
   members: string[]
   nextPayoutTime: number   // unix timestamp (seconds)
   hasDeposited: boolean    // for the querying user
+  depositCount: number     // number of members who deposited in the current round
+  treasuryFeeBps: number | null
+  relayerFeeBps: number | null
 }
 
 export interface TargetPoolState {
@@ -559,6 +599,20 @@ export interface FlexiblePoolState {
   isActive: boolean
   totalBalance: bigint
   userBalance: bigint
+}
+
+export interface ReputationScore {
+  totalDeposits: bigint
+  poolsCompleted: number
+  missedRounds: number
+  onTimeRate: number // basis points: 10000 = 100%
+}
+
+const DEFAULT_REPUTATION: ReputationScore = {
+  totalDeposits: 0n,
+  poolsCompleted: 0,
+  missedRounds: 0,
+  onTimeRate: 10000,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -592,6 +646,30 @@ async function viewCall(contractId: string, method: string, ...args: xdr.ScVal[]
   return (sim as rpc.Api.SimulateTransactionSuccessResponse).result!.retval
 }
 
+async function fetchContractStorage(contractId: string, keySymbol: string): Promise<xdr.ScVal | null> {
+  try {
+    const server = getRpc()
+    const ledgerKey = xdr.LedgerKey.contractData(
+      new xdr.LedgerKeyContractData({
+        contract: Address.fromString(normalizeId(contractId)).toScAddress(),
+        key: xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(keySymbol)]),
+        durability: xdr.ContractDataDurability.persistent(),
+      })
+    )
+    const response = await server.getLedgerEntries(ledgerKey)
+    if (response.entries && response.entries.length > 0) {
+      const entry = response.entries[0]
+      const rawXdr = entry.xdr || (entry.val && typeof (entry.val as any).toXDR === "function" ? (entry.val as any).toXDR("base64") : "")
+      if (!rawXdr) return null
+      const ledgerData = xdr.LedgerEntryData.fromXDR(rawXdr, "base64")
+      return ledgerData.contractData().val()
+    }
+  } catch (err) {
+    console.error(`Error fetching contract storage for ${keySymbol}:`, err)
+  }
+  return null
+}
+
 function scValToBigInt(val: xdr.ScVal): bigint {
   // i128 / u128 are stored as hi+lo parts
   if (val.switch().name === "scvI128") {
@@ -614,17 +692,31 @@ function scValToString(val: xdr.ScVal): string {
   return ""
 }
 
+function scValToU32(val?: xdr.ScVal): number {
+  return val && val.switch().name === "scvU32" ? val.u32() : 0
+}
+
+/** Soroban structs serialize as an ScMap keyed by field name (Symbol). */
+function structField(val: xdr.ScVal, field: string): xdr.ScVal | undefined {
+  return val
+    .map()
+    ?.find((entry) => entry.key().sym().toString() === field)
+    ?.val()
+}
+
 // ── Read-only state fetchers ──────────────────────────────────────────────────
 
 export async function fetchRotationalState(
   contractId: string,
   userAddress?: string
 ): Promise<RotationalPoolState> {
-  const [activeVal, roundVal, membersVal, payoutVal] = await Promise.all([
+  const [activeVal, roundVal, membersVal, payoutVal, treasurySc, relayerSc] = await Promise.all([
     viewCall(contractId, "is_active"),
     viewCall(contractId, "current_round"),
     viewCall(contractId, "members"),
     viewCall(contractId, "next_payout_time"),
+    fetchContractStorage(contractId, "TreasuryFeeBps"),
+    fetchContractStorage(contractId, "RelayerFeeBps"),
   ])
 
   const members = activeVal.switch().name !== "scvBool"
@@ -639,12 +731,39 @@ export async function fetchRotationalState(
     } catch {}
   }
 
+  let depositCount = 0
+  if (activeVal.switch().name === "scvBool" && activeVal.b() && members.length > 0) {
+    try {
+      const depositChecks: boolean[] = []
+      const batchSize = 3
+      for (let i = 0; i < members.length; i += batchSize) {
+        const batch = members.slice(i, i + batchSize)
+        const results = await Promise.all(
+          batch.map(async (m) => {
+            const depVal = await viewCall(contractId, "has_deposited", addressVal(m))
+            return depVal.switch().name === "scvBool" ? depVal.b() : false
+          })
+        )
+        depositChecks.push(...results)
+      }
+      depositCount = depositChecks.filter(Boolean).length
+    } catch (e) {
+      console.error("Failed to query deposit checks for members:", e)
+    }
+  }
+
+  const treasuryFeeBps = treasurySc && treasurySc.switch().name === "scvU32" ? treasurySc.u32() : null
+  const relayerFeeBps = relayerSc && relayerSc.switch().name === "scvU32" ? relayerSc.u32() : null
+
   return {
     isActive: activeVal.switch().name === "scvBool" ? activeVal.b() : false,
     currentRound: roundVal.switch().name === "scvU32" ? roundVal.u32() : 0,
     members,
     nextPayoutTime: Number(scValToBigInt(payoutVal)),
     hasDeposited,
+    depositCount,
+    treasuryFeeBps,
+    relayerFeeBps,
   }
 }
 
@@ -866,4 +985,20 @@ export function useUnpausePool(contractId: string) {
   }
 
   return { unpause, isLoading }
+}
+
+/** Read-only, no fees, no signing — safe to call for any address at any time. */
+export async function fetchReputation(address: string): Promise<ReputationScore> {
+  if (!REPUTATION_ID) return DEFAULT_REPUTATION
+  try {
+    const val = await viewCall(REPUTATION_ID, "get_reputation", addressVal(address))
+    return {
+      totalDeposits: scValToBigInt(structField(val, "total_deposits")!),
+      poolsCompleted: scValToU32(structField(val, "pools_completed")),
+      missedRounds: scValToU32(structField(val, "missed_rounds")),
+      onTimeRate: scValToU32(structField(val, "on_time_rate")),
+    }
+  } catch {
+    return DEFAULT_REPUTATION
+  }
 }

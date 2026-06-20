@@ -5,6 +5,7 @@ import { Security } from "@/components/landing/security"
 import { CTA } from "@/components/landing/cta"
 import { Header } from "@/components/landing/header"
 import { Footer } from "@/components/landing/footer"
+import { BackToTop } from "@/components/ui/back-to-top"
 
 export default function LandingPage() {
   return (
@@ -18,6 +19,7 @@ export default function LandingPage() {
         <CTA />
       </main>
       <Footer />
+      <BackToTop />
     </div>
   )
 }

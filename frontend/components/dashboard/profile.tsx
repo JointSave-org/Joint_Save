@@ -9,7 +9,9 @@ import { supabase } from "@/lib/supabase"
 import {
   fetchTargetState,
   fetchFlexibleState,
+  fetchReputation,
   stroopsToXlm,
+  type ReputationScore,
 } from "@/hooks/useJointSaveContracts"
 
 interface ProfileStats {
@@ -17,6 +19,7 @@ interface ProfileStats {
   groupsJoined: number      // distinct pools the address is a member of
   successfulPayouts: number // payout/withdraw activity count
   reputation: number        // 0-100 derived from on-chain behaviour
+  onChain: ReputationScore  // raw on-chain reputation tracker data
 }
 
 async function fetchProfileStats(address: string): Promise<ProfileStats> {
@@ -62,14 +65,24 @@ async function fetchProfileStats(address: string): Promise<ProfileStats> {
     })
   )
 
-  // Reputation: starts at 50, +5 per deposit (max +40), +10 per payout (max +10)
-  const reputation = Math.min(100, 50 + Math.min(depositCount * 5, 40) + Math.min(payoutCount * 10, 10))
+  // On-chain reputation tracker (deposits, completed pools, missed rounds).
+  const onChain = await fetchReputation(address)
+  const hasOnChainHistory =
+    onChain.totalDeposits > 0n || onChain.poolsCompleted > 0 || onChain.missedRounds > 0
+
+  // Prefer the genuine on-chain on-time rate once the tracker has data for
+  // this address; otherwise fall back to the off-chain activity heuristic
+  // (starts at 50, +5 per deposit (max +40), +10 per payout (max +10)).
+  const reputation = hasOnChainHistory
+    ? Math.round(onChain.onTimeRate / 100)
+    : Math.min(100, 50 + Math.min(depositCount * 5, 40) + Math.min(payoutCount * 10, 10))
 
   return {
     totalSaved,
     groupsJoined: pools.length,
     successfulPayouts: payoutCount,
     reputation,
+    onChain,
   }
 }
 
@@ -82,7 +95,15 @@ export function Profile() {
     if (!address) { setLoading(false); return }
     fetchProfileStats(address)
       .then(setStats)
-      .catch(() => setStats({ totalSaved: 0, groupsJoined: 0, successfulPayouts: 0, reputation: 50 }))
+      .catch(() =>
+        setStats({
+          totalSaved: 0,
+          groupsJoined: 0,
+          successfulPayouts: 0,
+          reputation: 50,
+          onChain: { totalDeposits: 0n, poolsCompleted: 0, missedRounds: 0, onTimeRate: 10000 },
+        })
+      )
       .finally(() => setLoading(false))
   }, [address])
 
@@ -178,6 +199,32 @@ export function Profile() {
           )}
         </Card>
       </div>
+
+      <Card className="p-6">
+        <h3 className="font-semibold text-lg mb-6">Reputation Breakdown</h3>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-muted/30">
+              <p className="text-sm text-muted-foreground">On-Time Rate</p>
+              <p className="text-2xl font-bold mt-1">
+                {((stats?.onChain.onTimeRate ?? 10000) / 100).toFixed(0)}%
+              </p>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/30">
+              <p className="text-sm text-muted-foreground">Pools Completed</p>
+              <p className="text-2xl font-bold mt-1">{stats?.onChain.poolsCompleted ?? 0}</p>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/30">
+              <p className="text-sm text-muted-foreground">Missed Rounds</p>
+              <p className="text-2xl font-bold mt-1">{stats?.onChain.missedRounds ?? 0}</p>
+            </div>
+          </div>
+        )}
+      </Card>
 
       <Card className="p-6 bg-muted/30">
         <h3 className="text-lg font-semibold mb-2">About Reputation Score</h3>

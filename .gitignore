@@ -18,6 +18,7 @@ build/
 /smartcontract/target/
 /smartcontract/targett/
 **/*.wasm
+**/test_snapshots/
 
 # OS
 .DS_Store

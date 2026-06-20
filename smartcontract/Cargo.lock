@@ -630,14 +630,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "jointsave-rotational"
+name = "jointsave-reputation"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
+name = "jointsave-rotational"
+version = "0.1.0"
+dependencies = [
+ "jointsave-reputation",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "jointsave-target"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "jointsave-yield-strategy"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",

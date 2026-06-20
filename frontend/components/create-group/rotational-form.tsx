@@ -1,16 +1,23 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, X, Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
+import { Plus, X, Loader2, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useStellar } from "@/components/web3-provider"
-import { useDeployPool, useInitializePool, useRegisterPool } from "@/hooks/useJointSaveContracts"
+import { useDeployPool, useInitializePool, useRegisterPool, useSetReputationTracker } from "@/hooks/useJointSaveContracts"
+import { FieldTooltip } from "@/components/ui/field-tooltip"
+import { FieldError } from "@/components/ui/form"
+import { FormProgress, type ProgressField } from "@/components/ui/form-progress"
+import {
+  validateGroupName,
+  validateStellarAddress,
+  validatePositiveAmount,
+} from "@/lib/form-validation"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -27,11 +34,15 @@ const FREQUENCY_SECONDS: Record<string, number> = {
   monthly: 2592000,
 }
 
+type FieldErrors = Partial<Record<"name" | "contributionAmount", string>>
+type Touched = Partial<Record<"name" | "contributionAmount", boolean>>
+
 export function RotationalForm() {
   const router = useRouter()
   const { address } = useStellar()
   // Creator is always the first member (read-only), others are editable
   const [members, setMembers] = useState<string[]>([""])
+  const [memberErrors, setMemberErrors] = useState<string[]>([""])
   const [error, setError] = useState("")
   const [step, setStep] = useState<"idle" | "deploying" | "initializing" | "registering" | "saving">("idle")
   const [formData, setFormData] = useState({
@@ -40,29 +51,75 @@ export function RotationalForm() {
     contributionAmount: "",
     frequency: "weekly",
   })
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [touched, setTouched] = useState<Touched>({})
+  const errorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [error])
 
   const { deploy } = useDeployPool()
   const { initRotational } = useInitializePool()
   const { register } = useRegisterPool("rotational")
+  const { setTracker } = useSetReputationTracker()
 
   // Always include creator as first member
   const allMembers = address ? [address, ...members] : members
   const validMembers = Array.from(new Set(allMembers.filter(isValidStellarAddress)))
   const isCreating = step !== "idle"
 
-  const addMember = () => setMembers([...members, ""])
-  const removeMember = (i: number) => setMembers(members.filter((_, idx) => idx !== i))
+  const validateField = useCallback((name: keyof FieldErrors, value: string) => {
+    const result =
+      name === "name" ? validateGroupName(value) : validatePositiveAmount(value, "Contribution amount")
+    setFieldErrors((prev) => ({ ...prev, [name]: result.valid ? "" : result.message }))
+  }, [])
+
+  const handleBlur = (name: keyof FieldErrors, value: string) => {
+    setTouched((prev) => ({ ...prev, [name]: true }))
+    validateField(name, value)
+  }
+
   const updateMember = (i: number, v: string) => {
-    const next = [...members]; next[i] = v; setMembers(next)
+    const next = [...members]
+    next[i] = v
+    setMembers(next)
+    const errs = [...memberErrors]
+    if (v) {
+      const r = validateStellarAddress(v)
+      errs[i] = r.valid ? "" : r.message
+    } else {
+      errs[i] = ""
+    }
+    setMemberErrors(errs)
+  }
+
+  const addMember = () => {
+    setMembers([...members, ""])
+    setMemberErrors([...memberErrors, ""])
+  }
+
+  const removeMember = (i: number) => {
+    setMembers(members.filter((_, idx) => idx !== i))
+    setMemberErrors(memberErrors.filter((_, idx) => idx !== i))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    // Mark all as touched and validate
+    setTouched({ name: true, contributionAmount: true })
+    const nameResult = validateGroupName(formData.name)
+    const amountResult = validatePositiveAmount(formData.contributionAmount, "Contribution amount")
+    setFieldErrors({
+      name: nameResult.valid ? "" : nameResult.message,
+      contributionAmount: amountResult.valid ? "" : amountResult.message,
+    })
+
     if (!address) return setError("Please connect your wallet first")
     if (validMembers.length < 2) return setError("Need at least 2 valid Stellar addresses (you + 1 other)")
-    if (!formData.name) return setError("Please enter a group name")
-    if (!formData.contributionAmount) return setError("Please enter a contribution amount")
+    if (!nameResult.valid || !amountResult.valid) return
 
     try {
       // 1. Deploy contract instance from WASM hash
@@ -76,8 +133,8 @@ export function RotationalForm() {
         members: validMembers,
         depositAmount: formData.contributionAmount,
         roundDuration: FREQUENCY_SECONDS[formData.frequency],
-        treasuryFeeBps: 100, // 1%
-        relayerFeeBps: 50,   // 0.5%
+        treasuryFeeBps: 100,
+        relayerFeeBps: 50,
         treasury: TREASURY,
       })
 
@@ -87,6 +144,13 @@ export function RotationalForm() {
         await register(address, contractId)
       } catch (regErr: any) {
         console.warn("Factory registration skipped:", regErr.message)
+      }
+
+      // 3b. Wire up the reputation tracker (best-effort — feature is additive)
+      try {
+        await setTracker(contractId)
+      } catch (repErr: any) {
+        console.warn("Reputation tracker wiring skipped:", repErr.message)
       }
 
       // 4. Save metadata to DB
@@ -124,43 +188,102 @@ export function RotationalForm() {
     saving: "Saving metadata...",
   }
 
+  const progressFields: ProgressField[] = [
+    { label: "Group name", valid: validateGroupName(formData.name).valid },
+    { label: "Contribution amount", valid: validatePositiveAmount(formData.contributionAmount, "Amount").valid },
+    { label: "Frequency", valid: !!formData.frequency },
+    { label: "Members (2+)", valid: validMembers.length >= 2 },
+  ]
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+        <div ref={errorRef} className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
+          <AlertCircle className="h-5 w-5 shrink-0" />
           <p className="text-sm">{error}</p>
         </div>
       )}
 
       {isCreating && (
         <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary">
-          <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin" />
+          <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
           <p className="text-sm">{stepLabel[step]} — approve each wallet prompt.</p>
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="name">Group Name</Label>
-        <Input id="name" placeholder="e.g., Family Savings Circle" value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+      <FormProgress fields={progressFields} />
+
+      <div className="space-y-1">
+        <FieldTooltip
+          htmlFor="name"
+          label="Group Name"
+          tooltip="A short, memorable name for your savings circle — e.g. 'Family Trip Fund'. Visible to all members."
+          required
+        />
+        <Input
+          id="name"
+          placeholder="e.g., Family Savings Circle"
+          value={formData.name}
+          onChange={(e) => {
+            setFormData({ ...formData, name: e.target.value })
+            if (touched.name) validateField("name", e.target.value)
+          }}
+          onBlur={(e) => handleBlur("name", e.target.value)}
+          aria-describedby="name-error"
+        />
+        {touched.name && <FieldError message={fieldErrors.name} />}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="description">Description (Optional)</Label>
-        <Textarea id="description" placeholder="Describe the purpose of this savings group"
-          value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
+      <div className="space-y-1">
+        <FieldTooltip
+          htmlFor="description"
+          label="Description"
+          tooltip="Optional details about the group's purpose, rules, or goals. Helps members understand what they're joining."
+        />
+        <Textarea
+          id="description"
+          placeholder="Describe the purpose of this savings group"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          rows={3}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="amount">Contribution Amount (XLM)</Label>
-          <Input id="amount" type="number" step="0.01" placeholder="100" value={formData.contributionAmount}
-            onChange={(e) => setFormData({ ...formData, contributionAmount: e.target.value })} required />
+        <div className="space-y-1">
+          <FieldTooltip
+            htmlFor="amount"
+            label="Contribution Amount (XLM)"
+            tooltip="How much each member deposits per round. Every member pays the same amount, and one member receives the full pool each round."
+            required
+          />
+          <Input
+            id="amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder="100"
+            value={formData.contributionAmount}
+            onChange={(e) => {
+              setFormData({ ...formData, contributionAmount: e.target.value })
+              if (touched.contributionAmount) validateField("contributionAmount", e.target.value)
+            }}
+            onBlur={(e) => handleBlur("contributionAmount", e.target.value)}
+          />
+          {touched.contributionAmount && <FieldError message={fieldErrors.contributionAmount} />}
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="frequency">Payout Frequency</Label>
-          <Select value={formData.frequency} onValueChange={(v) => setFormData({ ...formData, frequency: v })}>
+
+        <div className="space-y-1">
+          <FieldTooltip
+            htmlFor="frequency"
+            label="Payout Frequency"
+            tooltip="How often one member receives the pooled funds. Members take turns in rotation until everyone has received a payout."
+            required
+          />
+          <Select
+            value={formData.frequency}
+            onValueChange={(v) => setFormData({ ...formData, frequency: v })}
+          >
             <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="daily">Daily</SelectItem>
@@ -174,27 +297,53 @@ export function RotationalForm() {
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Label>Member Stellar Addresses</Label>
+          <FieldTooltip
+            label="Member Stellar Addresses"
+            tooltip="Add the public Stellar address (starts with G) for each person joining this pool. You are automatically included as the first member."
+            required
+          />
           <Button type="button" variant="outline" size="sm" onClick={addMember}>
             <Plus className="h-4 w-4 mr-1" />Add Member
           </Button>
         </div>
+
         <div className="space-y-3">
           {/* Creator — always included, read-only */}
-          <div className="flex gap-2 items-center">
-            <Input value={address || ""} readOnly disabled className="font-mono text-xs opacity-70" />
-            <span className="text-xs text-muted-foreground whitespace-nowrap">You</span>
+          <div className="space-y-1">
+            <div className="flex gap-2 items-center">
+              <Input value={address || "Connect your wallet"} readOnly disabled className="font-mono text-xs opacity-70" />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">You</span>
+            </div>
+            {!address && (
+              <p className="text-xs text-amber-600">Connect your wallet to be included as a member</p>
+            )}
           </div>
+
           {members.map((member, i) => (
-            <div key={i} className="flex gap-2">
-              <Input placeholder="G..." value={member} onChange={(e) => updateMember(i, e.target.value)} />
-              {members.length > 1 && (
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)}>
-                  <X className="h-4 w-4" />
-                </Button>
+            <div key={i} className="space-y-1">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="G... (56-character Stellar address)"
+                  value={member}
+                  onChange={(e) => updateMember(i, e.target.value)}
+                  className={memberErrors[i] ? "border-destructive" : member && isValidStellarAddress(member) ? "border-green-500" : ""}
+                />
+                {members.length > 1 && (
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {memberErrors[i] && <FieldError message={memberErrors[i]} />}
+              {!memberErrors[i] && member && isValidStellarAddress(member) && (
+                <p className="text-green-600 text-xs flex items-center gap-1">✓ Valid address</p>
               )}
             </div>
           ))}
+
+          {validMembers.length < 2 && members.some((m) => m) && (
+            <p className="text-xs text-muted-foreground">At least 2 valid members are required (you + 1 other)</p>
+          )}
         </div>
       </div>
 
@@ -209,7 +358,11 @@ export function RotationalForm() {
           </ul>
         </div>
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isCreating}>
-          {isCreating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{stepLabel[step]}</> : "Create Rotational Group"}
+          {isCreating ? (
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{stepLabel[step]}</>
+          ) : (
+            "Create Rotational Group"
+          )}
         </Button>
       </div>
     </form>

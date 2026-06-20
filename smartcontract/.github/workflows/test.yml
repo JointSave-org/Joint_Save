@@ -54,6 +54,18 @@ jobs:
         working-directory: smartcontract
         run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/flexible/Cargo.toml
 
+      - name: Build Yield Strategy contract
+        working-directory: smartcontract
+        run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/yield-strategy/Cargo.toml
+
+      - name: Test Flexible contract
+        working-directory: smartcontract
+        run: cargo test --manifest-path=contracts/flexible/Cargo.toml
+
+      - name: Test Yield Strategy contract
+        working-directory: smartcontract
+        run: cargo test --manifest-path=contracts/yield-strategy/Cargo.toml
+
       - name: Verify WASM artifacts
         working-directory: smartcontract
         run: |

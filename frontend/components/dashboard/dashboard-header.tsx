@@ -27,12 +27,9 @@ export function DashboardHeader() {
     ? `${address.slice(0, 4)}...${address.slice(-4)}`
     : ""
 
-  const explorerUrl =
-    address && walletId
-      ? `https://stellar.expert/explorer/testnet/account/${address}?tab=operations&network=${walletId}`
-      : address
-        ? `https://stellar.expert/explorer/testnet/account/${address}`
-        : "#"
+  const explorerUrl = address
+    ? `https://stellar.expert/explorer/testnet/account/${address}`
+    : "#"
 
   const handleDisconnect = () => {
     disconnect()
@@ -69,8 +66,7 @@ export function DashboardHeader() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="gap-2">
-                    <span className="hidden sm:inline">{truncatedAddress}</span>
-                    <span className="sm:hidden">{truncatedAddress}</span>
+                    <span>{truncatedAddress}</span>
                     <ChevronDown className="h-4 w-4 opacity-60" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -95,10 +91,7 @@ export function DashboardHeader() {
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleDisconnect}
-                    variant="destructive"
-                  >
+                  <DropdownMenuItem onClick={handleDisconnect} variant="destructive">
                     <LogOut className="mr-2 h-4 w-4" />
                     Disconnect Wallet
                   </DropdownMenuItem>

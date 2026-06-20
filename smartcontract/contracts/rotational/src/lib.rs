@@ -1,7 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, token, Address, Env, Vec, Symbol, symbol_short,
+    contract, contractimpl, contracttype, token, Address, Env, IntoVal, Symbol, Vec, symbol_short,
 };
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ pub enum DataKey {
     Active,
     Paused,
     HasDeposited(Address),
+    ReputationTracker,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -90,9 +91,11 @@ impl RotationalPool {
 
         storage.set(&DataKey::HasDeposited(member.clone()), &true);
         env.events().publish(
-            (symbol_short!("deposit"), member),
+            (symbol_short!("deposit"), member.clone()),
             deposit_amount,
         );
+
+        Self::report_deposit(&env, &member, deposit_amount);
     }
 
     /// Trigger payout for the current round. Caller receives the relayer fee.
@@ -123,14 +126,17 @@ impl RotationalPool {
 
         let token_client = token::Client::new(&env, &token_addr);
 
-        // Count deposits
+        // Count deposits and track members who missed this round
         let mut deposit_count: i128 = 0;
+        let mut missed_members: Vec<Address> = Vec::new(&env);
         for m in members.iter() {
             if storage
                 .get::<DataKey, bool>(&DataKey::HasDeposited(m.clone()))
                 .unwrap_or(false)
             {
                 deposit_count += 1;
+            } else {
+                missed_members.push_back(m.clone());
             }
         }
         assert!(deposit_count > 0, "no deposits this round");
@@ -154,6 +160,11 @@ impl RotationalPool {
             (symbol_short!("payout"), beneficiary.clone()),
             payout_amount,
         );
+
+        Self::report_payout(&env, &beneficiary);
+        for m in missed_members.iter() {
+            Self::report_missed_round(&env, &m);
+        }
 
         // Reset deposits for next round
         for m in members.iter() {
@@ -215,7 +226,22 @@ impl RotationalPool {
             .publish((symbol_short!("emrg_wd"),), contract_balance);
     }
 
+    /// Point this pool at a deployed ReputationTracker contract so deposits,
+    /// payouts, and missed rounds are reported for the on-chain reputation
+    /// system. Restricted to pool members; safe to call more than once.
+    pub fn set_reputation_tracker(env: Env, caller: Address, tracker: Address) {
+        caller.require_auth();
+        let storage = env.storage().persistent();
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(Self::is_member(&members, &caller), "not a member");
+        storage.set(&DataKey::ReputationTracker, &tracker);
+    }
+
     // ── Views ──────────────────────────────────────────────────────────────
+
+    pub fn reputation_tracker(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::ReputationTracker)
+    }
 
     pub fn is_active(env: Env) -> bool {
         env.storage()
@@ -273,7 +299,54 @@ impl RotationalPool {
         }
         false
     }
+
+    /// Best-effort report to the configured ReputationTracker. Reputation
+    /// tracking is supplementary, so a missing/misconfigured tracker must
+    /// never block the pool's core deposit/payout flow.
+    fn reputation_tracker_addr(env: &Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::ReputationTracker)
+    }
+
+    fn report_deposit(env: &Env, member: &Address, amount: i128) {
+        if let Some(tracker) = Self::reputation_tracker_addr(env) {
+            let pool = env.current_contract_address();
+            env.invoke_contract::<()>(
+                &tracker,
+                &Symbol::new(env, "record_deposit"),
+                soroban_sdk::vec![
+                    env,
+                    pool.into_val(env),
+                    member.into_val(env),
+                    amount.into_val(env)
+                ],
+            );
+        }
+    }
+
+    fn report_payout(env: &Env, member: &Address) {
+        if let Some(tracker) = Self::reputation_tracker_addr(env) {
+            let pool = env.current_contract_address();
+            env.invoke_contract::<()>(
+                &tracker,
+                &Symbol::new(env, "record_payout_received"),
+                soroban_sdk::vec![env, pool.into_val(env), member.into_val(env)],
+            );
+        }
+    }
+
+    fn report_missed_round(env: &Env, member: &Address) {
+        if let Some(tracker) = Self::reputation_tracker_addr(env) {
+            let pool = env.current_contract_address();
+            env.invoke_contract::<()>(
+                &tracker,
+                &Symbol::new(env, "record_missed_round"),
+                soroban_sdk::vec![env, pool.into_val(env), member.into_val(env)],
+            );
+        }
+    }
 }
 
+#[cfg(test)]
+mod test;
 #[cfg(test)]
 mod tests;

@@ -236,7 +236,13 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
     const interval = setInterval(() => {
       const activeIds = Array.from(activeContractsRef.current)
       if (activeIds.length === 0) return
-      console.log(`[PoolDataProvider] Polling ${activeIds.length} active pool(s)…`)
+      if (
+        process.env.NEXT_PUBLIC_DEBUG_DATA_LAYER === "true" ||
+        (typeof localStorage !== "undefined" &&
+          localStorage.getItem("DEBUG_DATA_LAYER") === "true")
+      ) {
+        console.log(`[PoolDataProvider] Polling ${activeIds.length} active pool(s)…`)
+      }
       activeIds.forEach((id) => fetchPool(id, true))
     }, STALE_TIME_MS)
 

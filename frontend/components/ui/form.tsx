@@ -155,6 +155,26 @@ function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
   )
 }
 
+function FieldError({ message, className }: { message?: string; className?: string }) {
+  if (!message) return null
+  return (
+    <p className={cn('text-destructive text-xs flex items-center gap-1 mt-1', className)}>
+      <span aria-hidden>✕</span>
+      {message}
+    </p>
+  )
+}
+
+function FieldSuccess({ message, className }: { message?: string; className?: string }) {
+  if (!message) return null
+  return (
+    <p className={cn('text-green-600 text-xs flex items-center gap-1 mt-1', className)}>
+      <span aria-hidden>✓</span>
+      {message}
+    </p>
+  )
+}
+
 export {
   useFormField,
   Form,
@@ -164,4 +184,6 @@ export {
   FormDescription,
   FormMessage,
   FormField,
+  FieldError,
+  FieldSuccess,
 }

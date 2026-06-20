@@ -1,15 +1,23 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, X, Loader2, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useStellar } from "@/components/web3-provider"
 import { useDeployPool, useInitializePool, useRegisterPool } from "@/hooks/useJointSaveContracts"
+import { FieldTooltip } from "@/components/ui/field-tooltip"
+import { FieldError } from "@/components/ui/form"
+import { FormProgress, type ProgressField } from "@/components/ui/form-progress"
+import {
+  validateGroupName,
+  validateStellarAddress,
+  validatePositiveAmount,
+  validateWithdrawalFee,
+} from "@/lib/form-validation"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -18,15 +26,26 @@ function isValidStellarAddress(addr: string) {
 const TREASURY = process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID || ""
 const TOKEN = process.env.NEXT_PUBLIC_TOKEN_CONTRACT_ID || "native"
 
+type FieldErrors = Partial<Record<"name" | "minimumDeposit" | "withdrawalFee", string>>
+type Touched = Partial<Record<"name" | "minimumDeposit" | "withdrawalFee", boolean>>
+
 export function FlexibleForm() {
   const router = useRouter()
   const { address } = useStellar()
   const [members, setMembers] = useState<string[]>([""])
+  const [memberErrors, setMemberErrors] = useState<string[]>([""])
   const [error, setError] = useState("")
   const [step, setStep] = useState<"idle" | "deploying" | "initializing" | "registering" | "saving">("idle")
   const [formData, setFormData] = useState({
     name: "", description: "", minimumDeposit: "", enableYield: false, withdrawalFee: "1",
   })
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [touched, setTouched] = useState<Touched>({})
+  const errorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [error])
 
   const { deploy } = useDeployPool()
   const { initFlexible } = useInitializePool()
@@ -36,17 +55,49 @@ export function FlexibleForm() {
   const validMembers = Array.from(new Set(allMembers.filter(isValidStellarAddress)))
   const isCreating = step !== "idle"
 
-  const addMember = () => setMembers([...members, ""])
-  const removeMember = (i: number) => setMembers(members.filter((_, idx) => idx !== i))
-  const updateMember = (i: number, v: string) => { const n = [...members]; n[i] = v; setMembers(n) }
+  const validateField = useCallback((name: keyof FieldErrors, value: string) => {
+    let message = ""
+    if (name === "name") message = validateGroupName(value).message
+    else if (name === "minimumDeposit") message = validatePositiveAmount(value, "Minimum deposit").message
+    else if (name === "withdrawalFee") message = validateWithdrawalFee(value).message
+    setFieldErrors((prev) => ({ ...prev, [name]: message }))
+  }, [])
+
+  const handleBlur = (name: keyof FieldErrors, value: string) => {
+    setTouched((prev) => ({ ...prev, [name]: true }))
+    validateField(name, value)
+  }
+
+  const updateMember = (i: number, v: string) => {
+    const n = [...members]; n[i] = v; setMembers(n)
+    const errs = [...memberErrors]
+    errs[i] = v ? (validateStellarAddress(v).valid ? "" : validateStellarAddress(v).message) : ""
+    setMemberErrors(errs)
+  }
+
+  const addMember = () => { setMembers([...members, ""]); setMemberErrors([...memberErrors, ""]) }
+  const removeMember = (i: number) => {
+    setMembers(members.filter((_, idx) => idx !== i))
+    setMemberErrors(memberErrors.filter((_, idx) => idx !== i))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    setTouched({ name: true, minimumDeposit: true, withdrawalFee: true })
+    const nameResult = validateGroupName(formData.name)
+    const depositResult = validatePositiveAmount(formData.minimumDeposit, "Minimum deposit")
+    const feeResult = validateWithdrawalFee(formData.withdrawalFee)
+    setFieldErrors({
+      name: nameResult.message,
+      minimumDeposit: depositResult.message,
+      withdrawalFee: feeResult.message,
+    })
+
     if (!address) return setError("Please connect your wallet first")
     if (validMembers.length < 2) return setError("Need at least 2 valid Stellar addresses (you + 1 other)")
-    if (!formData.name) return setError("Please enter a group name")
-    if (!formData.minimumDeposit) return setError("Please enter a minimum deposit")
+    if (!nameResult.valid || !depositResult.valid || !feeResult.valid) return
 
     try {
       setStep("deploying")
@@ -107,77 +158,180 @@ export function FlexibleForm() {
     saving: "Saving metadata...",
   }
 
+  const progressFields: ProgressField[] = [
+    { label: "Group name", valid: validateGroupName(formData.name).valid },
+    { label: "Minimum deposit", valid: validatePositiveAmount(formData.minimumDeposit, "Amount").valid },
+    { label: "Withdrawal fee", valid: validateWithdrawalFee(formData.withdrawalFee).valid },
+    { label: "Members (2+)", valid: validMembers.length >= 2 },
+  ]
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+        <div ref={errorRef} className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
+          <AlertCircle className="h-5 w-5 shrink-0" />
           <p className="text-sm">{error}</p>
         </div>
       )}
       {isCreating && (
         <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary">
-          <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin" />
+          <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
           <p className="text-sm">{stepLabel[step]} — approve each wallet prompt.</p>
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="name">Group Name</Label>
-        <Input id="name" placeholder="e.g., Emergency Fund" value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+      <FormProgress fields={progressFields} />
+
+      <div className="space-y-1">
+        <FieldTooltip
+          htmlFor="name"
+          label="Group Name"
+          tooltip="A name for your flexible savings pool — e.g. 'Emergency Fund'. Visible to all members."
+          required
+        />
+        <Input
+          id="name"
+          placeholder="e.g., Emergency Fund"
+          value={formData.name}
+          onChange={(e) => {
+            setFormData({ ...formData, name: e.target.value })
+            if (touched.name) validateField("name", e.target.value)
+          }}
+          onBlur={(e) => handleBlur("name", e.target.value)}
+        />
+        {touched.name && <FieldError message={fieldErrors.name} />}
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="description">Description (Optional)</Label>
-        <Textarea id="description" placeholder="Describe the purpose of this flexible pool"
-          value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
+
+      <div className="space-y-1">
+        <FieldTooltip
+          htmlFor="description"
+          label="Description"
+          tooltip="Optional notes about this pool's purpose, deposit rules, or any agreements between members."
+        />
+        <Textarea
+          id="description"
+          placeholder="Describe the purpose of this flexible pool"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          rows={3}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="minimum">Minimum Deposit (XLM)</Label>
-          <Input id="minimum" type="number" step="0.01" placeholder="50" value={formData.minimumDeposit}
-            onChange={(e) => setFormData({ ...formData, minimumDeposit: e.target.value })} required />
+        <div className="space-y-1">
+          <FieldTooltip
+            htmlFor="minimum"
+            label="Minimum Deposit (XLM)"
+            tooltip="The smallest amount a member can deposit in a single transaction. Helps maintain meaningful contributions."
+            required
+          />
+          <Input
+            id="minimum"
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder="50"
+            value={formData.minimumDeposit}
+            onChange={(e) => {
+              setFormData({ ...formData, minimumDeposit: e.target.value })
+              if (touched.minimumDeposit) validateField("minimumDeposit", e.target.value)
+            }}
+            onBlur={(e) => handleBlur("minimumDeposit", e.target.value)}
+          />
+          {touched.minimumDeposit && <FieldError message={fieldErrors.minimumDeposit} />}
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="fee">Withdrawal Fee (%)</Label>
-          <Input id="fee" type="number" step="0.1" placeholder="1" value={formData.withdrawalFee}
-            onChange={(e) => setFormData({ ...formData, withdrawalFee: e.target.value })} required />
+
+        <div className="space-y-1">
+          <FieldTooltip
+            htmlFor="fee"
+            label="Withdrawal Fee (%)"
+            tooltip="A small fee charged on withdrawals to discourage early exits and build the pool's reserve. 0–10% allowed."
+            required
+          />
+          <Input
+            id="fee"
+            type="number"
+            step="0.1"
+            min="0"
+            max="10"
+            placeholder="1"
+            value={formData.withdrawalFee}
+            onChange={(e) => {
+              setFormData({ ...formData, withdrawalFee: e.target.value })
+              if (touched.withdrawalFee) validateField("withdrawalFee", e.target.value)
+            }}
+            onBlur={(e) => handleBlur("withdrawalFee", e.target.value)}
+          />
+          {touched.withdrawalFee && <FieldError message={fieldErrors.withdrawalFee} />}
         </div>
       </div>
 
       <div className="flex items-center justify-between p-4 rounded-lg border border-border">
         <div className="space-y-0.5">
-          <Label htmlFor="yield">Enable Yield Generation</Label>
+          <FieldTooltip
+            htmlFor="yield"
+            label="Enable Yield Generation"
+            tooltip="When enabled, idle funds are staked in Stellar DeFi protocols to earn passive income for the pool. Members share the yield proportionally."
+          />
           <p className="text-sm text-muted-foreground">Stake idle funds in Stellar DeFi protocols for passive income</p>
         </div>
-        <input id="yield" type="checkbox" checked={formData.enableYield}
+        <input
+          id="yield"
+          type="checkbox"
+          checked={formData.enableYield}
           onChange={(e) => setFormData({ ...formData, enableYield: e.target.checked })}
-          className="h-4 w-4 rounded" />
+          className="h-4 w-4 rounded"
+        />
       </div>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Label>Member Stellar Addresses</Label>
+          <FieldTooltip
+            label="Member Stellar Addresses"
+            tooltip="Add the public Stellar address (starts with G) for each person joining this pool. You are automatically included."
+            required
+          />
           <Button type="button" variant="outline" size="sm" onClick={addMember}>
             <Plus className="h-4 w-4 mr-1" />Add Member
           </Button>
         </div>
+
         <div className="space-y-3">
-          <div className="flex gap-2 items-center">
-            <Input value={address || ""} readOnly disabled className="font-mono text-xs opacity-70" />
-            <span className="text-xs text-muted-foreground whitespace-nowrap">You</span>
+          <div className="space-y-1">
+            <div className="flex gap-2 items-center">
+              <Input value={address || "Connect your wallet"} readOnly disabled className="font-mono text-xs opacity-70" />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">You</span>
+            </div>
+            {!address && (
+              <p className="text-xs text-amber-600">Connect your wallet to be included as a member</p>
+            )}
           </div>
+
           {members.map((member, i) => (
-            <div key={i} className="flex gap-2">
-              <Input placeholder="G..." value={member} onChange={(e) => updateMember(i, e.target.value)} />
-              {members.length > 1 && (
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)}>
-                  <X className="h-4 w-4" />
-                </Button>
+            <div key={i} className="space-y-1">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="G... (56-character Stellar address)"
+                  value={member}
+                  onChange={(e) => updateMember(i, e.target.value)}
+                  className={memberErrors[i] ? "border-destructive" : member && isValidStellarAddress(member) ? "border-green-500" : ""}
+                />
+                {members.length > 1 && (
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {memberErrors[i] && <FieldError message={memberErrors[i]} />}
+              {!memberErrors[i] && member && isValidStellarAddress(member) && (
+                <p className="text-green-600 text-xs flex items-center gap-1">✓ Valid address</p>
               )}
             </div>
           ))}
+
+          {validMembers.length < 2 && members.some((m) => m) && (
+            <p className="text-xs text-muted-foreground">At least 2 valid members are required (you + 1 other)</p>
+          )}
         </div>
       </div>
 
@@ -192,7 +346,11 @@ export function FlexibleForm() {
           </ul>
         </div>
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isCreating}>
-          {isCreating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{stepLabel[step]}</> : "Create Flexible Pool"}
+          {isCreating ? (
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{stepLabel[step]}</>
+          ) : (
+            "Create Flexible Pool"
+          )}
         </Button>
       </div>
     </form>

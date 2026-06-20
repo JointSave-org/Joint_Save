@@ -110,6 +110,7 @@ export function Header() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={handleDisconnect}
+                      variant="destructive"
                     >
                       <LogOut className="mr-2 h-4 w-4" />
                       Disconnect Wallet
@@ -117,7 +118,7 @@ export function Header() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
-            ) : (
+             ) : (
               <Button onClick={connect} className="bg-primary hover:bg-primary/90">
                 Connect Wallet
               </Button>
