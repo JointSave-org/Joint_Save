@@ -2,8 +2,9 @@
 
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useStellar } from "@/components/web3-provider"
-import { Wallet, Award, TrendingUp, Users, Loader2 } from "lucide-react"
+import { Wallet, Award, TrendingUp, Users } from "lucide-react"
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import {
@@ -136,7 +137,7 @@ export function Profile() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-muted-foreground">Reputation Score</span>
                 {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <Skeleton className="h-8 w-14" />
                 ) : (
                   <span className="text-2xl font-bold text-primary">{stats?.reputation ?? 50}%</span>
                 )}
@@ -161,8 +162,16 @@ export function Profile() {
         <Card className="p-6">
           <h3 className="font-semibold text-lg mb-6">Savings Statistics</h3>
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <div className="space-y-4" aria-label="Loading statistics">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-lg" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <Skeleton className="h-6 w-20" />
+                </div>
+              ))}
             </div>
           ) : (
             <div className="space-y-4">
@@ -203,8 +212,13 @@ export function Profile() {
       <Card className="p-6">
         <h3 className="font-semibold text-lg mb-6">Reputation Breakdown</h3>
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" aria-label="Loading reputation breakdown">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="p-4 rounded-lg bg-muted/30 space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-16" />
+              </div>
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

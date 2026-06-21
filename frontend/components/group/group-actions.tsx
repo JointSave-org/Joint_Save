@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Loader2,
   ArrowUpRight,
@@ -435,6 +436,34 @@ export function GroupActions({
           Quick Actions {renderPendingBadge()}
         </h3>
 
+        {/* Skeleton while pool metadata is loading */}
+        {!poolData && !isPending && (
+          <div className="space-y-6" aria-label="Loading actions">
+            {/* deposit field + button */}
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-9 w-full rounded-md" />
+              <Skeleton className="h-3 w-56" />
+              <Skeleton className="h-9 w-full rounded-md" />
+            </div>
+            {/* withdraw field + button */}
+            <div className="border-t border-border pt-6 space-y-3">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-9 w-full rounded-md" />
+              <Skeleton className="h-3 w-48" />
+              <Skeleton className="h-9 w-full rounded-md" />
+            </div>
+            {/* admin controls */}
+            <div className="border-t border-border pt-6 space-y-3">
+              <Skeleton className="h-4 w-24" />
+              <div className="flex gap-2">
+                <Skeleton className="h-9 flex-1 rounded-md" />
+                <Skeleton className="h-9 flex-1 rounded-md" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive mb-4">
             <AlertCircle className="h-5 w-5 flex-shrink-0" />
@@ -449,6 +478,8 @@ export function GroupActions({
           </div>
         )}
 
+        {/* Actual form — shown once pool metadata resolves (or contract is pending) */}
+        {(poolData || isPending) && (
         <div className="space-y-6">
           {/* Deposit / Contribute */}
           <div className="space-y-3">
@@ -690,6 +721,7 @@ export function GroupActions({
             </p>
           </div>
         </div>
+        )}
       </Card>
 
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>

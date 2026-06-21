@@ -9,8 +9,16 @@ import { Profile } from "@/components/dashboard/profile"
 import { AnalyticsDashboard } from "@/components/dashboard/analytics"
 import { Home, PlusCircle, Receipt, User, TrendingUp } from "lucide-react"
 
-export function DashboardTabs() {
-  const [activeTab, setActiveTab] = useState("groups")
+export function DashboardTabs({
+  activeTab: controlledActiveTab,
+  onTabChange,
+}: {
+  activeTab?: string
+  onTabChange?: (tab: string) => void
+}) {
+  const [internalActiveTab, setInternalActiveTab] = useState("groups")
+  const activeTab = controlledActiveTab ?? internalActiveTab
+  const setActiveTab = onTabChange ?? setInternalActiveTab
 
   const handleCreateClick = useCallback(() => {
     setActiveTab("create")

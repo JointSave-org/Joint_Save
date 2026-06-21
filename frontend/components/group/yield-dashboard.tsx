@@ -11,8 +11,9 @@ import { useStellar } from "@/components/web3-provider"
 import {
   Contract, TransactionBuilder, BASE_FEE, nativeToScVal, xdr,
   Address,
+  rpc,
 } from "@stellar/stellar-sdk"
-import { getRpc, STELLAR_RPC_URL } from "@/hooks/useJointSaveContracts"
+import { STELLAR_RPC_URL } from "@/components/web3-provider"
 import { STELLAR_NETWORK_PASSPHRASE } from "@/components/web3-provider"
 
 const TX_TIMEOUT = 300

@@ -4,7 +4,8 @@ import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Calendar, TrendingUp, Users, Clock, Loader2, RefreshCw, AlertTriangle, Copy, Check } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Calendar, TrendingUp, Users, Clock, RefreshCw, AlertTriangle, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/hooks/useJointSaveContracts"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import { useToast } from "@/hooks/use-toast"
+import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 
 interface GroupDetailsProps {
   groupId: string;
@@ -60,9 +62,40 @@ export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
 
   if (isLoading && !group) {
     return (
-      <Card className="p-12">
-        <div className="flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <Card className="p-6" aria-label="Loading group details">
+        {/* header */}
+        <div className="flex items-start justify-between mb-6">
+          <div className="space-y-3">
+            <Skeleton className="h-9 w-52" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-20 rounded-full" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+          </div>
+          <Skeleton className="h-9 w-9 rounded-md" />
+        </div>
+
+        {/* description */}
+        <Skeleton className="h-4 w-3/4 mb-6" />
+
+        {/* stat tiles */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="p-4 rounded-lg bg-muted/30 space-y-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-16" />
+            </div>
+          ))}
+        </div>
+
+        {/* progress bar area */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <Skeleton className="h-3 w-full rounded-full" />
+          <Skeleton className="h-3 w-16" />
         </div>
       </Card>
     );

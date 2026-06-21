@@ -8,20 +8,25 @@ import { useStellar } from "@/components/web3-provider"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { Copy, Check, ExternalLink, LogOut, ChevronDown } from "lucide-react"
+import { Copy, Check, ExternalLink, LogOut, ChevronDown, Clock } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { useRecentPools } from "@/hooks/useRecentPools"
+import { formatRelativeTime } from "@/lib/utils"
 
 export function DashboardHeader() {
   const { address, walletId, disconnect } = useStellar()
   const router = useRouter()
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
+  const { recentPools } = useRecentPools(address)
 
   const truncatedAddress = address
     ? `${address.slice(0, 4)}...${address.slice(-4)}`
@@ -61,7 +66,44 @@ export function DashboardHeader() {
           </Link>
 
           <div className="flex items-center gap-4">
+            <span className="text-xs text-muted-foreground hidden md:block">
+              Press <kbd className="rounded-sm border border-border bg-muted px-1 font-sans text-[10px] font-medium">?</kbd> for shortcuts
+            </span>
             <ThemeToggle />
+
+            {address && recentPools.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <Clock className="h-4 w-4" />
+                    <span className="hidden sm:inline">Recent</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel>Recent Pools</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {recentPools.map((pool) => (
+                    <DropdownMenuItem key={pool.contract_address || pool.id} asChild>
+                      <Link
+                        href={`/dashboard/group/${pool.id}`}
+                        className="flex w-full cursor-pointer items-center justify-between gap-2"
+                      >
+                        <span className="flex-1 truncate text-sm">{pool.name}</span>
+                        <span className="flex items-center gap-1.5">
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 capitalize">
+                            {pool.type}
+                          </Badge>
+                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                            {formatRelativeTime(new Date(pool.visitedAt))}
+                          </span>
+                        </span>
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             {address ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

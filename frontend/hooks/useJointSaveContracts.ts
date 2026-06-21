@@ -659,7 +659,18 @@ async function fetchContractStorage(contractId: string, keySymbol: string): Prom
     const response = await server.getLedgerEntries(ledgerKey)
     if (response.entries && response.entries.length > 0) {
       const entry = response.entries[0]
-      const rawXdr = entry.xdr || (entry.val && typeof (entry.val as any).toXDR === "function" ? (entry.val as any).toXDR("base64") : "")
+      
+      // Type guard for LedgerEntryResult to safely access xdr
+      let rawXdr = ""
+      
+      if (entry && typeof entry === "object") {
+        if ("xdr" in entry) {
+          rawXdr = entry.xdr
+        } else if (entry.val && typeof (entry.val as any).toXDR === "function") {
+          rawXdr = (entry.val as any).toXDR("base64")
+        }
+      }
+      
       if (!rawXdr) return null
       const ledgerData = xdr.LedgerEntryData.fromXDR(rawXdr, "base64")
       return ledgerData.contractData().val()

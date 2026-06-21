@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { GroupDetails } from "@/components/group/group-details";
 import { GroupMembers } from "@/components/group/group-members";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { fetchIsPaused, fetchPoolAdmin } from "@/hooks/useJointSaveContracts";
+import { useStellar } from "@/components/web3-provider";
+import { useRecentPools } from "@/hooks/useRecentPools";
 
 interface Pool {
   id: string;
@@ -29,10 +31,13 @@ export default function GroupPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { address } = useStellar();
+  const { trackVisit } = useRecentPools(address);
   const [pool, setPool] = useState<Pool | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [poolAdmin, setPoolAdmin] = useState<string | null>(null);
+  const trackedRef = useRef(false);
 
   useEffect(() => {
     fetch(`/api/pools?id=${id}`)
@@ -43,6 +48,23 @@ export default function GroupPage({
       })
       .catch(() => setLoading(false));
   }, [id]);
+
+  // Track visit when pool data loads
+  useEffect(() => {
+    if (pool && !loading && !trackedRef.current) {
+      trackedRef.current = true;
+      trackVisit({
+        id: pool.id,
+        name: pool.name,
+        type: pool.type,
+        contract_address: pool.contract_address,
+      });
+    }
+    // Reset tracker when navigating to a different pool
+    if (!pool || loading) {
+      trackedRef.current = false;
+    }
+  }, [pool, loading, trackVisit]);
 
   const refreshPoolState = useCallback(async () => {
     if (!pool || isPendingAddress(pool.contract_address)) return;
