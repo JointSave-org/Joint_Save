@@ -29,6 +29,32 @@ const queryClient = new QueryClient({
   },
 })
 
+// ── E2E test seam ───────────────────────────────────────────────────────────
+// When NEXT_PUBLIC_E2E=true we replace the real StellarWalletsKit with a stub so
+// Playwright can drive connect/sign flows without a browser wallet extension.
+// This branch is dead code in production builds (the flag is unset).
+const IS_E2E = process.env.NEXT_PUBLIC_E2E === "true"
+const E2E_DEFAULT_ADDRESS =
+  "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7"
+
+function createE2EKit(): StellarWalletsKit {
+  const getAddr = () =>
+    (typeof localStorage !== "undefined" &&
+      localStorage.getItem("jointsave_address")) ||
+    E2E_DEFAULT_ADDRESS
+  const stub = {
+    // Auto-select Freighter so connect() resolves without a real modal
+    openModal: async ({ onWalletSelected }: any) =>
+      onWalletSelected?.({ id: FREIGHTER_ID }),
+    setWallet: () => {},
+    getAddress: async () => ({ address: getAddr() }),
+    // Echo the prepared XDR back as "signed" — the RPC layer is also stubbed
+    signTransaction: async (xdr: string) => ({ signedTxXdr: xdr }),
+    disconnect: async () => {},
+  }
+  return stub as unknown as StellarWalletsKit
+}
+
 // ── Stellar network config ────────────────────────────────────────────────────
 
 export const STELLAR_NETWORK = WalletNetwork.TESTNET
@@ -77,16 +103,18 @@ export function Web3Provider({ children }: { children: ReactNode }) {
 
   // Initialise the kit once on the client
   useEffect(() => {
-    const walletKit = new StellarWalletsKit({
-      network: STELLAR_NETWORK,
-      selectedWalletId: FREIGHTER_ID,
-      modules: [
-        new FreighterModule(),
-        new xBullModule(),
-        new AlbedoModule(),
-        new LobstrModule(),
-      ],
-    })
+    const walletKit = IS_E2E
+      ? createE2EKit()
+      : new StellarWalletsKit({
+          network: STELLAR_NETWORK,
+          selectedWalletId: FREIGHTER_ID,
+          modules: [
+            new FreighterModule(),
+            new xBullModule(),
+            new AlbedoModule(),
+            new LobstrModule(),
+          ],
+        })
     setKit(walletKit)
 
     const savedAddress = localStorage.getItem("jointsave_address")

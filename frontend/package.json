@@ -6,7 +6,10 @@
     "build": "next build",
     "dev": "next dev --webpack",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^1.2.0",
@@ -72,6 +75,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/node": "^22",
     "@types/react": "^19",

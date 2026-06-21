@@ -128,6 +128,26 @@ For complete API documentation — functions, events, storage keys, error condit
 5. **Access the application**
    Open [http://localhost:3000](http://localhost:3000) in your browser
 
+### Running E2E Tests
+
+The frontend has a Playwright end-to-end suite covering the critical user flows
+(create pool, deposit, wallet connect, navigation, responsive layout).
+
+```bash
+cd frontend
+pnpm install
+pnpm exec playwright install chromium   # one-time browser download
+pnpm test:e2e                           # headless run (Playwright starts the dev server)
+pnpm test:e2e:ui                        # interactive UI mode
+```
+
+The suite is fully deterministic — it mocks the `/api/pools` boundary and uses a
+test-gated wallet/RPC seam (`NEXT_PUBLIC_E2E`), so it needs **no** live Soroban
+network, wallet extension, or Supabase project. It runs on every PR via
+[`.github/workflows/e2e.yml`](.github/workflows/e2e.yml). See
+[frontend/e2e/README.md](frontend/e2e/README.md) for the design, the flaky-test
+policy, and details.
+
 ### Smart Contract Development
 
 To work with the smart contracts:

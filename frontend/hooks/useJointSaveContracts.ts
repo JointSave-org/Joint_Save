@@ -8,6 +8,7 @@ import {
   BASE_FEE,
   nativeToScVal,
   Address,
+  Account,
   xdr,
   rpc,
   Operation,
@@ -35,9 +36,75 @@ const WASM_HASHES: Record<string, string> = {
   flexible: process.env.NEXT_PUBLIC_FLEXIBLE_WASM_HASH!,
 }
 
+// ── E2E test seam ─────────────────────────────────────────────────────────────
+// When NEXT_PUBLIC_E2E=true the contract layer is short-circuited so Playwright
+// can exercise create/deposit/read flows deterministically without a live
+// Soroban network or wallet. All branches below are dead code in production
+// (the flag is unset), so there is zero runtime impact on real users.
+const IS_E2E = process.env.NEXT_PUBLIC_E2E === "true"
+// A real, checksum-valid contract strkey so StrKey.decodeContract() (used by the
+// factory-register flow) accepts the canned id returned from a stubbed deploy.
+const E2E_CONTRACT_ID = "CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI"
+const E2E_TX_HASH =
+  "e2e0000000000000000000000000000000000000000000000000000000000e2e"
+const E2E_DEFAULT_ADDRESS =
+  "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7"
+
+/** Per-test on-chain overrides injected via `window.__E2E_STATE__`. */
+function e2eState(): Record<string, any> {
+  if (typeof window === "undefined") return {}
+  return (window as any).__E2E_STATE__ ?? {}
+}
+
+/** Build the ScVal a given read method would return, from the injected state. */
+function e2eViewResult(method: string): xdr.ScVal {
+  const s = e2eState()
+  switch (method) {
+    case "is_active":
+      return boolVal(s.isActive ?? true)
+    case "is_paused":
+      return boolVal(s.isPaused ?? false)
+    case "is_unlocked":
+      return boolVal(s.isUnlocked ?? false)
+    case "current_round":
+      return u32Val(s.currentRound ?? 0)
+    case "members":
+      return vecVal(s.members ?? [])
+    case "next_payout_time":
+      return u64Val(BigInt(s.nextPayoutTime ?? 0))
+    case "has_deposited":
+      return boolVal(s.hasDeposited ?? false)
+    case "admin":
+      return addressVal(s.admin ?? E2E_DEFAULT_ADDRESS)
+    case "total_deposited":
+      return i128Val(BigInt(s.totalDeposited ?? 0))
+    case "target_amount":
+      return i128Val(BigInt(s.targetAmount ?? 0))
+    case "total_balance":
+      return i128Val(BigInt(s.totalBalance ?? 0))
+    case "balance_of":
+      return i128Val(BigInt(s.balanceOf ?? 0))
+    default:
+      return boolVal(false)
+  }
+}
+
+/** Minimal stub of the bits of rpc.Server our write/poll paths still touch. */
+function makeE2EServer(): rpc.Server {
+  return {
+    getAccount: async (addr: string) => new Account(addr, "0"),
+    getTransaction: async () => ({
+      status: rpc.Api.GetTransactionStatus.SUCCESS,
+      returnValue: addressVal(E2E_CONTRACT_ID),
+    }),
+    getLatestLedger: async () => ({ sequence: 1_000_000 }),
+  } as unknown as rpc.Server
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function getRpc() {
+  if (IS_E2E) return makeE2EServer()
   return new rpc.Server(STELLAR_RPC_URL)
 }
 
@@ -74,6 +141,7 @@ function vecVal(addrs: string[]): xdr.ScVal {
 
 /** Simulate → assemble → sign → send → poll. Returns tx hash. */
 async function submitTx(kit: any, tx: any): Promise<string> {
+  if (IS_E2E) return E2E_TX_HASH
   const server = getRpc()
 
   const simResult = await server.simulateTransaction(tx)
@@ -122,6 +190,7 @@ export function useDeployPool() {
 
   const deploy = async (poolType: "rotational" | "target" | "flexible"): Promise<string> => {
     if (!kit || !address) throw new Error("Wallet not connected")
+    if (IS_E2E) return E2E_CONTRACT_ID
     const wasmHash = WASM_HASHES[poolType]
     if (!wasmHash) throw new Error(`No WASM hash configured for ${poolType}`)
 
@@ -627,6 +696,7 @@ export function stroopsToXlm(stroops: bigint): number {
 
 /** Fire-and-forget read call — no signing, no fee. */
 async function viewCall(contractId: string, method: string, ...args: xdr.ScVal[]): Promise<xdr.ScVal> {
+  if (IS_E2E) return e2eViewResult(method)
   const server = getRpc()
   // Use a dummy account for simulation — sequence number doesn't matter for reads
   const dummyAccount = {
@@ -651,6 +721,12 @@ async function viewCall(contractId: string, method: string, ...args: xdr.ScVal[]
 }
 
 async function fetchContractStorage(contractId: string, keySymbol: string): Promise<xdr.ScVal | null> {
+  if (IS_E2E) {
+    const s = e2eState()
+    if (keySymbol === "TreasuryFeeBps") return u32Val(s.treasuryFeeBps ?? 100)
+    if (keySymbol === "RelayerFeeBps") return u32Val(s.relayerFeeBps ?? 50)
+    return null
+  }
   try {
     const server = getRpc()
     const ledgerKey = xdr.LedgerKey.contractData(
@@ -829,6 +905,7 @@ export async function fetchContractEvents(
   contractId: string,
   startLedger: number
 ): Promise<ActivityEvent[]> {
+  if (IS_E2E) return (e2eState().events as ActivityEvent[]) ?? []
   const server = getRpc()
   const response = await server.getEvents({
     startLedger,
