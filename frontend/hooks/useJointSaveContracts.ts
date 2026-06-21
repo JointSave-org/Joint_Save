@@ -665,7 +665,7 @@ async function fetchContractStorage(contractId: string, keySymbol: string): Prom
       
       if (entry && typeof entry === "object") {
         if ("xdr" in entry) {
-          rawXdr = entry.xdr
+          rawXdr  = (entry.xdr as string)
         } else if (entry.val && typeof (entry.val as any).toXDR === "function") {
           rawXdr = (entry.val as any).toXDR("base64")
         }
