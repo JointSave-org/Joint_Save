@@ -23,6 +23,7 @@ pub enum DataKey {
     HasDeposited(Address),
     ReputationTracker,
     TokenDecimals,
+    ReminderLeadTime,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -372,6 +373,9 @@ impl RotationalPool {
         if storage.has(&DataKey::ReputationTracker) {
             storage.extend_ttl(&DataKey::ReputationTracker, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
+        if storage.has(&DataKey::ReminderLeadTime) {
+            storage.extend_ttl(&DataKey::ReminderLeadTime, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
     }
 
     // ── Views ──────────────────────────────────────────────────────────────
@@ -433,6 +437,43 @@ impl RotationalPool {
             .persistent()
             .get(&DataKey::NextPayoutTime)
             .unwrap_or(0)
+    }
+
+    /// Set how many seconds before the round deadline members should be reminded
+    /// to deposit. Admin-only. A value of 0 disables reminders.
+    pub fn set_reminder_lead_time(env: Env, admin: Address, seconds: u64) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        storage.set(&DataKey::ReminderLeadTime, &seconds);
+        Self::bump_config_state_internal(&env);
+    }
+
+    /// Returns the configured reminder lead time in seconds (0 = disabled).
+    pub fn reminder_lead_time(env: Env) -> u64 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ReminderLeadTime)
+            .unwrap_or(0)
+    }
+
+    /// Returns true when a deposit reminder should be sent, i.e. the current
+    /// time is within `reminder_lead_time` seconds of the next payout deadline
+    /// and the pool is still active.
+    pub fn deposit_reminder_due(env: Env) -> bool {
+        let storage = env.storage().persistent();
+        let lead: u64 = storage.get(&DataKey::ReminderLeadTime).unwrap_or(0);
+        if lead == 0 {
+            return false;
+        }
+        let active: bool = storage.get(&DataKey::Active).unwrap_or(false);
+        if !active {
+            return false;
+        }
+        let next_payout: u64 = storage.get(&DataKey::NextPayoutTime).unwrap_or(0);
+        let now = env.ledger().timestamp();
+        now >= next_payout.saturating_sub(lead) && now < next_payout
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────

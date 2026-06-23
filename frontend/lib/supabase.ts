@@ -206,6 +206,7 @@ export type Database = {
             email_on_deposit: boolean
             email_on_round: boolean
             email_on_target: boolean
+            email_on_reminder: boolean
           }
           created_at: string
           updated_at: string
@@ -218,6 +219,7 @@ export type Database = {
             email_on_deposit?: boolean
             email_on_round?: boolean
             email_on_target?: boolean
+            email_on_reminder?: boolean
           }
           created_at?: string
           updated_at?: string
@@ -229,6 +231,7 @@ export type Database = {
             email_on_deposit?: boolean
             email_on_round?: boolean
             email_on_target?: boolean
+            email_on_reminder?: boolean
           }
           updated_at?: string
         }
