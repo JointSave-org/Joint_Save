@@ -49,7 +49,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
 
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://127.0.0.1:3000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -64,7 +64,7 @@ export default defineConfig({
   webServer: {
     // Dev locally for fast iteration; build+start in CI for stability/speed.
     command: isCI ? "pnpm build && pnpm start" : "pnpm dev",
-    url: "http://localhost:3000",
+    url: "http://127.0.0.1:3000",
     reuseExistingServer: !isCI,
     timeout: 180_000,
     env: E2E_ENV,

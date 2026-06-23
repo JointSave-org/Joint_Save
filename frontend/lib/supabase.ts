@@ -9,6 +9,19 @@ export const supabase = isValid(supabaseUrl)
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null as any
 
+export function getSupabaseClient(walletAddress?: string | null) {
+  if (!walletAddress || !isValid(supabaseUrl)) {
+    return supabase
+  }
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        'x-wallet-address': walletAddress.toLowerCase(),
+      },
+    },
+  })
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -254,6 +267,29 @@ export type Database = {
         }
         Update: {
           read?: boolean
+        }
+      }
+      pool_messages: {
+        Row: {
+          id: string
+          pool_id: string
+          sender_address: string
+          message: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          sender_address: string
+          message: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          pool_id?: string
+          sender_address?: string
+          message?: string
+          created_at?: string
         }
       }
     }
