@@ -5,6 +5,8 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { GroupDetails } from "@/components/group/group-details";
 import { GroupMembers } from "@/components/group/group-members";
 import { GroupActivity } from "@/components/group/group-activity";
+import { GroupDiscussion } from "@/components/group/group-discussion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GroupActions } from "@/components/group/group-actions";
 import { YieldDashboard } from "@/components/group/yield-dashboard";
 import { Button } from "@/components/ui/button";
@@ -104,11 +106,22 @@ export default function GroupPage({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <GroupDetails groupId={id} contractAddress={cacheKey} />
-            <GroupActivity
-              groupId={id}
-              contractAddress={cacheKey}
-              startLedger={0}
-            />
+            <Tabs defaultValue="activity" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="activity">Activity Log</TabsTrigger>
+                <TabsTrigger value="discussion">Discussion</TabsTrigger>
+              </TabsList>
+              <TabsContent value="activity" className="mt-4">
+                <GroupActivity
+                  groupId={id}
+                  contractAddress={cacheKey}
+                  startLedger={0}
+                />
+              </TabsContent>
+              <TabsContent value="discussion" className="mt-4">
+                <GroupDiscussion groupId={id} walletAddress={address} />
+              </TabsContent>
+            </Tabs>
           </div>
 
           <div className="space-y-6">

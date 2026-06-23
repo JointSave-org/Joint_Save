@@ -12,6 +12,8 @@ import Link from "next/link"
 import { fetchIsPaused, fetchPoolAdmin } from "@/hooks/useJointSaveContracts"
 import { useStellar } from "@/components/web3-provider"
 import { useRecentPools } from "@/hooks/useRecentPools"
+import { GroupDiscussion } from "@/components/group/group-discussion"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface Pool {
   id: string
@@ -106,7 +108,18 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
           {/* ── Left column: details + activity ──────────────────────────── */}
           <div className="lg:col-span-2 space-y-6">
             <GroupDetails groupId={id} contractAddress={cacheKey} />
-            <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
+            <Tabs defaultValue="activity" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="activity">Activity Log</TabsTrigger>
+                <TabsTrigger value="discussion">Discussion</TabsTrigger>
+              </TabsList>
+              <TabsContent value="activity" className="mt-4">
+                <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
+              </TabsContent>
+              <TabsContent value="discussion" className="mt-4">
+                <GroupDiscussion groupId={id} walletAddress={address} />
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* ── Right column: actions + members ──────────────────────────── */}
