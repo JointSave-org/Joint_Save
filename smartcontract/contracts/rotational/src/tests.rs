@@ -934,3 +934,127 @@ fn test_bump_state() {
     });
 }
 
+
+// ── Reminder lead time tests ──────────────────────────────────────────────────
+
+fn init_pool_for_reminder(env: &Env) -> (RotationalPoolClient<'_>, Address, Address, Address) {
+    use soroban_sdk::Vec;
+    let token_admin = Address::generate(env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let treasury = Address::generate(env);
+    let admin = Address::generate(env);
+    let member_a = Address::generate(env);
+    let member_b = Address::generate(env);
+    let mut members = Vec::new(env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(env, &contract_id);
+    client.initialize(&token_address, &admin, &members, &100i128, &3600u64, &0u32, &0u32, &treasury);
+    (client, admin, member_a, member_b)
+}
+
+#[test]
+fn test_reminder_lead_time_defaults_to_zero() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, _) = init_pool_for_reminder(&env);
+    assert_eq!(client.reminder_lead_time(), 0);
+}
+
+#[test]
+fn test_set_and_get_reminder_lead_time() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _, _) = init_pool_for_reminder(&env);
+    client.set_reminder_lead_time(&admin, &600u64);
+    assert_eq!(client.reminder_lead_time(), 600);
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn test_non_admin_cannot_set_reminder_lead_time() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, member_a, _) = init_pool_for_reminder(&env);
+    client.set_reminder_lead_time(&member_a, &600u64);
+}
+
+#[test]
+fn test_deposit_reminder_due_false_when_lead_time_zero() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, _) = init_pool_for_reminder(&env);
+    // lead time not set — should never be due
+    assert!(!client.deposit_reminder_due());
+}
+
+#[test]
+fn test_deposit_reminder_due_false_before_window() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _, _) = init_pool_for_reminder(&env);
+    // round_duration = 3600, so next_payout_time = 0 + 3600 = 3600
+    // lead time = 600; window starts at 3000
+    client.set_reminder_lead_time(&admin, &600u64);
+    // now = 0 → before window
+    assert!(!client.deposit_reminder_due());
+}
+
+#[test]
+fn test_deposit_reminder_due_true_inside_window() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _, _) = init_pool_for_reminder(&env);
+    // next_payout_time = 3600, lead = 600 → window [3000, 3600)
+    client.set_reminder_lead_time(&admin, &600u64);
+    env.ledger().set_timestamp(3100);
+    assert!(client.deposit_reminder_due());
+}
+
+#[test]
+fn test_deposit_reminder_due_false_after_deadline() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _, _) = init_pool_for_reminder(&env);
+    client.set_reminder_lead_time(&admin, &600u64);
+    // at or after next_payout_time = 3600 → not due (payout time passed)
+    env.ledger().set_timestamp(3600);
+    assert!(!client.deposit_reminder_due());
+}
+
+#[test]
+fn test_deposit_reminder_due_false_when_pool_inactive() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let relayer = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+    client.set_reminder_lead_time(&admin, &60u64);
+    token_client.mint(&member_a, &200i128);
+    token_client.mint(&member_b, &200i128);
+    // Complete both rounds so pool becomes inactive
+    client.deposit(&member_a); client.deposit(&member_b);
+    env.ledger().set_timestamp(100);
+    client.trigger_payout(&relayer);
+    client.deposit(&member_a); client.deposit(&member_b);
+    env.ledger().set_timestamp(200);
+    client.trigger_payout(&relayer);
+    assert!(!client.is_active());
+    // Even inside the window, inactive pool should not fire reminder
+    env.ledger().set_timestamp(250);
+    assert!(!client.deposit_reminder_due());
+}

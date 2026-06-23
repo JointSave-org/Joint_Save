@@ -44,7 +44,7 @@ export function useNotifications(walletAddress: string | null) {
           table: "notifications",
           filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
         },
-        (payload) => {
+        (payload: { new: AppNotification }) => {
           setNotifications((prev) =>
             [payload.new as AppNotification, ...prev].slice(0, 10)
           )

@@ -42,6 +42,7 @@ interface NotificationPreferences {
   email_on_deposit: boolean
   email_on_round: boolean
   email_on_target: boolean
+  email_on_reminder: boolean
 }
 
 interface UserProfile {
@@ -99,7 +100,7 @@ serve(async (req) => {
     const act = payload.record
     const { activity_type, pool_id, user_address, amount } = act
 
-    const HANDLED = ["payout", "deposit", "round_advance", "target_reached"]
+    const HANDLED = ["payout", "deposit", "round_advance", "target_reached", "deposit_reminder"]
     if (!HANDLED.includes(activity_type)) {
       return new Response("ok", { status: 200 })
     }
@@ -175,6 +176,15 @@ serve(async (req) => {
         `<p>Your savings pool <strong>${poolName}</strong> has reached its savings target!</p>
          <p>You are now eligible to withdraw your funds. Log in to proceed.</p>`
       )
+    } else if (activity_type === "deposit_reminder") {
+      recipients = allMembers.filter((a) => a !== user_address)
+      prefKey = "email_on_reminder"
+      subject = `Reminder: deposit due soon in ${poolName}`
+      inAppMsg = subject
+      bodyHtml = emailHtml(
+        `<p>The next payout deadline for <strong>${poolName}</strong> is approaching.</p>
+         <p>Please make sure your deposit is in before the round closes.</p>`
+      )
     }
 
     // Write in-app notifications for all recipients
@@ -199,6 +209,7 @@ serve(async (req) => {
           email_on_deposit: true,
           email_on_round: true,
           email_on_target: true,
+          email_on_reminder: true,
           ...(profile.notification_preferences ?? {}),
         }
         if (!prefs[prefKey]) return
