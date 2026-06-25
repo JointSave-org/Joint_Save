@@ -12,12 +12,14 @@ import {
   useTargetContribute, useTargetWithdraw, useTargetRefund,
   useFlexibleDeposit, useFlexibleWithdraw,
 } from "@/hooks/useJointSaveContracts"
+import { ExportPdfButton } from "@/components/group/export-pdf-button"
 
 interface GroupActionsProps {
   groupId: string
   poolAddress: string
   poolType: "rotational" | "target" | "flexible"
   tokenAddress: string
+  creatorAddress?: string
 }
 
 async function logActivity(poolId: string, type: string, userAddress: string, amount: string | null, txHash: string) {
@@ -33,7 +35,7 @@ async function logActivity(poolId: string, type: string, userAddress: string, am
   } catch {}
 }
 
-export function GroupActions({ groupId, poolAddress, poolType }: GroupActionsProps) {
+export function GroupActions({ groupId, poolAddress, poolType, creatorAddress }: GroupActionsProps) {
   const { address } = useStellar()
   const [depositAmount, setDepositAmount] = useState("")
   const [withdrawAmount, setWithdrawAmount] = useState("")
@@ -221,6 +223,14 @@ export function GroupActions({ groupId, poolAddress, poolType }: GroupActionsPro
             {address || "Not connected"}
           </p>
         </div>
+
+        {/* Admin-only PDF export */}
+        {creatorAddress && (
+          <div className="border-t border-border pt-6">
+            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Admin</p>
+            <ExportPdfButton groupId={groupId} creatorAddress={creatorAddress} />
+          </div>
+        )}
       </div>
     </Card>
   )

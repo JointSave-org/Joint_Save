@@ -16,6 +16,7 @@ interface Pool {
   type: 'rotational' | 'target' | 'flexible'
   contract_address: string
   token_address: string
+  creator_address: string
 }
 
 export default function GroupPage({ params }: { params: Promise<{ id: string }> }) {
@@ -65,6 +66,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
               poolAddress={pool.contract_address}
               poolType={pool.type}
               tokenAddress={pool.token_address}
+              creatorAddress={pool.creator_address}
             />
             <GroupMembers groupId={id} />
           </div>
