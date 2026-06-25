@@ -385,6 +385,7 @@ export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
             size="icon"
             onClick={refetch}
             disabled={isLoading}
+            aria-label="Refresh pool data"
           >
             <RefreshCw
               className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
