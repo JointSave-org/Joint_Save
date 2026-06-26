@@ -15,13 +15,13 @@ Thank you for your interest in JointSave! We welcome contributions from everyone
 
 ## Prerequisites
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Node.js | 18+ | Frontend dev server & tooling |
-| Rust toolchain | 1.85.0 (via `rust-toolchain.toml`) | Soroban smart contracts |
-| Stellar CLI | latest | Contract build, deploy, and test |
-| Freighter wallet | latest (browser ext.) | Stellar wallet for dApp interaction |
-| pnpm | latest (recommended) | Frontend package manager |
+| Tool             | Version                            | Purpose                             |
+| ---------------- | ---------------------------------- | ----------------------------------- |
+| Node.js          | 18+                                | Frontend dev server & tooling       |
+| Rust toolchain   | 1.85.0 (via `rust-toolchain.toml`) | Soroban smart contracts             |
+| Stellar CLI      | latest                             | Contract build, deploy, and test    |
+| Freighter wallet | latest (browser ext.)              | Stellar wallet for dApp interaction |
+| pnpm             | latest (recommended)               | Frontend package manager            |
 
 - **Rust**: Install via [rustup](https://rustup.rs/)
 - **Stellar CLI**: `cargo install stellar-cli` or follow the [Stellar docs](https://developers.stellar.org/docs/build/smart-contracts/install)
@@ -157,17 +157,17 @@ Copy `.env.example` to `.env.local` and fill in the values:
 
 `frontend/.env.example` includes inline comments for each variable, including where to find Supabase values, deployed Stellar contract IDs, and WASM hashes. The frontend imports `lib/env.ts` from the root layout, so missing required variables throw a clear startup error before a downstream component fails.
 
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous API key |
-| `NEXT_PUBLIC_STELLAR_RPC_URL` | Soroban RPC endpoint |
-| `NEXT_PUBLIC_STELLAR_HORIZON_URL` | Stellar Horizon endpoint |
-| `NEXT_PUBLIC_FACTORY_CONTRACT_ID` | Deployed factory contract ID |
-| `NEXT_PUBLIC_TOKEN_CONTRACT_ID` | Token contract ID (use `native` for XLM) |
-| `NEXT_PUBLIC_ROTATIONAL_WASM_HASH` | Rotational pool WASM hash |
-| `NEXT_PUBLIC_TARGET_WASM_HASH` | Target pool WASM hash |
-| `NEXT_PUBLIC_FLEXIBLE_WASM_HASH` | Flexible pool WASM hash |
+| Variable                           | Description                              |
+| ---------------------------------- | ---------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`         | Supabase project URL                     |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`    | Supabase anonymous API key               |
+| `NEXT_PUBLIC_STELLAR_RPC_URL`      | Soroban RPC endpoint                     |
+| `NEXT_PUBLIC_STELLAR_HORIZON_URL`  | Stellar Horizon endpoint                 |
+| `NEXT_PUBLIC_FACTORY_CONTRACT_ID`  | Deployed factory contract ID             |
+| `NEXT_PUBLIC_TOKEN_CONTRACT_ID`    | Token contract ID (use `native` for XLM) |
+| `NEXT_PUBLIC_ROTATIONAL_WASM_HASH` | Rotational pool WASM hash                |
+| `NEXT_PUBLIC_TARGET_WASM_HASH`     | Target pool WASM hash                    |
+| `NEXT_PUBLIC_FLEXIBLE_WASM_HASH`   | Flexible pool WASM hash                  |
 
 ### Lint
 
@@ -224,6 +224,7 @@ Use conventional commits:
 Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`
 
 Examples:
+
 - `feat(frontend): add group detail page`
 - `fix(contract): prevent overflow in withdraw calculation`
 - `chore(deps): update soroban-sdk to v21`
@@ -235,6 +236,7 @@ Examples:
 3. Format your code: `cargo fmt` and `pnpm lint`
 4. Keep PRs focused — one feature/fix per PR
 5. Write a clear PR description following the template
+6. **Changelog entry (required):** If your PR adds a user-facing feature or fixes a user-facing bug, add a **one-line** bullet under **`[Unreleased]`** in `CHANGELOG.md`.
 
 ### Review Process
 
@@ -244,15 +246,15 @@ Examples:
 
 ## Issue Labels
 
-| Label | Meaning |
-|-------|---------|
-| `bug` | Something isn't working as expected |
-| `enhancement` | Feature request or improvement |
-| `good first issue` | Beginner-friendly task |
-| `help wanted` | Looking for contributors |
-| `frontend` | Related to the Next.js app |
-| `smart-contract` | Related to Soroban contracts |
-| `documentation` | Docs, comments, or guides |
-| `question` | Discussion or inquiry |
-| `wontfix` | Will not be addressed |
-| `duplicate` | Already covered by another issue |
+| Label              | Meaning                             |
+| ------------------ | ----------------------------------- |
+| `bug`              | Something isn't working as expected |
+| `enhancement`      | Feature request or improvement      |
+| `good first issue` | Beginner-friendly task              |
+| `help wanted`      | Looking for contributors            |
+| `frontend`         | Related to the Next.js app          |
+| `smart-contract`   | Related to Soroban contracts        |
+| `documentation`    | Docs, comments, or guides           |
+| `question`         | Discussion or inquiry               |
+| `wontfix`          | Will not be addressed               |
+| `duplicate`        | Already covered by another issue    |
