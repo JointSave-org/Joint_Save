@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
 import {
   Pagination,
   PaginationContent,
@@ -9,6 +10,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { Search } from "lucide-react"
 import { motion } from "framer-motion"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -40,12 +42,28 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
   const [error, setError] = useState("")
 
   const page = Math.max(0, parseInt(searchParams.get("page") || "0", 10))
+  const searchTerm = searchParams.get("search") || ""
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const setPage = useCallback(
     (p: number) => {
       const params = new URLSearchParams(searchParams.toString())
       params.set("page", String(p))
+      router.push(`?${params.toString()}`, { scroll: false })
+    },
+    [router, searchParams]
+  )
+
+  const setSearchTerm = useCallback(
+    (term: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (term) {
+        params.set("search", term)
+      } else {
+        params.delete("search")
+      }
+      // Reset to first page when searching
+      params.set("page", "0")
       router.push(`?${params.toString()}`, { scroll: false })
     },
     [router, searchParams]
@@ -78,6 +96,15 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
       setLoading(false)
     }
   }
+
+  // Client-side filtering by pool name
+  // Note: This filters only the currently loaded page (6 pools max).
+  // For a full cross-page search, we would need backend API support.
+  const filteredPools = searchTerm
+    ? pools.filter((pool) =>
+        pool.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : pools
 
   if (loading) {
     return (
@@ -129,8 +156,37 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
         </div>
       </motion.div>
 
+      {/* Search input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder="Search pools by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       {pools.length === 0 ? (
         <EmptyState onCreateClick={onCreateClick} />
+      ) : filteredPools.length === 0 ? (
+        <Card className="p-12 flex flex-col items-center text-center gap-3">
+          <div className="rounded-full bg-muted p-3">
+            <Search className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <p className="font-medium">No pools match your search</p>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Try adjusting your search term or{" "}
+            <button
+              onClick={() => setSearchTerm("")}
+              className="text-primary hover:underline"
+            >
+              clear the search
+            </button>
+            .
+          </p>
+        </Card>
       ) : (
         <>
           <FirstPoolTooltip poolCount={pools.length} />
@@ -141,7 +197,7 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
             animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {pools.map((pool) => (
+            {filteredPools.map((pool) => (
               <PoolCard key={pool.id} pool={pool} />
             ))}
           </motion.div>
