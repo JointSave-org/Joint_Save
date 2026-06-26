@@ -97,6 +97,15 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
     }
   }
 
+  // Client-side filtering by pool name
+  // Note: This filters only the currently loaded page (6 pools max).
+  // For a full cross-page search, we would need backend API support.
+  const filteredPools = searchTerm
+    ? pools.filter((pool) =>
+        pool.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : pools
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -171,7 +180,7 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
             animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {pools.map((pool) => (
+            {filteredPools.map((pool) => (
               <PoolCard key={pool.id} pool={pool} />
             ))}
           </motion.div>
