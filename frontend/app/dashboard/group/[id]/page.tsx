@@ -7,6 +7,7 @@ import { GroupMembers } from "@/components/group/group-members";
 import { GroupActivity } from "@/components/group/group-activity";
 import { GroupActions } from "@/components/group/group-actions";
 import { YieldDashboard } from "@/components/group/yield-dashboard";
+import { AdminAuditLog } from "@/components/group/admin-audit-log";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -15,17 +16,12 @@ import { useStellar } from "@/components/web3-provider";
 import { useRecentPools } from "@/hooks/useRecentPools";
 
 interface Pool {
-  id: string
-  name: string
-  type: 'rotational' | 'target' | 'flexible'
-  contract_address: string
-  token_address: string
-  creator_address: string
   id: string;
   name: string;
   type: "rotational" | "target" | "flexible";
   contract_address: string;
   token_address: string;
+  creator_address: string;
 }
 
 const isPendingAddress = (addr: string) =>
@@ -66,7 +62,6 @@ export default function GroupPage({
         contract_address: pool.contract_address,
       });
     }
-    // Reset tracker when navigating to a different pool
     if (!pool || loading) {
       trackedRef.current = false;
     }
@@ -115,6 +110,11 @@ export default function GroupPage({
               contractAddress={cacheKey}
               startLedger={0}
             />
+            {/* Admin audit log with CSV export — only shown to the pool creator */}
+            <AdminAuditLog
+              groupId={id}
+              creatorAddress={pool.creator_address}
+            />
           </div>
 
           <div className="space-y-6">
@@ -142,4 +142,3 @@ export default function GroupPage({
     </div>
   );
 }
-

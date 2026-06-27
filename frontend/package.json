@@ -7,6 +7,7 @@
     "dev": "next dev --webpack",
     "lint": "next lint",
     "start": "next start",
+    "test:unit": "tsx --test lib/csv-export.test.ts lib/analytics.test.ts lib/pool-health.test.ts hooks/use-keyboard-shortcuts.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report"
@@ -86,6 +87,7 @@
     "@types/react-dom": "^19",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
+    "tsx": "4.19.2",
     "tw-animate-css": "1.3.3",
     "typescript": "^5"
   },
