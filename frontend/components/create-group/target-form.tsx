@@ -20,6 +20,7 @@ import {
   validatePositiveAmount,
   validateDeadline,
 } from "@/lib/form-validation"
+import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -38,15 +39,25 @@ async function dateToLedger(date: Date): Promise<number> {
 type FieldErrors = Partial<Record<"name" | "targetAmount" | "deadline", string>>
 type Touched = Partial<Record<"name" | "targetAmount" | "deadline", boolean>>
 
-export function TargetForm() {
+export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const router = useRouter()
   const { address } = useStellar()
   const [token, setToken] = useState<SelectedToken>({ address: "native", symbol: "XLM", decimals: 7 })
-  const [members, setMembers] = useState<string[]>([""])
-  const [memberErrors, setMemberErrors] = useState<string[]>([""])
+  const initialMembers = prefill?.members?.filter((m: string) => m !== address) ?? [""]
+  const [members, setMembers] = useState<string[]>(
+    initialMembers.length > 0 ? initialMembers : [""]
+  )
+  const [memberErrors, setMemberErrors] = useState<string[]>(
+    initialMembers.length > 0 ? initialMembers.map(() => "") : [""]
+  )
   const [error, setError] = useState("")
   const [step, setStep] = useState<"idle" | "deploying" | "initializing" | "registering" | "saving">("idle")
-  const [formData, setFormData] = useState({ name: "", description: "", targetAmount: "", deadline: "" })
+  const [formData, setFormData] = useState({
+    name: prefill?.name || "",
+    description: prefill?.description || "",
+    targetAmount: prefill?.amount || "",
+    deadline: "",
+  })
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Touched>({})
   const errorRef = useRef<HTMLDivElement>(null)

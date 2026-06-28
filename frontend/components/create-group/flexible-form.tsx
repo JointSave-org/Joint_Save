@@ -20,6 +20,7 @@ import {
   validatePositiveAmount,
   validateWithdrawalFee,
 } from "@/lib/form-validation"
+import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -30,16 +31,25 @@ const TREASURY = process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID || ""
 type FieldErrors = Partial<Record<"name" | "minimumDeposit" | "withdrawalFee", string>>
 type Touched = Partial<Record<"name" | "minimumDeposit" | "withdrawalFee", boolean>>
 
-export function FlexibleForm() {
+export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const router = useRouter()
   const { address } = useStellar()
   const [token, setToken] = useState<SelectedToken>({ address: "native", symbol: "XLM", decimals: 7 })
-  const [members, setMembers] = useState<string[]>([""])
-  const [memberErrors, setMemberErrors] = useState<string[]>([""])
+  const initialMembers = prefill?.members?.filter((m: string) => m !== address) ?? [""]
+  const [members, setMembers] = useState<string[]>(
+    initialMembers.length > 0 ? initialMembers : [""]
+  )
+  const [memberErrors, setMemberErrors] = useState<string[]>(
+    initialMembers.length > 0 ? initialMembers.map(() => "") : [""]
+  )
   const [error, setError] = useState("")
   const [step, setStep] = useState<"idle" | "deploying" | "initializing" | "registering" | "saving">("idle")
   const [formData, setFormData] = useState({
-    name: "", description: "", minimumDeposit: "", enableYield: false, withdrawalFee: "1",
+    name: prefill?.name || "",
+    description: prefill?.description || "",
+    minimumDeposit: prefill?.amount || "",
+    enableYield: false,
+    withdrawalFee: "1",
   })
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Touched>({})
