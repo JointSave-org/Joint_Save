@@ -54,6 +54,32 @@ fn test_unlock_on_target() {
 }
 
 #[test]
+#[should_panic(expected = "duplicate member address")]
+fn test_initialize_rejects_duplicate_member() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, TargetPool);
+    let client = TargetPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    // member_a appears twice in the member list.
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    members.push_back(member_a.clone());
+
+    client.initialize(&token_address, &admin, &members, &100i128, &1000u32);
+}
+
+#[test]
 fn test_proportional_withdraw() {
     let env = Env::default();
     env.mock_all_auths();

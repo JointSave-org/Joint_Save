@@ -56,6 +56,43 @@ fn test_token_decimals_recorded() {
 }
 
 #[test]
+#[should_panic(expected = "duplicate member address")]
+fn test_initialize_rejects_duplicate_member() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, FlexiblePool);
+    let client = FlexiblePoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    // member_a appears twice — distribute_yield iterates the raw members
+    // vec, so a duplicate slot would grant member_a a double yield share.
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    members.push_back(member_a.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &10i128,
+        &0u32,
+        &false,
+        &treasury,
+        &0u32,
+    );
+}
+
+#[test]
 #[should_panic(expected = "below minimum deposit")]
 fn test_minimum_deposit_rejection() {
     let env = Env::default();

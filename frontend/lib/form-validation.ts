@@ -44,3 +44,26 @@ export function validateWithdrawalFee(value: string): ValidationResult {
   if (num > 10) return err("Fee cannot exceed 10%")
   return ok
 }
+
+/**
+ * Returns the indices of entries in `addresses` that share a value with at
+ * least one other entry (both the first and later occurrences are flagged,
+ * so every duplicate row can show an inline error). Empty entries are
+ * ignored since they're caught by other field validation.
+ */
+export function findDuplicateAddresses(addresses: string[]): Set<number> {
+  const firstSeenAt = new Map<string, number>()
+  const duplicates = new Set<number>()
+  addresses.forEach((raw, i) => {
+    const value = raw.trim()
+    if (!value) return
+    const seenAt = firstSeenAt.get(value)
+    if (seenAt !== undefined) {
+      duplicates.add(seenAt)
+      duplicates.add(i)
+    } else {
+      firstSeenAt.set(value, i)
+    }
+  })
+  return duplicates
+}

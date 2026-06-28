@@ -48,6 +48,7 @@ impl RotationalPool {
         treasury: Address,
     ) {
         assert!(members.len() >= 2, "need >=2 members");
+        assert!(!Self::has_duplicate_members(&members), "duplicate member address");
         assert!(deposit_amount > 0, "deposit must be > 0");
         assert!(round_duration > 0, "round_duration must be > 0");
 
@@ -441,6 +442,21 @@ impl RotationalPool {
         for m in members.iter() {
             if m == *who {
                 return true;
+            }
+        }
+        false
+    }
+
+    /// O(n^2) pairwise scan — member lists are small (capped well below
+    /// the resource limits that would make this costly), so this is cheaper
+    /// than maintaining a separate index just to dedupe at init time.
+    fn has_duplicate_members(members: &Vec<Address>) -> bool {
+        for i in 0..members.len() {
+            let a = members.get(i).unwrap();
+            for j in (i + 1)..members.len() {
+                if a == members.get(j).unwrap() {
+                    return true;
+                }
             }
         }
         false

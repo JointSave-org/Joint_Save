@@ -34,6 +34,7 @@ export default function BulkImport({ onMembersChange }: BulkImportProps) {
       complete: (results) => {
         const parsed: Member[] = [];
         const errorLines: string[] = [];
+        const firstLineForAddress = new Map<string, number>();
         results.data.forEach((row, idx) => {
           const lineNum = idx + 1;
           const address = row[0]?.trim() ?? "";
@@ -46,6 +47,12 @@ export default function BulkImport({ onMembersChange }: BulkImportProps) {
             errorLines.push(`Line ${lineNum}: invalid Stellar address`);
             return;
           }
+          const firstLine = firstLineForAddress.get(address);
+          if (firstLine !== undefined) {
+            errorLines.push(`Line ${lineNum}: duplicate address (already added on line ${firstLine})`);
+            return;
+          }
+          firstLineForAddress.set(address, lineNum);
           parsed.push({ address, name, line: lineNum });
         });
         if (parsed.length > MAX_POOL_MEMBERS) {

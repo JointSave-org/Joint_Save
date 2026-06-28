@@ -36,6 +36,7 @@ impl TargetPool {
         deadline: u32,
     ) {
         assert!(members.len() >= 2, "need >=2 members");
+        assert!(!Self::has_duplicate_members(&members), "duplicate member address");
         assert!(target_amount > 0, "target must be > 0");
 
         // Validate the token is a real SEP-41 contract by reading its decimals
@@ -374,6 +375,20 @@ impl TargetPool {
         for m in members.iter() {
             if m == *who {
                 return true;
+            }
+        }
+        false
+    }
+
+    /// O(n^2) pairwise scan — member lists are small, so this is cheaper
+    /// than maintaining a separate index just to dedupe at init time.
+    fn has_duplicate_members(members: &Vec<Address>) -> bool {
+        for i in 0..members.len() {
+            let a = members.get(i).unwrap();
+            for j in (i + 1)..members.len() {
+                if a == members.get(j).unwrap() {
+                    return true;
+                }
             }
         }
         false
