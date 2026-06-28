@@ -36,18 +36,6 @@ import {
 } from "@/hooks/useJointSaveContracts";
 import { validateStellarAddress } from "@/lib/form-validation";
 import {
-  useRotationalDeposit, useTriggerPayout,
-  useTargetContribute, useTargetWithdraw, useTargetRefund,
-  useFlexibleDeposit, useFlexibleWithdraw,
-} from "@/hooks/useJointSaveContracts"
-import { ExportPdfButton } from "@/components/group/export-pdf-button"
-
-interface GroupActionsProps {
-  groupId: string
-  poolAddress: string
-  poolType: "rotational" | "target" | "flexible"
-  tokenAddress: string
-  creatorAddress?: string
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -99,12 +87,6 @@ async function logActivity(
   } catch {}
 }
 
-export function GroupActions({ groupId, poolAddress, poolType, creatorAddress }: GroupActionsProps) {
-  const { address } = useStellar()
-  const [depositAmount, setDepositAmount] = useState("")
-  const [withdrawAmount, setWithdrawAmount] = useState("")
-  const [error, setError] = useState("")
-  const [successMsg, setSuccessMsg] = useState("")
 export function GroupActions({
   groupId,
   poolAddress,
@@ -123,19 +105,16 @@ export function GroupActions({
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Pool metadata from Supabase
   const [poolData, setPoolData] = useState<any>(null);
   const [members, setMembers] = useState<string[]>([]);
   const [newMember, setNewMember] = useState("");
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const isPending = !poolAddress || poolAddress === "pending_deployment";
-  // Token display metadata (persisted on the pool row; defaults to native XLM)
   const tokenSymbol: string = poolData?.token_symbol ?? "XLM";
   const tokenDecimals: number = poolData?.token_decimals ?? 7;
   const toBaseUnits = (amount: number) =>
     BigInt(Math.round(amount * 10 ** tokenDecimals));
 
-  // Modal Preview states
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [isConfirmLoading, setIsConfirmLoading] = useState(false);
@@ -179,11 +158,9 @@ export function GroupActions({
   const { optimisticState, registerOptimistic, updateTxHash, markFailed } =
     useOptimisticTransactions(poolAddress);
 
-  // Watch for confirmation/failure from optimistic state
   useEffect(() => {
     const { pendingTx } = optimisticState;
     if (!pendingTx) return;
-
     if (pendingTx.status === "confirmed") {
       toastManager.success(
         `${pendingTx.type.charAt(0).toUpperCase() + pendingTx.type.slice(1)} confirmed ✓`,
@@ -209,22 +186,13 @@ export function GroupActions({
           ? toBaseUnits(parseFloat(depositAmount))
           : undefined;
       registerOptimistic("deposit", address, amount);
-
       let txHash: string | undefined;
       if (poolType === "rotational") txHash = await rotationalDeposit.deposit();
-      else if (poolType === "target")
-        txHash = await targetContribute.contribute();
+      else if (poolType === "target") txHash = await targetContribute.contribute();
       else txHash = await flexibleDeposit.deposit();
-
       if (txHash) {
         updateTxHash(txHash);
-        await logActivity(
-          groupId,
-          "deposit",
-          address,
-          depositAmount || null,
-          txHash,
-        );
+        await logActivity(groupId, "deposit", address, depositAmount || null, txHash);
         setSuccessMsg("Deposit submitted (confirming on-chain)…");
       }
     } catch (e: any) {
@@ -240,9 +208,7 @@ export function GroupActions({
     if (!address) return setError("Please connect your wallet first");
     if (isPending) return setError("Contract not yet deployed.");
     if (isPaused) return setError("Pool is paused. Withdrawals are disabled.");
-
     if (poolType === "target") {
-      // Direct withdrawal since target pool exit has no fee parameters stored/previewed
       try {
         registerOptimistic("withdraw", address);
         const txHash = await targetWithdraw.withdraw();
@@ -257,15 +223,12 @@ export function GroupActions({
         markFailed(msg);
       }
     } else {
-      // Flexible withdrawal preview
       const amount = parseFloat(withdrawAmount);
       if (isNaN(amount) || amount <= 0)
         return setError("Please enter a valid withdrawal amount");
-
       const feePercent = poolData?.withdrawal_fee ?? 0;
       const feeAmount = amount * (feePercent / 100);
       const netAmount = amount - feeAmount;
-
       setPreviewData({
         type: "withdraw",
         amount,
@@ -284,13 +247,7 @@ export function GroupActions({
           const txHash = await flexibleWithdraw.withdraw();
           if (txHash) {
             updateTxHash(txHash);
-            await logActivity(
-              groupId,
-              "withdraw",
-              address,
-              withdrawAmount || null,
-              txHash,
-            );
+            await logActivity(groupId, "withdraw", address, withdrawAmount || null, txHash);
             setSuccessMsg("Withdrawal submitted (confirming on-chain)…");
             setWithdrawAmount("");
           }
@@ -306,36 +263,24 @@ export function GroupActions({
     if (!address) return setError("Please connect your wallet first");
     if (isPending) return setError("Contract not yet deployed.");
     if (isPaused) return setError("Pool is paused. Payouts are disabled.");
-
     setPreviewLoading(true);
     try {
-      // Fetch rotational pool state on-chain
       const state = await fetchRotationalState(poolAddress);
-      
       if (state.treasuryFeeBps === null || state.relayerFeeBps === null) {
         toastManager.error("Unable to load pool fee configuration. Please try again.");
         return;
       }
-
-      const treasuryFeeBps = state.treasuryFeeBps;
-      const relayerFeeBps = state.relayerFeeBps;
-      const depositCount = state.depositCount;
-      const currentRound = state.currentRound;
-      const members = state.members;
+      const { treasuryFeeBps, relayerFeeBps, depositCount, currentRound, members } = state;
       const beneficiary = members[currentRound] || "Unknown beneficiary";
-
       const treasuryPercent = treasuryFeeBps / 100;
       const relayerPercent = relayerFeeBps / 100;
-
       const contribution = parseFloat(poolData?.contribution_amount ?? "0");
       const totalCollected = contribution * depositCount;
       const treasuryCut = totalCollected * (treasuryFeeBps / 10000);
       const relayerCut = totalCollected * (relayerFeeBps / 10000);
       const payoutAmount = totalCollected - treasuryCut - relayerCut;
-
       const shortAddress = (addr: string) =>
         addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-6)}` : addr;
-
       setPreviewData({
         type: "payout",
         amount: totalCollected,
@@ -356,10 +301,7 @@ export function GroupActions({
           },
           { label: "Net Recipient Payout", value: `${payoutAmount.toFixed(2)} ${tokenSymbol}` },
           { label: "Beneficiary Address", value: shortAddress(beneficiary) },
-          {
-            label: "Your Relayer Reward (expected)",
-            value: `${relayerCut.toFixed(2)} ${tokenSymbol}`,
-          },
+          { label: "Your Relayer Reward (expected)", value: `${relayerCut.toFixed(2)} ${tokenSymbol}` },
         ],
         onConfirm: async () => {
           registerOptimistic("trigger_payout", address);
@@ -373,8 +315,7 @@ export function GroupActions({
       });
       setIsPreviewOpen(true);
     } catch (e: any) {
-      const msg = e.message || "Failed to load payout details";
-      setError(msg);
+      setError(e.message || "Failed to load payout details");
     } finally {
       setPreviewLoading(false);
     }
@@ -430,10 +371,8 @@ export function GroupActions({
     if (!address) return setError("Please connect your wallet first");
     if (!isAdmin) return setError("Only the pool admin can manage members.");
     if (isPending) return setError("Contract not yet deployed.");
-
     const validation = validateStellarAddress(newMember.trim().toUpperCase());
     if (!validation.valid) return setError(validation.message);
-
     try {
       const txHash = await addPoolMember.addMember(newMember.trim().toUpperCase());
       if (txHash) {
@@ -454,7 +393,6 @@ export function GroupActions({
     if (!isAdmin) return setError("Only the pool admin can manage members.");
     if (isPending) return setError("Contract not yet deployed.");
     if (!memberToRemove) return;
-
     try {
       const txHash = await removePoolMember.removeMember(memberToRemove);
       if (txHash) {
@@ -493,7 +431,6 @@ export function GroupActions({
   const formatAddress = (addr: string) =>
     addr.length > 18 ? `${addr.slice(0, 8)}...${addr.slice(-8)}` : addr;
 
-  // Helper to render pending badge
   const renderPendingBadge = () => {
     const { pendingTx } = optimisticState;
     if (pendingTx && pendingTx.status === "pending") {
@@ -514,7 +451,6 @@ export function GroupActions({
           ⚠️ Pool is paused — all transactions are disabled.
         </div>
       )}
-
       {isPending && !isPaused && (
         <div className="p-3 rounded-lg bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 mb-4 text-sm">
           Contract pending deployment.
@@ -526,24 +462,20 @@ export function GroupActions({
           Quick Actions {renderPendingBadge()}
         </h3>
 
-        {/* Skeleton while pool metadata is loading */}
         {!poolData && !isPending && (
           <div className="space-y-6" aria-label="Loading actions">
-            {/* deposit field + button */}
             <div className="space-y-3">
               <Skeleton className="h-4 w-40" />
               <Skeleton className="h-9 w-full rounded-md" />
               <Skeleton className="h-3 w-56" />
               <Skeleton className="h-9 w-full rounded-md" />
             </div>
-            {/* withdraw field + button */}
             <div className="border-t border-border pt-6 space-y-3">
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-9 w-full rounded-md" />
               <Skeleton className="h-3 w-48" />
               <Skeleton className="h-9 w-full rounded-md" />
             </div>
-            {/* admin controls */}
             <div className="border-t border-border pt-6 space-y-3">
               <Skeleton className="h-4 w-24" />
               <div className="flex gap-2">
@@ -560,7 +492,6 @@ export function GroupActions({
             <p className="text-sm">{error}</p>
           </div>
         )}
-
         {successMsg && (
           <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary mb-4">
             <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
@@ -568,330 +499,248 @@ export function GroupActions({
           </div>
         )}
 
-        {/* Actual form — shown once pool metadata resolves (or contract is pending) */}
         {(poolData || isPending) && (
-        <div className="space-y-6">
-          {/* Deposit / Contribute */}
-          <div className="space-y-3">
-            <Label htmlFor="deposit">
-              {isRotational
-                ? "Deposit Fixed Amount"
-                : isTarget
-                  ? `Contribute Amount (${tokenSymbol})`
-                  : `Deposit Amount (${tokenSymbol})`}
-            </Label>
-            {!isRotational && (
-              <Input
-                id="deposit"
-                type="number"
-                step="0.01"
-                placeholder="100"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                disabled={isDepositLoading || actionsDisabled}
-              />
-            )}
-            <p className="text-xs text-muted-foreground">
-              {isRotational &&
-                "Deposit the fixed pool amount. Same for all members."}
-              {isTarget && "Contribute any amount toward the target goal."}
-              {isFlexible &&
-                "Deposit any amount (must meet minimum). Withdraw anytime."}
-            </p>
-            <Button
-              className="w-full bg-primary hover:bg-primary/90"
-              onClick={handleDeposit}
-              disabled={isDepositLoading || actionsDisabled}
-            >
-              {isDepositLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <ArrowUpRight className="mr-2 h-4 w-4" />
-                  {isTarget ? "Contribute" : "Deposit"}
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Withdraw */}
-          {!isRotational && (
-            <div className="border-t border-border pt-6 space-y-3">
-              <Label htmlFor="withdraw">
-                {isTarget ? "Withdraw Share" : `Withdraw Amount (${tokenSymbol})`}
+          <div className="space-y-6">
+            {/* Deposit / Contribute */}
+            <div className="space-y-3">
+              <Label htmlFor="deposit">
+                {isRotational
+                  ? "Deposit Fixed Amount"
+                  : isTarget
+                    ? `Contribute Amount (${tokenSymbol})`
+                    : `Deposit Amount (${tokenSymbol})`}
               </Label>
-              {isFlexible && (
+              {!isRotational && (
                 <Input
-                  id="withdraw"
+                  id="deposit"
                   type="number"
                   step="0.01"
                   placeholder="100"
-                  value={withdrawAmount}
-                  onChange={(e) => setWithdrawAmount(e.target.value)}
-                  disabled={isWithdrawLoading || actionsDisabled}
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  disabled={isDepositLoading || actionsDisabled}
                 />
               )}
               <p className="text-xs text-muted-foreground">
-                {isTarget && "Withdraw after target reached. Exit fee deducted."}
-                {isFlexible && "Withdraw anytime. Exit fee will be deducted."}
+                {isRotational && "Deposit the fixed pool amount. Same for all members."}
+                {isTarget && "Contribute any amount toward the target goal."}
+                {isFlexible && "Deposit any amount (must meet minimum). Withdraw anytime."}
               </p>
               <Button
-                variant="outline"
-                className="w-full bg-transparent"
-                onClick={handleWithdrawClick}
-                disabled={
-                  isWithdrawLoading ||
-                  actionsDisabled ||
-                  (isFlexible && !withdrawAmount)
-                }
+                className="w-full bg-primary hover:bg-primary/90"
+                onClick={handleDeposit}
+                disabled={isDepositLoading || actionsDisabled}
               >
-                {isWithdrawLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
+                {isDepositLoading ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
                 ) : (
-                  <>
-                    <ArrowDownLeft className="mr-2 h-4 w-4" />
-                    Withdraw
-                  </>
+                  <><ArrowUpRight className="mr-2 h-4 w-4" />{isTarget ? "Contribute" : "Deposit"}</>
                 )}
               </Button>
+            </div>
 
-              {isTarget && (
+            {/* Withdraw */}
+            {!isRotational && (
+              <div className="border-t border-border pt-6 space-y-3">
+                <Label htmlFor="withdraw">
+                  {isTarget ? "Withdraw Share" : `Withdraw Amount (${tokenSymbol})`}
+                </Label>
+                {isFlexible && (
+                  <Input
+                    id="withdraw"
+                    type="number"
+                    step="0.01"
+                    placeholder="100"
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    disabled={isWithdrawLoading || actionsDisabled}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {isTarget && "Withdraw after target reached. Exit fee deducted."}
+                  {isFlexible && "Withdraw anytime. Exit fee will be deducted."}
+                </p>
                 <Button
-                  variant="ghost"
-                  className="w-full text-destructive hover:text-destructive"
-                  onClick={handleRefund}
-                  disabled={targetRefund.isLoading || actionsDisabled}
+                  variant="outline"
+                  className="w-full bg-transparent"
+                  onClick={handleWithdrawClick}
+                  disabled={isWithdrawLoading || actionsDisabled || (isFlexible && !withdrawAmount)}
                 >
-                  {targetRefund.isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
+                  {isWithdrawLoading ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
                   ) : (
-                    "Refund (if deadline passed)"
+                    <><ArrowDownLeft className="mr-2 h-4 w-4" />Withdraw</>
                   )}
                 </Button>
-              )}
-            </div>
-          )}
-
-          {/* Rotational payout trigger */}
-          {isRotational && (
-            <div className="border-t border-border pt-6 space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Rotational Pool: Payouts are triggered when the round time is
-                reached. You earn a relayer fee for triggering.
-              </p>
-              <Button
-                variant="outline"
-                className="w-full bg-transparent"
-                onClick={handleTriggerPayoutClick}
-                disabled={
-                  optimisticState.pendingTx?.type === "trigger_payout" ||
-                  triggerPayout.isLoading ||
-                  previewLoading ||
-                  actionsDisabled
-                }
-              >
-                {optimisticState.pendingTx?.type === "trigger_payout" ||
-                triggerPayout.isLoading ||
-                previewLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {previewLoading ? "Calculating Preview..." : "Processing..."}
-                  </>
-                ) : (
-                  <>
-                    <ArrowDownLeft className="mr-2 h-4 w-4" />
-                    Trigger Payout
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-
-          {/* Admin: Pause / Unpause */}
-          {!isPending && (
-            <div className="border-t border-border pt-6 space-y-3">
-              <p className="text-xs text-muted-foreground font-medium">
-                Admin Controls
-              </p>
-              {!isAdmin && (
-                <p className="text-xs text-muted-foreground">
-                  Only the pool admin can pause or unpause this pool.
-                </p>
-              )}
-              <div className="flex gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex-1">
-                      <Button
-                        variant="outline"
-                        className="w-full bg-transparent text-destructive border-destructive/50 hover:bg-destructive/10 disabled:opacity-50"
-                        onClick={handlePause}
-                        disabled={
-                          pausePool.isLoading || !address || isPaused || !isAdmin
-                        }
-                      >
-                        {pausePool.isLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Pausing...
-                          </>
-                        ) : (
-                          <>
-                            <ShieldOff className="mr-2 h-4 w-4" />
-                            Pause Pool
-                          </>
-                        )}
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  {!isAdmin && (
-                    <TooltipContent>
-                      {!address
-                        ? "Connect your wallet to manage this pool"
-                        : "Your wallet is not the pool admin"}
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex-1">
-                      <Button
-                        variant="outline"
-                        className="w-full bg-transparent text-green-600 border-green-600/50 hover:bg-green-600/10 disabled:opacity-50"
-                        onClick={handleUnpause}
-                        disabled={
-                          unpausePool.isLoading ||
-                          !address ||
-                          !isPaused ||
-                          !isAdmin
-                        }
-                      >
-                        {unpausePool.isLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Unpausing...
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck className="mr-2 h-4 w-4" />
-                            Unpause Pool
-                          </>
-                        )}
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  {!isAdmin && (
-                    <TooltipContent>
-                      {!address
-                        ? "Connect your wallet to manage this pool"
-                        : "Your wallet is not the pool admin"}
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </div>
-            </div>
-          )}
-
-          {isAdmin && !isPending && (
-            <div className="border-t border-border pt-6 space-y-4">
-              <p className="text-xs text-muted-foreground font-medium">
-                Manage Members
-              </p>
-              <div className="space-y-2">
-                <Label htmlFor="new-member">Add Stellar Address</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="new-member"
-                    value={newMember}
-                    onChange={(event) => setNewMember(event.target.value)}
-                    placeholder="G..."
-                    disabled={addPoolMember.isLoading || removePoolMember.isLoading}
-                  />
+                {isTarget && (
                   <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleAddMember}
-                    disabled={
-                      addPoolMember.isLoading ||
-                      removePoolMember.isLoading ||
-                      !newMember.trim()
-                    }
-                    aria-label="Add member"
+                    variant="ghost"
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={handleRefund}
+                    disabled={targetRefund.isLoading || actionsDisabled}
                   >
-                    {addPoolMember.isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    {targetRefund.isLoading ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
                     ) : (
-                      <UserPlus className="h-4 w-4" />
+                      "Refund (if deadline passed)"
                     )}
                   </Button>
+                )}
+              </div>
+            )}
+
+            {/* Rotational payout trigger */}
+            {isRotational && (
+              <div className="border-t border-border pt-6 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Rotational Pool: Payouts are triggered when the round time is reached. You earn a relayer fee for triggering.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full bg-transparent"
+                  onClick={handleTriggerPayoutClick}
+                  disabled={
+                    optimisticState.pendingTx?.type === "trigger_payout" ||
+                    triggerPayout.isLoading ||
+                    previewLoading ||
+                    actionsDisabled
+                  }
+                >
+                  {optimisticState.pendingTx?.type === "trigger_payout" ||
+                  triggerPayout.isLoading ||
+                  previewLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {previewLoading ? "Calculating Preview..." : "Processing..."}
+                    </>
+                  ) : (
+                    <><ArrowDownLeft className="mr-2 h-4 w-4" />Trigger Payout</>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* Admin: Pause / Unpause */}
+            {!isPending && (
+              <div className="border-t border-border pt-6 space-y-3">
+                <p className="text-xs text-muted-foreground font-medium">Admin Controls</p>
+                {!isAdmin && (
+                  <p className="text-xs text-muted-foreground">
+                    Only the pool admin can pause or unpause this pool.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex-1">
+                        <Button
+                          variant="outline"
+                          className="w-full bg-transparent text-destructive border-destructive/50 hover:bg-destructive/10 disabled:opacity-50"
+                          onClick={handlePause}
+                          disabled={pausePool.isLoading || !address || isPaused || !isAdmin}
+                        >
+                          {pausePool.isLoading ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Pausing...</>
+                          ) : (
+                            <><ShieldOff className="mr-2 h-4 w-4" />Pause Pool</>
+                          )}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {!isAdmin && (
+                      <TooltipContent>
+                        {!address ? "Connect your wallet to manage this pool" : "Your wallet is not the pool admin"}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex-1">
+                        <Button
+                          variant="outline"
+                          className="w-full bg-transparent text-green-600 border-green-600/50 hover:bg-green-600/10 disabled:opacity-50"
+                          onClick={handleUnpause}
+                          disabled={unpausePool.isLoading || !address || !isPaused || !isAdmin}
+                        >
+                          {unpausePool.isLoading ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Unpausing...</>
+                          ) : (
+                            <><ShieldCheck className="mr-2 h-4 w-4" />Unpause Pool</>
+                          )}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {!isAdmin && (
+                      <TooltipContent>
+                        {!address ? "Connect your wallet to manage this pool" : "Your wallet is not the pool admin"}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
                 </div>
               </div>
+            )}
 
-              <div className="space-y-2">
-                {members.map((member) => (
-                  <div
-                    key={member}
-                    className="flex items-center justify-between gap-2 rounded-md border border-border p-2"
-                  >
-                    <span className="text-xs font-mono break-all">
-                      {formatAddress(member)}
-                    </span>
+            {/* Manage Members */}
+            {isAdmin && !isPending && (
+              <div className="border-t border-border pt-6 space-y-4">
+                <p className="text-xs text-muted-foreground font-medium">Manage Members</p>
+                <div className="space-y-2">
+                  <Label htmlFor="new-member">Add Stellar Address</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="new-member"
+                      value={newMember}
+                      onChange={(e) => setNewMember(e.target.value)}
+                      placeholder="G..."
+                      disabled={addPoolMember.isLoading || removePoolMember.isLoading}
+                    />
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setMemberToRemove(member)}
-                      disabled={removePoolMember.isLoading || addPoolMember.isLoading}
-                      aria-label={`Remove ${member}`}
+                      variant="outline"
+                      onClick={handleAddMember}
+                      disabled={addPoolMember.isLoading || removePoolMember.isLoading || !newMember.trim()}
+                      aria-label="Add member"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {addPoolMember.isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <UserPlus className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
-                ))}
+                </div>
+                <div className="space-y-2">
+                  {members.map((member) => (
+                    <div key={member} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
+                      <span className="text-xs font-mono break-all">{formatAddress(member)}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => setMemberToRemove(member)}
+                        disabled={removePoolMember.isLoading || addPoolMember.isLoading}
+                        aria-label={`Remove ${member}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="border-t border-border pt-6">
-            <p className="text-xs text-muted-foreground mb-2">
-              Your Stellar address
-            </p>
-            <p className="text-sm font-mono bg-muted/30 p-2 rounded break-all">
-              {address || "Not connected"}
-            </p>
+            <div className="border-t border-border pt-6">
+              <p className="text-xs text-muted-foreground mb-2">Your Stellar address</p>
+              <p className="text-sm font-mono bg-muted/30 p-2 rounded break-all">
+                {address || "Not connected"}
+              </p>
+            </div>
           </div>
-        </div>
         )}
       </Card>
 
-        <div className="border-t border-border pt-6">
-          <p className="text-xs text-muted-foreground mb-2">Your Stellar address</p>
-          <p className="text-sm font-mono bg-muted/30 p-2 rounded break-all">
-            {address || "Not connected"}
-          </p>
-        </div>
-
-        {/* Admin-only PDF export */}
-        {creatorAddress && (
-          <div className="border-t border-border pt-6">
-            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Admin</p>
-            <ExportPdfButton groupId={groupId} creatorAddress={creatorAddress} />
-          </div>
-        )}
-      </div>
-    </Card>
-  )
+      {/* Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="sm:max-w-[425px] bg-background border border-border">
           <DialogHeader>
@@ -904,7 +753,6 @@ export function GroupActions({
                 : "Review the estimated payouts and relayer rewards for this round before triggering."}
             </DialogDescription>
           </DialogHeader>
-
           <div className="py-4 space-y-4">
             <div className="rounded-lg border border-border p-4 bg-muted/20 space-y-3">
               {previewData?.details.map((detail, idx) => {
@@ -934,14 +782,12 @@ export function GroupActions({
                 );
               })}
             </div>
-
             {previewData?.type === "payout" && (
               <p className="text-xs text-muted-foreground text-center">
                 Triggering the payout earns you the relayer fee reward directly in your wallet.
               </p>
             )}
           </div>
-
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsPreviewOpen(false)} disabled={isConfirmLoading}>
               Cancel
@@ -953,9 +799,7 @@ export function GroupActions({
                 setError("");
                 setSuccessMsg("");
                 try {
-                  if (previewData?.onConfirm) {
-                    await previewData.onConfirm();
-                  }
+                  if (previewData?.onConfirm) await previewData.onConfirm();
                   setIsPreviewOpen(false);
                 } catch (e: any) {
                   setError(e.message || "Transaction failed");
@@ -967,10 +811,7 @@ export function GroupActions({
               disabled={isConfirmLoading}
             >
               {isConfirmLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing...
-                </>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing...</>
               ) : (
                 "Confirm & Sign"
               )}
@@ -979,12 +820,8 @@ export function GroupActions({
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={!!memberToRemove}
-        onOpenChange={(open) => {
-          if (!open) setMemberToRemove(null);
-        }}
-      >
+      {/* Remove Member Confirm Dialog */}
+      <Dialog open={!!memberToRemove} onOpenChange={(open) => { if (!open) setMemberToRemove(null); }}>
         <DialogContent className="sm:max-w-[425px] bg-background border border-border">
           <DialogHeader>
             <DialogTitle>Remove Member</DialogTitle>
@@ -993,23 +830,12 @@ export function GroupActions({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setMemberToRemove(null)}
-              disabled={removePoolMember.isLoading}
-            >
+            <Button variant="outline" onClick={() => setMemberToRemove(null)} disabled={removePoolMember.isLoading}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleRemoveMember}
-              disabled={removePoolMember.isLoading}
-            >
+            <Button variant="destructive" onClick={handleRemoveMember} disabled={removePoolMember.isLoading}>
               {removePoolMember.isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Removing...
-                </>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Removing...</>
               ) : (
                 "Remove"
               )}
