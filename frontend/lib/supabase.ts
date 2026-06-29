@@ -302,6 +302,37 @@ export type Database = {
           read?: boolean
         }
       }
+      admin_actions: {
+        Row: {
+          id: string
+          pool_id: string
+          admin_address: string
+          action_type: string
+          target_address: string | null
+          metadata: Record<string, any>
+          tx_hash: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          admin_address: string
+          action_type: string
+          target_address?: string | null
+          metadata?: Record<string, any>
+          tx_hash?: string | null
+          created_at?: string
+        }
+        Update: {
+          pool_id?: string
+          admin_address?: string
+          action_type?: string
+          target_address?: string | null
+          metadata?: Record<string, any>
+          tx_hash?: string | null
+          created_at?: string
+        }
+      }
     }
   }
 }
