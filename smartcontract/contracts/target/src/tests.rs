@@ -509,6 +509,196 @@ fn test_remove_member_fails_when_paused() {
 }
 
 #[test]
+fn test_leave_pool_non_admin_member_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, TargetPool);
+    let client = TargetPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let member_c = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    members.push_back(member_c.clone());
+
+    client.initialize(&token_address, &admin, &members, &500i128, &1000u32);
+
+    // member_b leaves (not admin)
+    client.leave_pool(&member_b);
+
+    assert_eq!(client.members().len(), 2);
+    let remaining = client.members();
+    assert_eq!(remaining.get(0).unwrap(), member_a);
+    assert_eq!(remaining.get(1).unwrap(), member_c);
+}
+
+#[test]
+fn test_leave_pool_refunds_balance() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, TargetPool);
+    let client = TargetPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+    let token_iface = token::Client::new(&env, &token_address);
+
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let member_c = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    members.push_back(member_c.clone());
+
+    client.initialize(&token_address, &admin, &members, &500i128, &1000u32);
+
+    token_client.mint(&member_b, &80i128);
+    client.deposit(&member_b, &80i128);
+
+    client.leave_pool(&member_b);
+
+    assert_eq!(token_iface.balance(&member_b), 80);
+    assert_eq!(client.balance_of(&member_b), 0);
+    assert_eq!(client.total_deposited(), 0);
+    assert_eq!(client.members().len(), 2);
+}
+
+#[test]
+fn test_leave_pool_admin_can_leave_as_regular_member() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, TargetPool);
+    let client = TargetPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    // admin is also a member
+    let mut members = Vec::new(&env);
+    members.push_back(admin.clone());
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(&token_address, &admin, &members, &500i128, &1000u32);
+
+    // Admin leaves — leave_pool has no admin restriction
+    client.leave_pool(&admin);
+
+    assert_eq!(client.members().len(), 2);
+}
+
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_leave_pool_panics_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, TargetPool);
+    let client = TargetPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(&token_address, &admin, &members, &500i128, &1000u32);
+
+    client.pause(&admin);
+    client.leave_pool(&member_b);
+}
+
+#[test]
+#[should_panic(expected = "need >=1 members")]
+fn test_leave_pool_panics_when_only_one_member() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, TargetPool);
+    let client = TargetPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(&token_address, &admin, &members, &500i128, &1000u32);
+
+    // admin removes member_b, leaving only member_a
+    client.remove_member(&admin, &member_b);
+
+    // member_a is the last member — leave would drop to 0
+    client.leave_pool(&member_a);
+}
+
+#[test]
+#[should_panic(expected = "pool already unlocked, use withdraw")]
+fn test_leave_pool_panics_when_pool_unlocked() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, TargetPool);
+    let client = TargetPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(&token_address, &admin, &members, &100i128, &1000u32);
+
+    // Deposit enough to unlock the pool
+    token_client.mint(&member_a, &100i128);
+    client.deposit(&member_a, &100i128);
+    assert!(client.is_unlocked());
+
+    // leave_pool should be blocked after unlock
+    client.leave_pool(&member_b);
+}
+
+#[test]
 fn test_bump_state() {
     use soroban_sdk::testutils::storage::Persistent;
 

@@ -235,6 +235,44 @@ impl FlexiblePool {
             .publish((symbol_short!("rem_mem"), member), balance);
     }
 
+    pub fn leave_pool(env: Env, member: Address) {
+        member.require_auth();
+
+        let storage = env.storage().persistent();
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(Self::is_member(&members, &member), "not a member");
+        assert!(members.len() > 1, "need >=1 members");
+
+        let balance: i128 = storage.get(&DataKey::Balance(member.clone())).unwrap_or(0);
+        if balance > 0 {
+            let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+            token::Client::new(&env, &token_addr).transfer(
+                &env.current_contract_address(),
+                &member,
+                &balance,
+            );
+
+            let total: i128 = storage.get(&DataKey::TotalBalance).unwrap();
+            storage.set(&DataKey::TotalBalance, &(total - balance));
+            storage.set(&DataKey::Balance(member.clone()), &0i128);
+        }
+
+        let mut updated_members: Vec<Address> = Vec::new(&env);
+        for existing in members.iter() {
+            if existing != member {
+                updated_members.push_back(existing);
+            }
+        }
+
+        storage.set(&DataKey::Members, &updated_members);
+        Self::bump_config_state_internal(&env);
+        env.events()
+            .publish((symbol_short!("rem_mem"), member), balance);
+    }
+
     // ── Emergency controls ────────────────────────────────────────────────
 
     pub fn pause(env: Env, admin: Address) {

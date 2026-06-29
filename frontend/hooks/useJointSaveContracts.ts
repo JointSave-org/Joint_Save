@@ -1205,6 +1205,36 @@ export function useRemovePoolMember(contractId: string) {
   return { removeMember, isLoading }
 }
 
+export function useLeavePool(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const leavePool = async (): Promise<string | undefined> => {
+    if (!kit || !address || !contractId) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(normalizeId(contractId)).call(
+            "leave_pool",
+            addressVal(address)
+          )
+        )
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { leavePool, isLoading }
+}
+
 export function usePausePool(contractId: string) {
   const { kit, address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)

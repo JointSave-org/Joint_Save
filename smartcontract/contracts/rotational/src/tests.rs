@@ -926,6 +926,162 @@ fn test_remove_member_fails_when_paused() {
 }
 
 #[test]
+fn test_leave_pool_non_admin_member_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let member_c = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    members.push_back(member_c.clone());
+
+    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+
+    // member_b is not admin and not the current beneficiary (index 0 = member_a)
+    client.leave_pool(&member_b);
+
+    assert_eq!(client.members().len(), 2);
+    let remaining = client.members();
+    assert_eq!(remaining.get(0).unwrap(), member_a);
+    assert_eq!(remaining.get(1).unwrap(), member_c);
+}
+
+#[test]
+#[should_panic(expected = "current beneficiary cannot leave mid-round")]
+fn test_leave_pool_admin_panics_as_current_beneficiary() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let member_c = Address::generate(&env);
+
+    // admin is member[0] — the current beneficiary in round 0
+    let mut members = Vec::new(&env);
+    members.push_back(admin.clone());
+    members.push_back(member_b.clone());
+    members.push_back(member_c.clone());
+
+    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+
+    // admin is index 0 = current beneficiary at round 0, so leave_pool must block them
+    client.leave_pool(&admin);
+}
+
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_leave_pool_panics_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+
+    client.pause(&admin);
+    client.leave_pool(&member_b);
+}
+
+#[test]
+#[should_panic(expected = "need >=1 members")]
+fn test_leave_pool_panics_when_only_one_member() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let member_c = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    members.push_back(member_c.clone());
+
+    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+
+    // admin removes two members so only member_a remains
+    client.remove_member(&admin, &member_c);
+    client.remove_member(&admin, &member_b);
+
+    // len guard (1 > 1 = false) fires before beneficiary guard
+    client.leave_pool(&member_a);
+}
+
+#[test]
+#[should_panic(expected = "current beneficiary cannot leave mid-round")]
+fn test_leave_pool_panics_when_current_beneficiary_non_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+    let member_c = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    members.push_back(member_c.clone());
+
+    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+
+    // current_round = 0, beneficiary is member_a (index 0)
+    client.leave_pool(&member_a);
+}
+
+#[test]
 fn test_bump_state() {
     use soroban_sdk::testutils::storage::Persistent;
 
