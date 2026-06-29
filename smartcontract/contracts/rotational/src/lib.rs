@@ -48,6 +48,7 @@ impl RotationalPool {
         treasury: Address,
     ) {
         assert!(members.len() >= 2, "need >=2 members");
+        assert!(!Self::has_duplicate_members(&members), "duplicate member address");
         assert!(deposit_amount > 0, "deposit must be > 0");
         assert!(round_duration > 0, "round_duration must be > 0");
 
@@ -247,12 +248,45 @@ impl RotationalPool {
         assert!(!has_deposited, "member deposited this round");
 
         let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
-        let removed_index = Self::member_index(&members, &member).expect("not a member");
+        Self::member_index(&members, &member).expect("not a member");
         assert!(members.len() > 1, "need >=1 members");
 
-        let mut updated_members: Vec<Address> = Vec::new(&env);
+        Self::remove_member_internal(&env, &member);
+    }
+
+    pub fn leave_pool(env: Env, member: Address) {
+        member.require_auth();
+
+        let storage = env.storage().persistent();
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(Self::is_member(&members, &member), "not a member");
+
+        let has_deposited: bool = storage
+            .get(&DataKey::HasDeposited(member.clone()))
+            .unwrap_or(false);
+        assert!(!has_deposited, "member deposited this round");
+
+        assert!(members.len() > 1, "need >=1 members");
+
+        let current_round: u32 = storage.get(&DataKey::CurrentRound).unwrap_or(0);
+        let beneficiary = members.get(current_round).unwrap();
+        assert!(member != beneficiary, "current beneficiary cannot leave mid-round");
+
+        Self::remove_member_internal(&env, &member);
+    }
+
+    fn remove_member_internal(env: &Env, member: &Address) {
+        let storage = env.storage().persistent();
+
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        let removed_index = Self::member_index(&members, member).expect("not a member");
+
+        let mut updated_members: Vec<Address> = Vec::new(env);
         for existing in members.iter() {
-            if existing != member {
+            if existing != *member {
                 updated_members.push_back(existing);
             }
         }
@@ -273,11 +307,11 @@ impl RotationalPool {
         if pool_completed {
             storage.set(&DataKey::Active, &false);
             env.events()
-                .publish((symbol_short!("complete"),), Symbol::new(&env, "pool_done"));
+                .publish((symbol_short!("complete"),), Symbol::new(env, "pool_done"));
         }
         storage.remove(&DataKey::HasDeposited(member.clone()));
-        env.events().publish((symbol_short!("rem_mem"), member), ());
-        Self::bump_config_state_internal(&env);
+        env.events().publish((symbol_short!("rem_mem"), member.clone()), ());
+        Self::bump_config_state_internal(env);
     }
 
     // ── Emergency controls ─────────────────────────────────────────────────
@@ -441,6 +475,21 @@ impl RotationalPool {
         for m in members.iter() {
             if m == *who {
                 return true;
+            }
+        }
+        false
+    }
+
+    /// O(n^2) pairwise scan — member lists are small (capped well below
+    /// the resource limits that would make this costly), so this is cheaper
+    /// than maintaining a separate index just to dedupe at init time.
+    fn has_duplicate_members(members: &Vec<Address>) -> bool {
+        for i in 0..members.len() {
+            let a = members.get(i).unwrap();
+            for j in (i + 1)..members.len() {
+                if a == members.get(j).unwrap() {
+                    return true;
+                }
             }
         }
         false

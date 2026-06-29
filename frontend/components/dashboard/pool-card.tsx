@@ -99,10 +99,7 @@ export function PoolCard({ pool }: { pool: Pool }) {
     if (pool.type === "rotational" && onchain) {
       const s = onchain as RotationalPoolState
       const totalMembers = s.members.length || pool.members_count || 1
-      const progress = Math.min(
-        100,
-        Math.round((s.currentRound / totalMembers) * 100)
-      )
+      const progress = Math.min(100, Math.round((s.currentRound / totalMembers) * 100))
       const perRound = (pool.contribution_amount || 0) * totalMembers
       const totalSaved = s.currentRound * perRound
       return {
@@ -130,8 +127,8 @@ export function PoolCard({ pool }: { pool: Pool }) {
         softGoal > 0
           ? Math.min(100, Math.round((totalSaved / softGoal) * 100))
           : s.isActive
-          ? 50
-          : 100
+            ? 50
+            : 100
       return {
         totalSaved,
         progress,
@@ -162,9 +159,7 @@ export function PoolCard({ pool }: { pool: Pool }) {
             </Badge>
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0">
-            <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
-              {pool.status}
-            </Badge>
+            <Badge className="bg-primary/10 text-primary hover:bg-primary/20">{pool.status}</Badge>
             <PoolHealthBadge health={health} isLoading={healthLoading} />
           </div>
         </div>
@@ -210,9 +205,7 @@ export function PoolCard({ pool }: { pool: Pool }) {
               className="h-full bg-primary"
             />
           </div>
-          {progressLabel && (
-            <p className="text-xs text-muted-foreground mt-1">{progressLabel}</p>
-          )}
+          {progressLabel && <p className="text-xs text-muted-foreground mt-1">{progressLabel}</p>}
         </div>
         <Button className="w-full bg-transparent" variant="outline" asChild>
           <Link href={`/dashboard/group/${pool.id}`}>

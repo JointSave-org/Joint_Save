@@ -7,11 +7,7 @@ import {
   type ReputationScore,
   type RotationalPoolState,
 } from "@/hooks/useJointSaveContracts"
-import {
-  computePoolHealth,
-  hasTrackRecord,
-  type PoolHealth,
-} from "@/lib/pool-health"
+import { computePoolHealth, hasTrackRecord, type PoolHealth } from "@/lib/pool-health"
 
 interface PoolMemberRow {
   member_address: string
@@ -26,7 +22,7 @@ interface PoolMemberRow {
  */
 export function usePoolHealth(
   cacheKey: string,
-  poolType: "rotational" | "target" | "flexible",
+  poolType: "rotational" | "target" | "flexible"
 ): { health: PoolHealth | null; isLoading: boolean } {
   const { data, isLoading: poolLoading } = usePoolData(cacheKey)
 
@@ -40,7 +36,7 @@ export function usePoolHealth(
         .map((m) => m.member_address)
         .sort()
         .join(","),
-    [members],
+    [members]
   )
 
   const [reputations, setReputations] = useState<Record<string, ReputationScore>>({})
@@ -59,9 +55,8 @@ export function usePoolHealth(
     ;(async () => {
       const entries = await Promise.allSettled(
         members.map(
-          async (m) =>
-            [m.member_address, await fetchReputation(m.member_address)] as const,
-        ),
+          async (m) => [m.member_address, await fetchReputation(m.member_address)] as const
+        )
       )
       if (cancelled) return
       setReputations(
@@ -69,10 +64,10 @@ export function usePoolHealth(
           entries
             .filter(
               (r): r is PromiseFulfilledResult<readonly [string, ReputationScore]> =>
-                r.status === "fulfilled",
+                r.status === "fulfilled"
             )
-            .map((r) => r.value),
-        ),
+            .map((r) => r.value)
+        )
       )
       setRepsLoading(false)
     })()

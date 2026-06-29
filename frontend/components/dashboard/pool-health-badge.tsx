@@ -2,11 +2,7 @@
 
 import { Activity, HelpCircle } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { PoolHealth, PoolHealthBand } from "@/lib/pool-health"
 import { HEALTHY_THRESHOLD, FAIR_THRESHOLD } from "@/lib/pool-health"
@@ -26,13 +22,12 @@ const BAND_STYLES: Record<PoolHealthBand, { dot: string; chip: string }> = {
   },
 }
 
-const NEUTRAL_CHIP =
-  "bg-muted text-muted-foreground border-border"
+const NEUTRAL_CHIP = "bg-muted text-muted-foreground border-border"
 
 function chipBase(extra: string) {
   return cn(
     "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-    extra,
+    extra
   )
 }
 
@@ -46,21 +41,20 @@ function HealthTooltipBody({ health }: { health: PoolHealth }) {
       <p className="font-semibold">Pool health</p>
       {health.state === "new" ? (
         <p className="text-background/80">
-          This pool hasn&apos;t completed a full round of deposits yet, so there
-          isn&apos;t enough history to score it reliably. The score will appear
-          once members start participating.
+          This pool hasn&apos;t completed a full round of deposits yet, so there isn&apos;t enough
+          history to score it reliably. The score will appear once members start participating.
         </p>
       ) : (
         <p className="text-background/80">
-          The average on-time deposit rate across this pool&apos;s{" "}
-          {health.memberCount} current member
-          {health.memberCount === 1 ? "" : "s"}, based on their track record so
-          far. Higher means members have been depositing more reliably.
+          The average on-time deposit rate across this pool&apos;s {health.memberCount} current
+          member
+          {health.memberCount === 1 ? "" : "s"}, based on their track record so far. Higher means
+          members have been depositing more reliably.
         </p>
       )}
       <p className="text-background/60 pt-0.5">
-        {HEALTHY_THRESHOLD}%+ healthy · {FAIR_THRESHOLD}–{HEALTHY_THRESHOLD - 1}%
-        fair · under {FAIR_THRESHOLD}% at risk
+        {HEALTHY_THRESHOLD}%+ healthy · {FAIR_THRESHOLD}–{HEALTHY_THRESHOLD - 1}% fair · under{" "}
+        {FAIR_THRESHOLD}% at risk
       </p>
     </div>
   )

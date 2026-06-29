@@ -1,6 +1,16 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  Suspense,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,20 +23,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Search,
-  Users,
-  TrendingUp,
-  Calendar,
-  Loader2,
-  Send,
-  AlertCircle,
-} from "lucide-react"
+import { Search, Users, TrendingUp, Calendar, Loader2, Send, AlertCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import { useStellar } from "@/components/web3-provider"
 import { fetchFactoryPools } from "@/hooks/useJointSaveContracts"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,10 +55,6 @@ const container = {
   show: { opacity: 1, transition: { staggerChildren: 0.08 } },
 }
 const itemAnim = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
-
-function formatAddress(addr: string) {
-  return `${addr.slice(0, 4)}...${addr.slice(-4)}`
-}
 
 function timeAgo(date: string) {
   const secs = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -96,16 +95,37 @@ function PoolCard({
   pool,
   onRequestJoin,
   isJoining,
+  tabIndex,
+  cardRef,
+  onFocus,
+  onClick,
+  onKeyDown,
 }: {
   pool: Pool
   onRequestJoin: (poolId: string) => void
   isJoining: boolean
+  tabIndex: number
+  cardRef: (node: HTMLDivElement | null) => void
+  onFocus: () => void
+  onClick: (event: MouseEvent<HTMLDivElement>) => void
+  onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void
 }) {
   const typeLabel = pool.type.charAt(0).toUpperCase() + pool.type.slice(1)
-  const statusLabel = pool.status === "active" ? "Active" : pool.status === "completed" ? "Completed" : "Paused"
+  const statusLabel =
+    pool.status === "active" ? "Active" : pool.status === "completed" ? "Completed" : "Paused"
 
   return (
-    <motion.div variants={itemAnim}>
+    <motion.div
+      ref={cardRef}
+      variants={itemAnim}
+      tabIndex={tabIndex}
+      role="link"
+      aria-label={`View details for ${pool.name}`}
+      onFocus={onFocus}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+      className="h-full cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    >
       <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full flex flex-col">
         <div className="flex items-start justify-between mb-4">
           <div className="min-w-0">
@@ -160,7 +180,10 @@ function PoolCard({
             variant="default"
             size="sm"
             className="flex-1"
-            onClick={() => onRequestJoin(pool.id)}
+            onClick={(event) => {
+              event.stopPropagation()
+              onRequestJoin(pool.id)
+            }}
             disabled={isJoining || pool.status !== "active"}
           >
             {isJoining ? (
@@ -171,7 +194,9 @@ function PoolCard({
             Request to Join
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/group/${pool.id}`}>View</Link>
+            <Link href={`/dashboard/group/${pool.id}`} onClick={(event) => event.stopPropagation()}>
+              View
+            </Link>
           </Button>
         </div>
       </Card>
@@ -181,18 +206,56 @@ function PoolCard({
 
 // ── Explore Page ──────────────────────────────────────────────────────────────
 
-export default function ExplorePage() {
+function ExploreContent() {
   const { address } = useStellar()
   const { toast } = useToast()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const gridRef = useRef<HTMLDivElement | null>(null)
+  const poolCardRefs = useRef<Array<HTMLDivElement | null>>([])
 
   const [pools, setPools] = useState<Pool[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [joining, setJoining] = useState<string | null>(null)
+  const [focusedPoolIndex, setFocusedPoolIndex] = useState(0)
 
-  const [search, setSearch] = useState("")
-  const [filterType, setFilterType] = useState("")
-  const [filterStatus, setFilterStatus] = useState("")
+  // Filter state is derived from the URL so it survives refresh and can be shared.
+  const search = searchParams.get("search") || ""
+  const filterType = searchParams.get("type") || ""
+  const filterStatus = searchParams.get("status") || ""
+  const [searchInput, setSearchInput] = useState(search)
+  const debouncedSearchInput = useDebouncedValue(searchInput, 300)
+
+  // Sync a single filter to the URL query string. router.replace (not push)
+  // keeps the back button from stepping through every individual filter toggle.
+  const updateParam = useCallback(
+    (key: string, value: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (value) {
+        params.set(key, value)
+      } else {
+        params.delete(key)
+      }
+      const qs = params.toString()
+      router.replace(qs ? `?${qs}` : "?", { scroll: false })
+    },
+    [router, searchParams]
+  )
+
+  const setSearch = useCallback((v: string) => updateParam("search", v), [updateParam])
+  const setFilterType = useCallback((v: string) => updateParam("type", v), [updateParam])
+  const setFilterStatus = useCallback((v: string) => updateParam("status", v), [updateParam])
+
+  useEffect(() => {
+    setSearchInput(search)
+  }, [search])
+
+  useEffect(() => {
+    if (debouncedSearchInput !== search) {
+      setSearch(debouncedSearchInput)
+    }
+  }, [debouncedSearchInput, search, setSearch])
 
   // Fetch pools from DB + factory
   useEffect(() => {
@@ -246,11 +309,95 @@ export default function ExplorePage() {
     })
   }, [pools, search, filterType, filterStatus])
 
+  const activePoolIndex =
+    filteredPools.length > 0 ? Math.min(focusedPoolIndex, filteredPools.length - 1) : 0
+
+  useEffect(() => {
+    poolCardRefs.current = poolCardRefs.current.slice(0, filteredPools.length)
+    setFocusedPoolIndex((index) => Math.min(index, Math.max(filteredPools.length - 1, 0)))
+  }, [filteredPools.length])
+
+  const getGridColumnCount = useCallback(() => {
+    if (!gridRef.current) return 1
+
+    const columns = window
+      .getComputedStyle(gridRef.current)
+      .gridTemplateColumns.split(" ")
+      .filter(Boolean).length
+
+    return Math.max(columns, 1)
+  }, [])
+
+  const focusPoolCard = useCallback((index: number) => {
+    poolCardRefs.current[index]?.focus()
+  }, [])
+
+  const handleViewPool = useCallback(
+    (poolId: string) => {
+      router.push(`/dashboard/group/${poolId}`)
+    },
+    [router]
+  )
+
+  const handlePoolCardClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>, poolId: string) => {
+      if ((event.target as HTMLElement).closest("a,button")) return
+      handleViewPool(poolId)
+    },
+    [handleViewPool]
+  )
+
+  const handlePoolCardKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>, index: number, poolId: string) => {
+      if (event.target !== event.currentTarget) return
+
+      const columnCount = getGridColumnCount()
+      const columnIndex = index % columnCount
+      let nextIndex = index
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault()
+        if (columnIndex > 0) nextIndex = index - 1
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault()
+        if (columnIndex < columnCount - 1 && index < filteredPools.length - 1) {
+          nextIndex = index + 1
+        }
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault()
+        if (index - columnCount >= 0) nextIndex = index - columnCount
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault()
+        if (index + columnCount < filteredPools.length) {
+          nextIndex = index + columnCount
+        }
+      } else if (event.key === "Enter") {
+        handleViewPool(poolId)
+        return
+      } else if (event.key === " " || event.key === "Spacebar") {
+        event.preventDefault()
+        handleViewPool(poolId)
+        return
+      } else {
+        return
+      }
+
+      if (nextIndex !== index) {
+        setFocusedPoolIndex(nextIndex)
+        focusPoolCard(nextIndex)
+      }
+    },
+    [filteredPools.length, focusPoolCard, getGridColumnCount, handleViewPool]
+  )
+
   // Join request handler
   const handleRequestJoin = useCallback(
     async (poolId: string) => {
       if (!address) {
-        toast({ title: "Connect Wallet", description: "Please connect your wallet to request joining a pool." })
+        toast({
+          title: "Connect Wallet",
+          description: "Please connect your wallet to request joining a pool.",
+        })
         return
       }
       setJoining(poolId)
@@ -300,8 +447,8 @@ export default function ExplorePage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by pool name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="pl-9"
             />
           </div>
@@ -367,22 +514,54 @@ export default function ExplorePage() {
         {/* Pool Grid */}
         {!loading && filteredPools.length > 0 && (
           <motion.div
+            ref={gridRef}
             variants={container}
             initial="hidden"
             animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {filteredPools.map((pool) => (
+            {filteredPools.map((pool, index) => (
               <PoolCard
                 key={pool.id}
                 pool={pool}
                 onRequestJoin={handleRequestJoin}
                 isJoining={joining === pool.id}
+                tabIndex={index === activePoolIndex ? 0 : -1}
+                cardRef={(node) => {
+                  poolCardRefs.current[index] = node
+                }}
+                onFocus={() => setFocusedPoolIndex(index)}
+                onClick={(event) => handlePoolCardClick(event, pool.id)}
+                onKeyDown={(event) => handlePoolCardKeyDown(event, index, pool.id)}
               />
             ))}
           </motion.div>
         )}
       </div>
     </div>
+  )
+}
+
+// Loading fallback shown while useSearchParams resolves on the client.
+function ExploreFallback() {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <PoolCardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// useSearchParams requires a Suspense boundary at the page level.
+export default function ExplorePage() {
+  return (
+    <Suspense fallback={<ExploreFallback />}>
+      <ExploreContent />
+    </Suspense>
   )
 }

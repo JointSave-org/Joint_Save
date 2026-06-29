@@ -14,7 +14,8 @@ export function validateStellarAddress(value: string): ValidationResult {
   if (!value) return err("Stellar address is required")
   if (!value.startsWith("G")) return err("Stellar addresses start with 'G'")
   if (value.length !== 56) return err(`Address must be 56 characters (currently ${value.length})`)
-  if (!/^G[A-Z2-7]{55}$/.test(value)) return err("Invalid characters — only A–Z and 2–7 allowed after 'G'")
+  if (!/^G[A-Z2-7]{55}$/.test(value))
+    return err("Invalid characters — only A–Z and 2–7 allowed after 'G'")
   return ok
 }
 
@@ -43,4 +44,27 @@ export function validateWithdrawalFee(value: string): ValidationResult {
   if (num < 0) return err("Fee cannot be negative")
   if (num > 10) return err("Fee cannot exceed 10%")
   return ok
+}
+
+/**
+ * Returns the indices of entries in `addresses` that share a value with at
+ * least one other entry (both the first and later occurrences are flagged,
+ * so every duplicate row can show an inline error). Empty entries are
+ * ignored since they're caught by other field validation.
+ */
+export function findDuplicateAddresses(addresses: string[]): Set<number> {
+  const firstSeenAt = new Map<string, number>()
+  const duplicates = new Set<number>()
+  addresses.forEach((raw, i) => {
+    const value = raw.trim()
+    if (!value) return
+    const seenAt = firstSeenAt.get(value)
+    if (seenAt !== undefined) {
+      duplicates.add(seenAt)
+      duplicates.add(i)
+    } else {
+      firstSeenAt.set(value, i)
+    }
+  })
+  return duplicates
 }

@@ -18,6 +18,7 @@ import { useStellar } from "@/components/web3-provider"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { FirstPoolTooltip } from "@/components/dashboard/first-pool-tooltip"
 import { PoolCard, PoolCardSkeleton, type Pool } from "@/components/dashboard/pool-card"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 
 const PAGE_SIZE = 6
 
@@ -43,6 +44,8 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
 
   const page = Math.max(0, parseInt(searchParams.get("page") || "0", 10))
   const searchTerm = searchParams.get("search") || ""
+  const [searchInput, setSearchInput] = useState(searchTerm)
+  const debouncedSearchInput = useDebouncedValue(searchInput, 300)
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const setPage = useCallback(
@@ -70,6 +73,16 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
   )
 
   useEffect(() => {
+    setSearchInput(searchTerm)
+  }, [searchTerm])
+
+  useEffect(() => {
+    if (debouncedSearchInput !== searchTerm) {
+      setSearchTerm(debouncedSearchInput)
+    }
+  }, [debouncedSearchInput, searchTerm, setSearchTerm])
+
+  useEffect(() => {
     if (!address) {
       setLoading(false)
       return
@@ -81,9 +94,7 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
     try {
       setLoading(true)
       setError("")
-      const res = await fetch(
-        `/api/pools?creator=${address?.toLowerCase()}&page=${currentPage}`
-      )
+      const res = await fetch(`/api/pools?creator=${address?.toLowerCase()}&page=${currentPage}`)
       if (!res.ok) throw new Error("Failed to fetch pools")
       const json = await res.json()
       const data: Pool[] = Array.isArray(json) ? json : (json.data ?? [])
@@ -101,9 +112,7 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
   // Note: This filters only the currently loaded page (6 pools max).
   // For a full cross-page search, we would need backend API support.
   const filteredPools = searchTerm
-    ? pools.filter((pool) =>
-        pool.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+    ? pools.filter((pool) => pool.name.toLowerCase().includes(searchTerm.toLowerCase()))
     : pools
 
   if (loading) {
@@ -162,8 +171,8 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
         <Input
           type="text"
           placeholder="Search pools by name..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           className="pl-9"
         />
       </div>
@@ -178,10 +187,7 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
           <p className="font-medium">No pools match your search</p>
           <p className="text-sm text-muted-foreground max-w-sm">
             Try adjusting your search term or{" "}
-            <button
-              onClick={() => setSearchTerm("")}
-              className="text-primary hover:underline"
-            >
+            <button onClick={() => setSearchInput("")} className="text-primary hover:underline">
               clear the search
             </button>
             .
@@ -205,8 +211,8 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
           {totalPages > 1 && (
             <div className="flex flex-col items-center gap-3 mt-4">
               <p className="text-sm text-muted-foreground">
-                Showing {page * PAGE_SIZE + 1}–
-                {Math.min((page + 1) * PAGE_SIZE, total)} of {total} pools
+                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}{" "}
+                pools
               </p>
               <Pagination>
                 <PaginationContent>
@@ -214,11 +220,7 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
                     <PaginationPrevious
                       onClick={() => setPage(page - 1)}
                       aria-disabled={page === 0}
-                      className={
-                        page === 0
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer"
-                      }
+                      className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     />
                   </PaginationItem>
                   <PaginationItem>
@@ -226,9 +228,7 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
                       onClick={() => setPage(page + 1)}
                       aria-disabled={page >= totalPages - 1}
                       className={
-                        page >= totalPages - 1
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer"
+                        page >= totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
                       }
                     />
                   </PaginationItem>

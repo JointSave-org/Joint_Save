@@ -9,9 +9,7 @@ import { test, expect, truncate, E2E_ADDRESS } from "./fixtures/test-base"
  * real connect→disconnect cycle through the UI.
  */
 
-test("connects, shows the truncated address, then disconnects", async ({
-  page,
-}) => {
+test("connects, shows the truncated address, then disconnects", async ({ page }) => {
   await page.goto("/")
 
   // The marketing page has multiple "Connect Wallet" CTAs — drive the one in
@@ -39,7 +37,5 @@ test("connects, shows the truncated address, then disconnects", async ({
 
   // Back on the landing page with the Connect button restored
   await expect(page).toHaveURL(/\/$/)
-  await expect(
-    header.getByRole("button", { name: "Connect Wallet" })
-  ).toBeVisible()
+  await expect(header.getByRole("button", { name: "Connect Wallet" })).toBeVisible()
 })

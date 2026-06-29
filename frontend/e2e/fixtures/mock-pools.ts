@@ -74,10 +74,7 @@ export interface PoolsApiHandle {
  * Supports the GET (by id / contract / creator / all), POST (create) and
  * PATCH (log activity) shapes the frontend uses.
  */
-export async function mockPoolsApi(
-  page: Page,
-  seed: MockPool[] = []
-): Promise<PoolsApiHandle> {
+export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<PoolsApiHandle> {
   const pools: MockPool[] = [...seed]
   let lastCreatedId: string | null = null
 
@@ -100,20 +97,14 @@ export async function mockPoolsApi(
 
       if (id) {
         const pool = pools.find((p) => p.id === id)
-        return pool
-          ? json(route, pool)
-          : json(route, { error: "Pool not found" }, 404)
+        return pool ? json(route, pool) : json(route, { error: "Pool not found" }, 404)
       }
       if (contract) {
         const pool = pools.find((p) => p.contract_address === contract)
-        return pool
-          ? json(route, pool)
-          : json(route, { error: "Pool not found" }, 404)
+        return pool ? json(route, pool) : json(route, { error: "Pool not found" }, 404)
       }
       if (creator) {
-        const mine = pools.filter(
-          (p) => p.creator_address === creator.toLowerCase()
-        )
+        const mine = pools.filter((p) => p.creator_address === creator.toLowerCase())
         return json(route, {
           data: mine,
           total: mine.length,
@@ -134,13 +125,9 @@ export async function mockPoolsApi(
         contract_address: body.poolAddress,
         token_address: body.tokenAddress ?? "native",
         members_count: body.members?.length ?? 2,
-        contribution_amount: body.contributionAmount
-          ? parseFloat(body.contributionAmount)
-          : null,
+        contribution_amount: body.contributionAmount ? parseFloat(body.contributionAmount) : null,
         target_amount: body.targetAmount ? parseFloat(body.targetAmount) : null,
-        minimum_deposit: body.minimumDeposit
-          ? parseFloat(body.minimumDeposit)
-          : null,
+        minimum_deposit: body.minimumDeposit ? parseFloat(body.minimumDeposit) : null,
         withdrawal_fee: body.withdrawalFee ? parseFloat(body.withdrawalFee) : 1,
         frequency: body.frequency ?? null,
         deadline: body.deadline ?? null,

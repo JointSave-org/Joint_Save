@@ -77,8 +77,7 @@ const fmt = {
     }
   },
   xlm: (n: number | null) => (n != null ? `${n.toFixed(7)} XLM` : "—"),
-  addr: (a: string | null) =>
-    a ? `${a.slice(0, 8)}…${a.slice(-6)}` : "System",
+  addr: (a: string | null) => (a ? `${a.slice(0, 8)}…${a.slice(-6)}` : "System"),
   type: (t: string) => t.charAt(0).toUpperCase() + t.slice(1),
   actType: (t: string) =>
     ({
@@ -90,14 +89,14 @@ const fmt = {
       pool_created: "Pool Created",
       yield: "Yield Distributed",
       refund: "Refund",
-    }[t] ?? t),
+    })[t] ?? t,
 }
 
 // ── Colour palette (Stellar-themed) ──────────────────────────────────────────
 
 const C = {
-  primary: [100, 60, 200] as [number, number, number],   // indigo-violet
-  accent: [50, 180, 150] as [number, number, number],    // teal
+  primary: [100, 60, 200] as [number, number, number], // indigo-violet
+  accent: [50, 180, 150] as [number, number, number], // teal
   dark: [20, 20, 35] as [number, number, number],
   mid: [80, 80, 110] as [number, number, number],
   light: [245, 244, 255] as [number, number, number],
@@ -184,11 +183,7 @@ export function generatePoolPdf(pool: PdfPoolData): void {
     y += 14
   }
 
-  const labelValue = (
-    label: string,
-    value: string,
-    col2Start = MARGIN + 48
-  ) => {
+  const labelValue = (label: string, value: string, col2Start = MARGIN + 48) => {
     checkPage(8)
     doc.setFont("helvetica", "bold")
     doc.setFontSize(8.5)
@@ -216,10 +211,8 @@ export function generatePoolPdf(pool: PdfPoolData): void {
       labelValue("Round Contribution:", fmt.xlm(pool.contribution_amount))
     if (pool.frequency) labelValue("Frequency:", fmt.type(pool.frequency))
   } else if (pool.type === "target") {
-    if (pool.target_amount != null)
-      labelValue("Target Amount:", fmt.xlm(pool.target_amount))
-    if (pool.deadline)
-      labelValue("Deadline:", fmt.date(pool.deadline))
+    if (pool.target_amount != null) labelValue("Target Amount:", fmt.xlm(pool.target_amount))
+    if (pool.deadline) labelValue("Deadline:", fmt.date(pool.deadline))
   } else if (pool.type === "flexible") {
     if (pool.contribution_amount != null)
       labelValue("Min. Deposit:", fmt.xlm(pool.contribution_amount))
@@ -233,8 +226,7 @@ export function generatePoolPdf(pool: PdfPoolData): void {
 
   sectionHeader("On-Chain Verification")
 
-  const isPending =
-    !pool.contract_address || pool.contract_address === "pending_deployment"
+  const isPending = !pool.contract_address || pool.contract_address === "pending_deployment"
 
   if (isPending) {
     doc.setFont("helvetica", "italic")
@@ -311,7 +303,7 @@ export function generatePoolPdf(pool: PdfPoolData): void {
       },
     })
 
-    y = (doc as any).lastAutoTable.finalY + 8
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8
   }
 
   // ── 4. Fee Breakdown ───────────────────────────────────────────────────────
@@ -361,7 +353,7 @@ export function generatePoolPdf(pool: PdfPoolData): void {
     },
   })
 
-  y = (doc as any).lastAutoTable.finalY + 8
+  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8
 
   // ── 5. Activity Log ────────────────────────────────────────────────────────
 
@@ -417,12 +409,14 @@ export function generatePoolPdf(pool: PdfPoolData): void {
       },
     })
 
-    y = (doc as any).lastAutoTable.finalY + 8
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8
   }
 
   // ── Footer on every page ───────────────────────────────────────────────────
 
-  const totalPages = (doc as any).internal.getNumberOfPages()
+  const totalPages = (
+    doc as unknown as { internal: { getNumberOfPages: () => number } }
+  ).internal.getNumberOfPages()
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p)
     doc.setFontSize(7)

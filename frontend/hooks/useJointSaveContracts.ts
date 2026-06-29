@@ -14,11 +14,7 @@ import {
   Operation,
   StrKey,
 } from "@stellar/stellar-sdk"
-import {
-  useStellar,
-  STELLAR_RPC_URL,
-  STELLAR_NETWORK_PASSPHRASE,
-} from "@/components/web3-provider"
+import { useStellar, STELLAR_RPC_URL, STELLAR_NETWORK_PASSPHRASE } from "@/components/web3-provider"
 import { enqueueSign } from "@/lib/tx-queue"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -45,15 +41,13 @@ const IS_E2E = process.env.NEXT_PUBLIC_E2E === "true"
 // A real, checksum-valid contract strkey so StrKey.decodeContract() (used by the
 // factory-register flow) accepts the canned id returned from a stubbed deploy.
 const E2E_CONTRACT_ID = "CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI"
-const E2E_TX_HASH =
-  "e2e0000000000000000000000000000000000000000000000000000000000e2e"
-const E2E_DEFAULT_ADDRESS =
-  "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7"
+const E2E_TX_HASH = "e2e0000000000000000000000000000000000000000000000000000000000e2e"
+const E2E_DEFAULT_ADDRESS = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7"
 
 /** Per-test on-chain overrides injected via `window.__E2E_STATE__`. */
-function e2eState(): Record<string, any> {
+function e2eState(): Record<string, unknown> {
   if (typeof window === "undefined") return {}
-  return (window as any).__E2E_STATE__ ?? {}
+  return (window as unknown as { __E2E_STATE__?: Record<string, unknown> }).__E2E_STATE__ ?? {}
 }
 
 /** Build the ScVal a given read method would return, from the injected state. */
@@ -61,29 +55,29 @@ function e2eViewResult(method: string): xdr.ScVal {
   const s = e2eState()
   switch (method) {
     case "is_active":
-      return boolVal(s.isActive ?? true)
+      return boolVal((s.isActive as boolean | undefined) ?? true)
     case "is_paused":
-      return boolVal(s.isPaused ?? false)
+      return boolVal((s.isPaused as boolean | undefined) ?? false)
     case "is_unlocked":
-      return boolVal(s.isUnlocked ?? false)
+      return boolVal((s.isUnlocked as boolean | undefined) ?? false)
     case "current_round":
-      return u32Val(s.currentRound ?? 0)
+      return u32Val((s.currentRound as number | undefined) ?? 0)
     case "members":
-      return vecVal(s.members ?? [])
+      return vecVal((s.members as string[] | undefined) ?? [])
     case "next_payout_time":
-      return u64Val(BigInt(s.nextPayoutTime ?? 0))
+      return u64Val(BigInt((s.nextPayoutTime as number | undefined) ?? 0))
     case "has_deposited":
-      return boolVal(s.hasDeposited ?? false)
+      return boolVal((s.hasDeposited as boolean | undefined) ?? false)
     case "admin":
-      return addressVal(s.admin ?? E2E_DEFAULT_ADDRESS)
+      return addressVal((s.admin as string | undefined) ?? E2E_DEFAULT_ADDRESS)
     case "total_deposited":
-      return i128Val(BigInt(s.totalDeposited ?? 0))
+      return i128Val(BigInt((s.totalDeposited as number | undefined) ?? 0))
     case "target_amount":
-      return i128Val(BigInt(s.targetAmount ?? 0))
+      return i128Val(BigInt((s.targetAmount as number | undefined) ?? 0))
     case "total_balance":
-      return i128Val(BigInt(s.totalBalance ?? 0))
+      return i128Val(BigInt((s.totalBalance as number | undefined) ?? 0))
     case "balance_of":
-      return i128Val(BigInt(s.balanceOf ?? 0))
+      return i128Val(BigInt((s.balanceOf as number | undefined) ?? 0))
     default:
       return boolVal(false)
   }
@@ -107,8 +101,7 @@ function makeE2EServer(): rpc.Server {
 // ── Token config ────────────────────────────────────────────────────────────
 // Stellar Asset Contract for native XLM on testnet — used whenever a pool's
 // token is "native" so the contract still receives a real SEP-41 address.
-export const NATIVE_SAC_ID =
-  "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+export const NATIVE_SAC_ID = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
 export const NATIVE_TOKEN_METADATA: TokenMetadata = {
   name: "Stellar Lumens",
   symbol: "XLM",
@@ -166,7 +159,15 @@ function vecVal(addrs: string[]): xdr.ScVal {
 }
 
 /** Simulate → assemble → sign → send → poll. Returns tx hash. */
-async function submitTx(kit: any, tx: any): Promise<string> {
+async function submitTx(
+  kit: {
+    signTransaction: (
+      xdr: string,
+      opts: { networkPassphrase: string }
+    ) => Promise<{ signedTxXdr: string }>
+  },
+  tx: Transaction
+): Promise<string> {
   if (IS_E2E) return E2E_TX_HASH
   const server = getRpc()
 
@@ -192,10 +193,7 @@ async function submitTx(kit: any, tx: any): Promise<string> {
   // Poll for confirmation
   let getResult = await server.getTransaction(result.hash)
   let attempts = 0
-  while (
-    getResult.status === rpc.Api.GetTransactionStatus.NOT_FOUND &&
-    attempts < 30
-  ) {
+  while (getResult.status === rpc.Api.GetTransactionStatus.NOT_FOUND && attempts < 30) {
     await new Promise((r) => setTimeout(r, 1500))
     getResult = await server.getTransaction(result.hash)
     attempts++
@@ -260,10 +258,7 @@ export function useDeployPool() {
       // Poll and extract new contract ID from return value
       let getResult = await server.getTransaction(result.hash)
       let attempts = 0
-      while (
-        getResult.status === rpc.Api.GetTransactionStatus.NOT_FOUND &&
-        attempts < 30
-      ) {
+      while (getResult.status === rpc.Api.GetTransactionStatus.NOT_FOUND && attempts < 30) {
         await new Promise((r) => setTimeout(r, 1500))
         getResult = await server.getTransaction(result.hash)
         attempts++
@@ -530,7 +525,9 @@ export function useTriggerPayout(contractId: string) {
         fee: BASE_FEE,
         networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
       })
-        .addOperation(new Contract(normalizeId(contractId)).call("trigger_payout", addressVal(address)))
+        .addOperation(
+          new Contract(normalizeId(contractId)).call("trigger_payout", addressVal(address))
+        )
         .setTimeout(TX_TIMEOUT)
         .build()
       return await submitTx(kit, tx)
@@ -558,7 +555,11 @@ export function useTargetContribute(contractId: string, amount: string, decimals
         networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
       })
         .addOperation(
-          new Contract(normalizeId(contractId)).call("deposit", addressVal(address), i128Val(toBaseUnits(amount, decimals)))
+          new Contract(normalizeId(contractId)).call(
+            "deposit",
+            addressVal(address),
+            i128Val(toBaseUnits(amount, decimals))
+          )
         )
         .setTimeout(TX_TIMEOUT)
         .build()
@@ -637,7 +638,11 @@ export function useFlexibleDeposit(contractId: string, amount: string, decimals 
         networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
       })
         .addOperation(
-          new Contract(normalizeId(contractId)).call("deposit", addressVal(address), i128Val(toBaseUnits(amount, decimals)))
+          new Contract(normalizeId(contractId)).call(
+            "deposit",
+            addressVal(address),
+            i128Val(toBaseUnits(amount, decimals))
+          )
         )
         .setTimeout(TX_TIMEOUT)
         .build()
@@ -664,7 +669,11 @@ export function useFlexibleWithdraw(contractId: string, amount: string, decimals
         networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
       })
         .addOperation(
-          new Contract(normalizeId(contractId)).call("withdraw", addressVal(address), i128Val(toBaseUnits(amount, decimals)))
+          new Contract(normalizeId(contractId)).call(
+            "withdraw",
+            addressVal(address),
+            i128Val(toBaseUnits(amount, decimals))
+          )
         )
         .setTimeout(TX_TIMEOUT)
         .build()
@@ -683,9 +692,9 @@ export interface RotationalPoolState {
   isActive: boolean
   currentRound: number
   members: string[]
-  nextPayoutTime: number   // unix timestamp (seconds)
-  hasDeposited: boolean    // for the querying user
-  depositCount: number     // number of members who deposited in the current round
+  nextPayoutTime: number // unix timestamp (seconds)
+  hasDeposited: boolean // for the querying user
+  depositCount: number // number of members who deposited in the current round
   treasuryFeeBps: number | null
   relayerFeeBps: number | null
 }
@@ -730,7 +739,11 @@ export function stroopsToXlm(stroops: bigint): number {
 }
 
 /** Fire-and-forget read call — no signing, no fee. */
-async function viewCall(contractId: string, method: string, ...args: xdr.ScVal[]): Promise<xdr.ScVal> {
+async function viewCall(
+  contractId: string,
+  method: string,
+  ...args: xdr.ScVal[]
+): Promise<xdr.ScVal> {
   if (IS_E2E) return e2eViewResult(method)
   const server = getRpc()
   // Use a dummy account for simulation — sequence number doesn't matter for reads
@@ -738,7 +751,7 @@ async function viewCall(contractId: string, method: string, ...args: xdr.ScVal[]
     accountId: () => "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7",
     sequenceNumber: () => "0",
     incrementSequenceNumber: () => {},
-  } as any
+  } as unknown as Account
 
   const tx = new TransactionBuilder(dummyAccount, {
     fee: BASE_FEE,
@@ -755,7 +768,10 @@ async function viewCall(contractId: string, method: string, ...args: xdr.ScVal[]
   return (sim as rpc.Api.SimulateTransactionSuccessResponse).result!.retval
 }
 
-async function fetchContractStorage(contractId: string, keySymbol: string): Promise<xdr.ScVal | null> {
+async function fetchContractStorage(
+  contractId: string,
+  keySymbol: string
+): Promise<xdr.ScVal | null> {
   if (IS_E2E) {
     const s = e2eState()
     if (keySymbol === "TreasuryFeeBps") return u32Val(s.treasuryFeeBps ?? 100)
@@ -774,15 +790,18 @@ async function fetchContractStorage(contractId: string, keySymbol: string): Prom
     const response = await server.getLedgerEntries(ledgerKey)
     if (response.entries && response.entries.length > 0) {
       const entry = response.entries[0]
-      
+
       // Type guard for LedgerEntryResult to safely access xdr
       let rawXdr = ""
-      
+
       if (entry && typeof entry === "object") {
         if ("xdr" in entry) {
           rawXdr = entry.xdr as string
-        } else if (entry.val && typeof (entry.val as any).toXDR === "function") {
-          rawXdr = (entry.val as any).toXDR("base64")
+        } else if (
+          entry.val &&
+          typeof (entry.val as unknown as { toXDR?: () => string }).toXDR === "function"
+        ) {
+          rawXdr = (entry.val as unknown as { toXDR: (encoding: string) => string }).toXDR("base64")
         }
       }
       if (!rawXdr) return null
@@ -872,9 +891,8 @@ export async function fetchRotationalState(
     fetchContractStorage(contractId, "RelayerFeeBps"),
   ])
 
-  const members = activeVal.switch().name !== "scvBool"
-    ? []
-    : membersVal.vec()?.map(scValToString) ?? []
+  const members =
+    activeVal.switch().name !== "scvBool" ? [] : (membersVal.vec()?.map(scValToString) ?? [])
 
   let hasDeposited = false
   if (userAddress) {
@@ -905,7 +923,8 @@ export async function fetchRotationalState(
     }
   }
 
-  const treasuryFeeBps = treasurySc && treasurySc.switch().name === "scvU32" ? treasurySc.u32() : null
+  const treasuryFeeBps =
+    treasurySc && treasurySc.switch().name === "scvU32" ? treasurySc.u32() : null
   const relayerFeeBps = relayerSc && relayerSc.switch().name === "scvU32" ? relayerSc.u32() : null
 
   return {
@@ -988,10 +1007,7 @@ export async function fetchContractEvents(
     if (!topics.length) continue
 
     // First topic is always the event name symbol
-    const topicName =
-      topics[0].switch().name === "scvSymbol"
-        ? topics[0].sym().toString()
-        : null
+    const topicName = topics[0].switch().name === "scvSymbol" ? topics[0].sym().toString() : null
     if (!topicName) continue
 
     // Second topic (optional) is the address
@@ -1042,9 +1058,7 @@ export async function fetchContractEvents(
   }
 
   // Most-recent first
-  return events.sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )
+  return events.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
 export async function fetchFlexibleState(
@@ -1205,6 +1219,31 @@ export function useRemovePoolMember(contractId: string) {
   return { removeMember, isLoading }
 }
 
+export function useLeavePool(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const leavePool = async (): Promise<string | undefined> => {
+    if (!kit || !address || !contractId) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(new Contract(normalizeId(contractId)).call("leave_pool", addressVal(address)))
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { leavePool, isLoading }
+}
+
 export function usePausePool(contractId: string) {
   const { kit, address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)
@@ -1324,4 +1363,3 @@ export function useBumpPoolState(contractId: string) {
 
   return { bumpPoolState, isLoading }
 }
-

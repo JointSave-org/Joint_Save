@@ -1,8 +1,11 @@
-import { supabase, savePoolToDatabase } from '@/lib/supabase'
-import { NextRequest, NextResponse } from 'next/server'
+import { supabase, savePoolToDatabase } from "@/lib/supabase"
+import { NextRequest, NextResponse } from "next/server"
+import { readLimiter, writeLimiter } from "@/lib/rate-limit"
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = writeLimiter(req)
+    if (limited) return limited
     const body = await req.json()
 
     const {
@@ -27,9 +30,19 @@ export async function POST(req: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!name || !poolType || !creatorAddress || !poolAddress || !tokenAddress || !members?.length) {
+    if (
+      !name ||
+      !poolType ||
+      !creatorAddress ||
+      !poolAddress ||
+      !tokenAddress ||
+      !members?.length
+    ) {
       return NextResponse.json(
-        { error: 'Missing required fields. Need: name, poolType, creatorAddress, poolAddress, tokenAddress, members' },
+        {
+          error:
+            "Missing required fields. Need: name, poolType, creatorAddress, poolAddress, tokenAddress, members",
+        },
         { status: 400 }
       )
     }
@@ -56,18 +69,15 @@ export async function POST(req: NextRequest) {
     })
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.error || 'Failed to save pool' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: result.error || "Failed to save pool" }, { status: 500 })
     }
 
     // Log the pool creation activity with tx hash
     if (txHash && result.poolId) {
-      await supabase.from('pool_activity').insert([
+      await supabase.from("pool_activity").insert([
         {
           pool_id: result.poolId,
-          activity_type: 'pool_created',
+          activity_type: "pool_created",
           user_address: creatorAddress.toLowerCase(),
           description: `${poolType} pool created`,
           tx_hash: txHash,
@@ -77,9 +87,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result.pool, { status: 201 })
   } catch (error) {
-    console.error('Pool creation error:', error)
+    console.error("Pool creation error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     )
   }
@@ -87,15 +97,18 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const poolId = req.nextUrl.searchParams.get('id')
-    const creatorAddress = req.nextUrl.searchParams.get('creator')
-    const contractAddress = req.nextUrl.searchParams.get('contract')
+    const limited = readLimiter(req)
+    if (limited) return limited
+    const poolId = req.nextUrl.searchParams.get("id")
+    const creatorAddress = req.nextUrl.searchParams.get("creator")
+    const contractAddress = req.nextUrl.searchParams.get("contract")
 
     if (poolId) {
       // Fetch single pool by ID
       const { data, error } = await supabase
-        .from('pools')
-        .select(`
+        .from("pools")
+        .select(
+          `
           *,
           pool_members (
             id,
@@ -112,23 +125,22 @@ export async function GET(req: NextRequest) {
             created_at,
             tx_hash
           )
-        `)
-        .eq('id', poolId)
+        `
+        )
+        .eq("id", poolId)
         .single()
 
       if (error) {
-        return NextResponse.json(
-          { error: 'Pool not found' },
-          { status: 404 }
-        )
+        return NextResponse.json({ error: "Pool not found" }, { status: 404 })
       }
 
       return NextResponse.json(data)
     } else if (contractAddress) {
       // Fetch single pool by contract address
       const { data, error } = await supabase
-        .from('pools')
-        .select(`
+        .from("pools")
+        .select(
+          `
           *,
           pool_members (
             id,
@@ -145,29 +157,27 @@ export async function GET(req: NextRequest) {
             created_at,
             tx_hash
           )
-        `)
-        .eq('contract_address', contractAddress)
+        `
+        )
+        .eq("contract_address", contractAddress)
         .single()
 
       if (error) {
-        return NextResponse.json(
-          { error: 'Pool not found' },
-          { status: 404 }
-        )
+        return NextResponse.json({ error: "Pool not found" }, { status: 404 })
       }
 
       return NextResponse.json(data)
     } else if (creatorAddress) {
       const PAGE_SIZE = 6
-      const page = Math.max(0, parseInt(req.nextUrl.searchParams.get('page') || '0', 10))
+      const page = Math.max(0, parseInt(req.nextUrl.searchParams.get("page") || "0", 10))
       const from = page * PAGE_SIZE
       const to = from + PAGE_SIZE - 1
 
       const { data, error, count } = await supabase
-        .from('pools')
-        .select('*', { count: 'exact' })
-        .eq('creator_address', creatorAddress.toLowerCase())
-        .order('created_at', { ascending: false })
+        .from("pools")
+        .select("*", { count: "exact" })
+        .eq("creator_address", creatorAddress.toLowerCase())
+        .order("created_at", { ascending: false })
         .range(from, to)
 
       if (error) {
@@ -175,17 +185,17 @@ export async function GET(req: NextRequest) {
       }
 
       return NextResponse.json({ data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE })
-    } else if (req.nextUrl.searchParams.get('explore') !== null) {
+    } else if (req.nextUrl.searchParams.get("explore") !== null) {
       // Explore feed — all pools, paginated, newest first, for prospective members.
       const PAGE_SIZE = 6
-      const page = Math.max(0, parseInt(req.nextUrl.searchParams.get('page') || '0', 10))
+      const page = Math.max(0, parseInt(req.nextUrl.searchParams.get("page") || "0", 10))
       const from = page * PAGE_SIZE
       const to = from + PAGE_SIZE - 1
 
       const { data, error, count } = await supabase
-        .from('pools')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
+        .from("pools")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
         .range(from, to)
 
       if (error) {
@@ -196,9 +206,9 @@ export async function GET(req: NextRequest) {
     } else {
       // Fetch all pools
       const { data, error } = await supabase
-        .from('pools')
-        .select('*')
-        .order('created_at', { ascending: false })
+        .from("pools")
+        .select("*")
+        .order("created_at", { ascending: false })
         .limit(50)
 
       if (error) {
@@ -208,9 +218,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(data || [])
     }
   } catch (error) {
-    console.error('Pool fetch error:', error)
+    console.error("Pool fetch error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     )
   }
@@ -218,44 +228,48 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const limited = writeLimiter(req)
+    if (limited) return limited
     const body = await req.json()
-    const poolId = req.nextUrl.searchParams.get('id') || body.id
+    const poolId = req.nextUrl.searchParams.get("id") || body.id
 
     if (!poolId) {
-      return NextResponse.json({ error: 'Pool ID required' }, { status: 400 })
+      return NextResponse.json({ error: "Pool ID required" }, { status: 400 })
     }
 
     // If body contains an `activity` object, log it to pool_activity
     if (body.activity) {
       const { activity_type, user_address, amount, tx_hash } = body.activity
-      const { error: actErr } = await supabase.from('pool_activity').insert([{
-        pool_id: poolId,
-        activity_type,
-        user_address: user_address?.toLowerCase() || null,
-        amount: amount || null,
-        tx_hash: tx_hash || null,
-        description: `${activity_type} transaction`,
-      }])
-      if (actErr) console.error('Activity log error:', actErr)
+      const { error: actErr } = await supabase.from("pool_activity").insert([
+        {
+          pool_id: poolId,
+          activity_type,
+          user_address: user_address?.toLowerCase() || null,
+          amount: amount || null,
+          tx_hash: tx_hash || null,
+          description: `${activity_type} transaction`,
+        },
+      ])
+      if (actErr) console.error("Activity log error:", actErr)
 
       // Synchronize database pool_members table with on-chain membership changes
-      if (activity_type === 'member_added' && body.memberAddress) {
-        const { error: addErr } = await supabase
-          .from('pool_members')
-          .insert([{
+      if (activity_type === "member_added" && body.memberAddress) {
+        const { error: addErr } = await supabase.from("pool_members").insert([
+          {
             pool_id: poolId,
             member_address: body.memberAddress.toLowerCase(),
             contribution_amount: 0,
-            status: 'pending',
-          }])
-        if (addErr) console.error('Failed to add member in DB:', addErr)
-      } else if (activity_type === 'member_removed' && body.memberAddress) {
+            status: "pending",
+          },
+        ])
+        if (addErr) console.error("Failed to add member in DB:", addErr)
+      } else if (activity_type === "member_removed" && body.memberAddress) {
         const { error: remErr } = await supabase
-          .from('pool_members')
+          .from("pool_members")
           .delete()
-          .eq('pool_id', poolId)
-          .eq('member_address', body.memberAddress.toLowerCase())
-        if (remErr) console.error('Failed to remove member in DB:', remErr)
+          .eq("pool_id", poolId)
+          .eq("member_address", body.memberAddress.toLowerCase())
+        if (remErr) console.error("Failed to remove member in DB:", remErr)
       }
 
       return NextResponse.json({ success: true })
@@ -264,21 +278,21 @@ export async function PATCH(req: NextRequest) {
     // Otherwise update pool fields
     const { id: _id, activity: _activity, ...updateFields } = body
     const { data, error } = await supabase
-      .from('pools')
+      .from("pools")
       .update(updateFields)
-      .eq('id', poolId)
+      .eq("id", poolId)
       .select()
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to update pool' }, { status: 500 })
+      return NextResponse.json({ error: "Failed to update pool" }, { status: 500 })
     }
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Pool update error:', error)
+    console.error("Pool update error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     )
   }

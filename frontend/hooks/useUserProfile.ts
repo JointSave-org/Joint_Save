@@ -16,6 +16,7 @@ export interface UserProfile {
   wallet_address: string
   email: string | null
   notification_preferences: NotificationPreferences
+  muted_pools: string[]
 }
 
 const DEFAULT_PREFS: NotificationPreferences = {
@@ -35,29 +36,48 @@ export function useUserProfile(walletAddress: string | null) {
     if (!walletAddress || IS_E2E) {
       setProfile(
         walletAddress
-          ? { wallet_address: walletAddress.toLowerCase(), email: null, notification_preferences: DEFAULT_PREFS }
+          ? {
+              wallet_address: walletAddress.toLowerCase(),
+              email: null,
+              notification_preferences: DEFAULT_PREFS,
+              muted_pools: [],
+            }
           : null
       )
       return
     }
+
     setLoading(true)
-    const res = await fetch(`/api/user-profile?wallet=${encodeURIComponent(walletAddress.toLowerCase())}`)
+    const res = await fetch(
+      `/api/user-profile?wallet=${encodeURIComponent(walletAddress.toLowerCase())}`
+    )
     const data = res.ok ? await res.json() : null
     setProfile(
-      data ?? { wallet_address: walletAddress.toLowerCase(), email: null, notification_preferences: DEFAULT_PREFS }
+      data ?? {
+        wallet_address: walletAddress.toLowerCase(),
+        email: null,
+        notification_preferences: DEFAULT_PREFS,
+        muted_pools: [],
+      }
     )
+
     setLoading(false)
   }, [walletAddress])
 
-  useEffect(() => { fetchProfile() }, [fetchProfile])
+  useEffect(() => {
+    fetchProfile()
+  }, [fetchProfile])
 
   const saveProfile = useCallback(
-    async (updates: Partial<Pick<UserProfile, "email" | "notification_preferences">>) => {
+    async (
+      updates: Partial<Pick<UserProfile, "email" | "notification_preferences" | "muted_pools">>
+    ) => {
       if (!walletAddress) return
       if (IS_E2E) {
-        setProfile((prev) => (prev ? { ...prev, ...updates } : null))
+        setProfile((prev: UserProfile | null) => (prev ? { ...prev, ...updates } : null))
         return
       }
+
       setSaving(true)
       await fetch("/api/user-profile", {
         method: "POST",

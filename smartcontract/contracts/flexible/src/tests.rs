@@ -56,6 +56,43 @@ fn test_token_decimals_recorded() {
 }
 
 #[test]
+#[should_panic(expected = "duplicate member address")]
+fn test_initialize_rejects_duplicate_member() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, FlexiblePool);
+    let client = FlexiblePoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    // member_a appears twice — distribute_yield iterates the raw members
+    // vec, so a duplicate slot would grant member_a a double yield share.
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+    members.push_back(member_a.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &10i128,
+        &0u32,
+        &false,
+        &treasury,
+        &0u32,
+    );
+}
+
+#[test]
 #[should_panic(expected = "below minimum deposit")]
 fn test_minimum_deposit_rejection() {
     let env = Env::default();
@@ -376,6 +413,101 @@ fn test_remove_member_fails_when_paused() {
     let (client, _token, admin, _treasury, member_a, _member_b) = setup_pool(&env, false);
     client.pause(&admin);
     client.remove_member(&admin, &member_a);
+}
+
+#[test]
+fn test_leave_pool_non_admin_member_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, member_a, member_b) = setup_pool(&env, false);
+    let member_c = Address::generate(&env);
+
+    client.add_member(&admin, &member_c);
+
+    // member_b leaves (not admin, pool has 3 members)
+    client.leave_pool(&member_b);
+
+    assert_eq!(client.members().len(), 2);
+    let remaining = client.members();
+    assert_eq!(remaining.get(0).unwrap(), member_a);
+    assert_eq!(remaining.get(1).unwrap(), member_c);
+}
+
+#[test]
+fn test_leave_pool_refunds_balance() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token_address, admin, _treasury, _member_a, member_b) = setup_pool(&env, false);
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+    let token_iface = token::Client::new(&env, &token_address);
+    let member_c = Address::generate(&env);
+
+    client.add_member(&admin, &member_c);
+
+    token_client.mint(&member_b, &150i128);
+    client.deposit(&member_b, &150i128);
+
+    client.leave_pool(&member_b);
+
+    assert_eq!(token_iface.balance(&member_b), 150);
+    assert_eq!(client.balance_of(&member_b), 0);
+    assert_eq!(client.total_balance(), 0);
+    assert_eq!(client.members().len(), 2);
+}
+
+#[test]
+fn test_leave_pool_admin_can_leave_as_regular_member() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, FlexiblePool);
+    let client = FlexiblePoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    // admin is also a member
+    let mut members = Vec::new(&env);
+    members.push_back(admin.clone());
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(&token_address, &admin, &members, &10i128, &0u32, &false, &treasury, &0u32);
+
+    // Admin leaves — leave_pool has no admin restriction
+    client.leave_pool(&admin);
+
+    assert_eq!(client.members().len(), 2);
+}
+
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_leave_pool_panics_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, _member_a, member_b) = setup_pool(&env, false);
+    client.pause(&admin);
+    client.leave_pool(&member_b);
+}
+
+#[test]
+#[should_panic(expected = "need >=1 members")]
+fn test_leave_pool_panics_when_only_one_member() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, member_a, member_b) = setup_pool(&env, false);
+
+    // admin removes member_b, leaving only member_a
+    client.remove_member(&admin, &member_b);
+
+    // member_a is the last member — leave would drop to 0
+    client.leave_pool(&member_a);
 }
 
 #[test]

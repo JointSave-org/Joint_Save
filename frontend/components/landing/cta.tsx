@@ -28,14 +28,22 @@ export function CTA() {
               Join communities worldwide building financial trust onchain with Stellar
             </p>
             {isConnected ? (
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 h-14" asChild>
+              <Button
+                size="lg"
+                className="bg-primary hover:bg-primary/90 text-lg px-8 h-14"
+                asChild
+              >
                 <Link href="/dashboard">
                   Launch App
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
             ) : (
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 h-14" onClick={connect}>
+              <Button
+                size="lg"
+                className="bg-primary hover:bg-primary/90 text-lg px-8 h-14"
+                onClick={connect}
+              >
                 Connect Wallet
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>

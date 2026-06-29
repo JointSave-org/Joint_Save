@@ -41,6 +41,7 @@ impl FlexiblePool {
         treasury_fee_bps: u32,
     ) {
         assert!(members.len() >= 2, "need >=2 members");
+        assert!(!Self::has_duplicate_members(&members), "duplicate member address");
         assert!(minimum_deposit > 0, "minimum must be > 0");
 
         // Validate the token is a real SEP-41 contract by reading its decimals
@@ -230,6 +231,44 @@ impl FlexiblePool {
 
         Self::bump_config_state_internal(&env);
 
+        env.events()
+            .publish((symbol_short!("rem_mem"), member), balance);
+    }
+
+    pub fn leave_pool(env: Env, member: Address) {
+        member.require_auth();
+
+        let storage = env.storage().persistent();
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(Self::is_member(&members, &member), "not a member");
+        assert!(members.len() > 1, "need >=1 members");
+
+        let balance: i128 = storage.get(&DataKey::Balance(member.clone())).unwrap_or(0);
+        if balance > 0 {
+            let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+            token::Client::new(&env, &token_addr).transfer(
+                &env.current_contract_address(),
+                &member,
+                &balance,
+            );
+
+            let total: i128 = storage.get(&DataKey::TotalBalance).unwrap();
+            storage.set(&DataKey::TotalBalance, &(total - balance));
+            storage.set(&DataKey::Balance(member.clone()), &0i128);
+        }
+
+        let mut updated_members: Vec<Address> = Vec::new(&env);
+        for existing in members.iter() {
+            if existing != member {
+                updated_members.push_back(existing);
+            }
+        }
+
+        storage.set(&DataKey::Members, &updated_members);
+        Self::bump_config_state_internal(&env);
         env.events()
             .publish((symbol_short!("rem_mem"), member), balance);
     }
@@ -483,6 +522,20 @@ impl FlexiblePool {
         for m in members.iter() {
             if m == *who {
                 return true;
+            }
+        }
+        false
+    }
+
+    /// O(n^2) pairwise scan — member lists are small, so this is cheaper
+    /// than maintaining a separate index just to dedupe at init time.
+    fn has_duplicate_members(members: &Vec<Address>) -> bool {
+        for i in 0..members.len() {
+            let a = members.get(i).unwrap();
+            for j in (i + 1)..members.len() {
+                if a == members.get(j).unwrap() {
+                    return true;
+                }
             }
         }
         false

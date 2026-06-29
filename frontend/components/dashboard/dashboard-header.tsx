@@ -24,20 +24,16 @@ import { useNotifications } from "@/hooks/useNotifications"
 import { formatRelativeTime } from "@/lib/utils"
 
 export function DashboardHeader() {
-  const { address, walletId, disconnect } = useStellar()
+  const { address, disconnect } = useStellar()
   const router = useRouter()
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
   const { recentPools } = useRecentPools(address)
   const { notifications, initialLoading, unreadCount, markAllRead } = useNotifications(address)
 
-  const truncatedAddress = address
-    ? `${address.slice(0, 4)}...${address.slice(-4)}`
-    : ""
+  const truncatedAddress = address ? `${address.slice(0, 4)}...${address.slice(-4)}` : ""
 
-  const explorerUrl = address
-    ? `https://stellar.expert/explorer/testnet/account/${address}`
-    : "#"
+  const explorerUrl = address ? `https://stellar.expert/explorer/testnet/account/${address}` : "#"
 
   const handleDisconnect = () => {
     disconnect()
@@ -71,7 +67,11 @@ export function DashboardHeader() {
 
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             <span className="text-xs text-muted-foreground hidden md:block">
-              Press <kbd className="rounded-sm border border-border bg-muted px-1 font-sans text-[10px] font-medium">?</kbd> for shortcuts
+              Press{" "}
+              <kbd className="rounded-sm border border-border bg-muted px-1 font-sans text-[10px] font-medium">
+                ?
+              </kbd>{" "}
+              for shortcuts
             </span>
             <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
               <Link href="/explore">Explore</Link>
@@ -80,9 +80,18 @@ export function DashboardHeader() {
 
             {/* Notification bell — only shown when wallet is connected */}
             {address && (
-              <DropdownMenu onOpenChange={(open) => { if (open && unreadCount > 0) markAllRead() }}>
+              <DropdownMenu
+                onOpenChange={(open) => {
+                  if (open && unreadCount > 0) markAllRead()
+                }}
+              >
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative"
+                    aria-label="Notifications"
+                  >
                     <Bell className="h-5 w-5" />
                     {unreadCount > 0 && (
                       <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
@@ -113,8 +122,13 @@ export function DashboardHeader() {
                         asChild={!!n.pool_id}
                       >
                         {n.pool_id ? (
-                          <Link href={`/dashboard/group/${n.pool_id}`} className="w-full cursor-pointer">
-                            <span className={`block text-sm leading-snug ${!n.read ? "font-medium" : "text-muted-foreground"}`}>
+                          <Link
+                            href={`/dashboard/group/${n.pool_id}`}
+                            className="w-full cursor-pointer"
+                          >
+                            <span
+                              className={`block text-sm leading-snug ${!n.read ? "font-medium" : "text-muted-foreground"}`}
+                            >
                               {n.message}
                             </span>
                             <span className="text-[11px] text-muted-foreground">
@@ -123,7 +137,9 @@ export function DashboardHeader() {
                           </Link>
                         ) : (
                           <>
-                            <span className={`text-sm leading-snug ${!n.read ? "font-medium" : "text-muted-foreground"}`}>
+                            <span
+                              className={`text-sm leading-snug ${!n.read ? "font-medium" : "text-muted-foreground"}`}
+                            >
                               {n.message}
                             </span>
                             <span className="text-[11px] text-muted-foreground">
@@ -137,7 +153,10 @@ export function DashboardHeader() {
                   {!initialLoading && notifications.length > 0 && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild className="justify-center text-sm font-medium text-primary cursor-pointer">
+                      <DropdownMenuItem
+                        asChild
+                        className="justify-center text-sm font-medium text-primary cursor-pointer"
+                      >
                         <Link href="/dashboard/notifications">View all notifications</Link>
                       </DropdownMenuItem>
                     </>
@@ -193,7 +212,11 @@ export function DashboardHeader() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleCopyAddress}>
-                    {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                    {copied ? (
+                      <Check className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Copy className="mr-2 h-4 w-4" />
+                    )}
                     {copied ? "Copied" : "Copy Address"}
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

@@ -8,17 +8,25 @@ import { Textarea } from "@/components/ui/textarea"
 import { Plus, X, Loader2, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useStellar } from "@/components/web3-provider"
-import { useDeployPool, useInitializePool, useRegisterPool, resolveTokenAddress } from "@/hooks/useJointSaveContracts"
+import {
+  useDeployPool,
+  useInitializePool,
+  useRegisterPool,
+  resolveTokenAddress,
+} from "@/hooks/useJointSaveContracts"
 import { TokenSelect, type SelectedToken } from "@/components/create-group/token-select"
 import { FieldTooltip } from "@/components/ui/field-tooltip"
 import { FieldError } from "@/components/ui/form"
 import { FormProgress, type ProgressField } from "@/components/ui/form-progress"
+import BulkImport from "@/components/create-group/BulkImport"
 import {
   validateGroupName,
   validateStellarAddress,
   validatePositiveAmount,
   validateWithdrawalFee,
+  findDuplicateAddresses,
 } from "@/lib/form-validation"
+import { MAX_POOL_MEMBERS } from "@/lib/constants"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -32,13 +40,22 @@ type Touched = Partial<Record<"name" | "minimumDeposit" | "withdrawalFee", boole
 export function FlexibleForm() {
   const router = useRouter()
   const { address } = useStellar()
-  const [token, setToken] = useState<SelectedToken>({ address: "native", symbol: "XLM", decimals: 7 })
+  const [token, setToken] = useState<SelectedToken>({
+    address: "native",
+    symbol: "XLM",
+    decimals: 7,
+  })
   const [members, setMembers] = useState<string[]>([""])
-  const [memberErrors, setMemberErrors] = useState<string[]>([""])
   const [error, setError] = useState("")
-  const [step, setStep] = useState<"idle" | "deploying" | "initializing" | "registering" | "saving">("idle")
+  const [step, setStep] = useState<
+    "idle" | "deploying" | "initializing" | "registering" | "saving"
+  >("idle")
   const [formData, setFormData] = useState({
-    name: "", description: "", minimumDeposit: "", enableYield: false, withdrawalFee: "1",
+    name: "",
+    description: "",
+    minimumDeposit: "",
+    enableYield: false,
+    withdrawalFee: "1",
   })
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Touched>({})
@@ -54,12 +71,24 @@ export function FlexibleForm() {
 
   const allMembers = address ? [address, ...members] : members
   const validMembers = Array.from(new Set(allMembers.filter(isValidStellarAddress)))
+  const duplicateIndices = findDuplicateAddresses(allMembers)
+  const memberErrors = members.map((m, i) => {
+    if (!m) return ""
+    const format = validateStellarAddress(m)
+    if (!format.valid) return format.message
+    const allMembersIndex = address ? i + 1 : i
+    return duplicateIndices.has(allMembersIndex)
+      ? "Duplicate address — already in this pool's member list"
+      : ""
+  })
   const isCreating = step !== "idle"
+  const isMemberLimitReached = members.length >= MAX_POOL_MEMBERS
 
   const validateField = useCallback((name: keyof FieldErrors, value: string) => {
     let message = ""
     if (name === "name") message = validateGroupName(value).message
-    else if (name === "minimumDeposit") message = validatePositiveAmount(value, "Minimum deposit").message
+    else if (name === "minimumDeposit")
+      message = validatePositiveAmount(value, "Minimum deposit").message
     else if (name === "withdrawalFee") message = validateWithdrawalFee(value).message
     setFieldErrors((prev) => ({ ...prev, [name]: message }))
   }, [])
@@ -70,16 +99,17 @@ export function FlexibleForm() {
   }
 
   const updateMember = (i: number, v: string) => {
-    const n = [...members]; n[i] = v; setMembers(n)
-    const errs = [...memberErrors]
-    errs[i] = v ? (validateStellarAddress(v).valid ? "" : validateStellarAddress(v).message) : ""
-    setMemberErrors(errs)
+    const n = [...members]
+    n[i] = v
+    setMembers(n)
   }
 
-  const addMember = () => { setMembers([...members, ""]); setMemberErrors([...memberErrors, ""]) }
+  const addMember = () => {
+    if (isMemberLimitReached) return
+    setMembers([...members, ""])
+  }
   const removeMember = (i: number) => {
     setMembers(members.filter((_, idx) => idx !== i))
-    setMemberErrors(memberErrors.filter((_, idx) => idx !== i))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,7 +127,12 @@ export function FlexibleForm() {
     })
 
     if (!address) return setError("Please connect your wallet first")
-    if (validMembers.length < 2) return setError("Need at least 2 valid Stellar addresses (you + 1 other)")
+    if (duplicateIndices.size > 0)
+      return setError(
+        "Duplicate member addresses found — please remove duplicates before continuing"
+      )
+    if (validMembers.length < 2)
+      return setError("Need at least 2 valid Stellar addresses (you + 1 other)")
     if (!nameResult.valid || !depositResult.valid || !feeResult.valid) return
 
     try {
@@ -123,8 +158,8 @@ export function FlexibleForm() {
       setStep("registering")
       try {
         await register(address, contractId)
-      } catch (regErr: any) {
-        console.warn("Factory registration skipped:", regErr.message)
+      } catch (regErr: unknown) {
+        console.warn("Factory registration skipped:", (regErr as Error).message)
       }
 
       setStep("saving")
@@ -149,8 +184,8 @@ export function FlexibleForm() {
       if (!res.ok) throw new Error("Failed to save pool metadata")
       const pool = await res.json()
       router.push(`/dashboard/group/${pool.id}`)
-    } catch (err: any) {
-      setError(err.message || "Failed to create group")
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to create group")
       setStep("idle")
     }
   }
@@ -165,7 +200,10 @@ export function FlexibleForm() {
 
   const progressFields: ProgressField[] = [
     { label: "Group name", valid: validateGroupName(formData.name).valid },
-    { label: "Minimum deposit", valid: validatePositiveAmount(formData.minimumDeposit, "Amount").valid },
+    {
+      label: "Minimum deposit",
+      valid: validatePositiveAmount(formData.minimumDeposit, "Amount").valid,
+    },
     { label: "Withdrawal fee", valid: validateWithdrawalFee(formData.withdrawalFee).valid },
     { label: "Members (2+)", valid: validMembers.length >= 2 },
   ]
@@ -173,7 +211,10 @@ export function FlexibleForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div ref={errorRef} className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
+        <div
+          ref={errorRef}
+          className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive"
+        >
           <AlertCircle className="h-5 w-5 shrink-0" />
           <p className="text-sm">{error}</p>
         </div>
@@ -195,7 +236,9 @@ export function FlexibleForm() {
             tooltip="A name for your flexible savings pool — e.g. 'Emergency Fund'. Visible to all members."
             required
           />
-          <span className={`text-xs tabular-nums ${formData.name.length > 45 ? "text-destructive" : "text-muted-foreground"}`}>
+          <span
+            className={`text-xs tabular-nums ${formData.name.length > 45 ? "text-destructive" : "text-muted-foreground"}`}
+          >
             {formData.name.length}/50
           </span>
         </div>
@@ -220,7 +263,9 @@ export function FlexibleForm() {
             label="Description"
             tooltip="Optional notes about this pool's purpose, deposit rules, or any agreements between members."
           />
-          <span className={`text-xs tabular-nums ${formData.description.length > 270 ? "text-destructive" : "text-muted-foreground"}`}>
+          <span
+            className={`text-xs tabular-nums ${formData.description.length > 270 ? "text-destructive" : "text-muted-foreground"}`}
+          >
             {formData.description.length}/300
           </span>
         </div>
@@ -294,7 +339,9 @@ export function FlexibleForm() {
             label="Enable Yield Generation"
             tooltip="When enabled, idle funds are staked in Stellar DeFi protocols to earn passive income for the pool. Members share the yield proportionally."
           />
-          <p className="text-sm text-muted-foreground">Stake idle funds in Stellar DeFi protocols for passive income</p>
+          <p className="text-sm text-muted-foreground">
+            Stake idle funds in Stellar DeFi protocols for passive income
+          </p>
         </div>
         <input
           id="yield"
@@ -312,19 +359,39 @@ export function FlexibleForm() {
             tooltip="Add the public Stellar address (starts with G) for each person joining this pool. You are automatically included."
             required
           />
-          <Button type="button" variant="outline" size="sm" onClick={addMember}>
-            <Plus className="h-4 w-4 mr-1" />Add Member
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addMember}
+            disabled={isMemberLimitReached}
+            aria-describedby={isMemberLimitReached ? "flexible-member-limit" : undefined}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Member
           </Button>
         </div>
+        {isMemberLimitReached && (
+          <p id="flexible-member-limit" className="text-xs text-muted-foreground">
+            Maximum of {MAX_POOL_MEMBERS} members reached
+          </p>
+        )}
 
         <div className="space-y-3">
           <div className="space-y-1">
             <div className="flex gap-2 items-center">
-              <Input value={address || "Connect your wallet"} readOnly disabled className="font-mono text-xs opacity-70" />
+              <Input
+                value={address || "Connect your wallet"}
+                readOnly
+                disabled
+                className="font-mono text-xs opacity-70"
+              />
               <span className="text-xs text-muted-foreground whitespace-nowrap">You</span>
             </div>
             {!address && (
-              <p className="text-xs text-amber-600">Connect your wallet to be included as a member</p>
+              <p className="text-xs text-amber-600">
+                Connect your wallet to be included as a member
+              </p>
             )}
           </div>
 
@@ -335,7 +402,13 @@ export function FlexibleForm() {
                   placeholder="G... (56-character Stellar address)"
                   value={member}
                   onChange={(e) => updateMember(i, e.target.value)}
-                  className={memberErrors[i] ? "border-destructive" : member && isValidStellarAddress(member) ? "border-green-500" : ""}
+                  className={
+                    memberErrors[i]
+                      ? "border-destructive"
+                      : member && isValidStellarAddress(member)
+                        ? "border-green-500"
+                        : ""
+                  }
                 />
                 {members.length > 1 && (
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)}>
@@ -351,7 +424,9 @@ export function FlexibleForm() {
           ))}
 
           {validMembers.length < 2 && members.some((m) => m) && (
-            <p className="text-xs text-muted-foreground">At least 2 valid members are required (you + 1 other)</p>
+            <p className="text-xs text-muted-foreground">
+              At least 2 valid members are required (you + 1 other)
+            </p>
           )}
         </div>
       </div>
@@ -366,9 +441,16 @@ export function FlexibleForm() {
             <li>Yield Generation: {formData.enableYield ? "Enabled" : "Disabled"}</li>
           </ul>
         </div>
-        <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isCreating}>
+        <Button
+          type="submit"
+          className="w-full bg-primary hover:bg-primary/90"
+          disabled={isCreating}
+        >
           {isCreating ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{stepLabel[step]}</>
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {stepLabel[step]}
+            </>
           ) : (
             "Create Flexible Pool"
           )}

@@ -43,28 +43,31 @@ export default function NotificationsPage() {
     [router, searchParams]
   )
 
-  const loadNotifications = useCallback(async (currentPage: number) => {
-    if (!address) {
-      setLoading(false)
-      return
-    }
-    try {
-      setLoading(true)
-      setError("")
-      const res = await fetch(
-        `/api/notifications?wallet=${encodeURIComponent(address.toLowerCase())}&page=${currentPage}`
-      )
-      if (!res.ok) throw new Error("Failed to fetch notifications")
-      const json = await res.json()
-      setNotifications(json.data ?? [])
-      setTotal(json.total ?? 0)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch notifications")
-      setNotifications([])
-    } finally {
-      setLoading(false)
-    }
-  }, [address])
+  const loadNotifications = useCallback(
+    async (currentPage: number) => {
+      if (!address) {
+        setLoading(false)
+        return
+      }
+      try {
+        setLoading(true)
+        setError("")
+        const res = await fetch(
+          `/api/notifications?wallet=${encodeURIComponent(address.toLowerCase())}&page=${currentPage}`
+        )
+        if (!res.ok) throw new Error("Failed to fetch notifications")
+        const json = await res.json()
+        setNotifications(json.data ?? [])
+        setTotal(json.total ?? 0)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to fetch notifications")
+        setNotifications([])
+      } finally {
+        setLoading(false)
+      }
+    },
+    [address]
+  )
 
   useEffect(() => {
     loadNotifications(page)
@@ -87,8 +90,8 @@ export default function NotificationsPage() {
             {isInitializing || loading
               ? "Loading your notifications…"
               : total === 0
-              ? "You're all caught up"
-              : `${total} notification${total !== 1 ? "s" : ""}`}
+                ? "You're all caught up"
+                : `${total} notification${total !== 1 ? "s" : ""}`}
           </p>
         </div>
 
@@ -120,7 +123,9 @@ export default function NotificationsPage() {
               {notifications.map((n) => {
                 const content = (
                   <>
-                    <span className={`block text-sm leading-snug ${!n.read ? "font-medium" : "text-muted-foreground"}`}>
+                    <span
+                      className={`block text-sm leading-snug ${!n.read ? "font-medium" : "text-muted-foreground"}`}
+                    >
                       {n.message}
                     </span>
                     <span className="text-[11px] text-muted-foreground">
@@ -145,8 +150,8 @@ export default function NotificationsPage() {
             {totalPages > 1 && (
               <div className="flex flex-col items-center gap-3 mt-6">
                 <p className="text-sm text-muted-foreground">
-                  Showing {page * PAGE_SIZE + 1}–
-                  {Math.min((page + 1) * PAGE_SIZE, total)} of {total} notifications
+                  Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of{" "}
+                  {total} notifications
                 </p>
                 <Pagination>
                   <PaginationContent>
@@ -154,11 +159,7 @@ export default function NotificationsPage() {
                       <PaginationPrevious
                         onClick={() => setPage(page - 1)}
                         aria-disabled={page === 0}
-                        className={
-                          page === 0
-                            ? "pointer-events-none opacity-50"
-                            : "cursor-pointer"
-                        }
+                        className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                       />
                     </PaginationItem>
                     <PaginationItem>

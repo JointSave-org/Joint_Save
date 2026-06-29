@@ -26,10 +26,15 @@ export function useNotifications(walletAddress: string | null) {
   }, [walletAddress])
 
   const loadNotifications = useCallback(async () => {
-    if (!walletAddress || IS_E2E) { setNotifications([]); return }
+    if (!walletAddress || IS_E2E) {
+      setNotifications([])
+      return
+    }
     setLoading(true)
     if (!hasLoadedOnce.current) setInitialLoading(true)
-    const res = await window.fetch(`/api/notifications?wallet=${encodeURIComponent(walletAddress.toLowerCase())}`)
+    const res = await window.fetch(
+      `/api/notifications?wallet=${encodeURIComponent(walletAddress.toLowerCase())}`
+    )
     const data = res.ok ? await res.json() : []
     setNotifications(data)
     setLoading(false)
@@ -54,14 +59,14 @@ export function useNotifications(walletAddress: string | null) {
           filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
         },
         (payload: RealtimePostgresInsertPayload<AppNotification>) => {
-          setNotifications((prev) =>
-            [payload.new as AppNotification, ...prev].slice(0, 10)
-          )
+          setNotifications((prev) => [payload.new as AppNotification, ...prev].slice(0, 10))
         }
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [walletAddress, loadNotifications])
 
   const markAllRead = useCallback(async () => {
@@ -76,5 +81,12 @@ export function useNotifications(walletAddress: string | null) {
 
   const unreadCount = notifications.filter((n) => !n.read).length
 
-  return { notifications, loading, initialLoading, unreadCount, markAllRead, refetch: loadNotifications }
+  return {
+    notifications,
+    loading,
+    initialLoading,
+    unreadCount,
+    markAllRead,
+    refetch: loadNotifications,
+  }
 }

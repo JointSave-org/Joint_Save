@@ -11,10 +11,7 @@ import {
 } from "@/components/ui/select"
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { FieldTooltip } from "@/components/ui/field-tooltip"
-import {
-  fetchTokenMetadata,
-  type TokenMetadata,
-} from "@/hooks/useJointSaveContracts"
+import { fetchTokenMetadata, type TokenMetadata } from "@/hooks/useJointSaveContracts"
 
 /** What the parent form needs to create a pool with the chosen token. */
 export interface SelectedToken {
@@ -33,11 +30,7 @@ const isValidContractId = (id: string) => /^C[A-Z2-7]{55}$/.test(id)
  * call and reports the resolved `SelectedToken` to the parent. The parent should
  * also seed its own state to native XLM so submit works without interaction.
  */
-export function TokenSelect({
-  onChange,
-}: {
-  onChange: (token: SelectedToken) => void
-}) {
+export function TokenSelect({ onChange }: { onChange: (token: SelectedToken) => void }) {
   const [mode, setMode] = useState<"native" | "custom">("native")
   const [customId, setCustomId] = useState("")
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle")
@@ -108,11 +101,7 @@ export function TokenSelect({
             }}
             onBlur={resolveCustom}
             className={
-              status === "error"
-                ? "border-destructive"
-                : status === "ok"
-                ? "border-green-500"
-                : ""
+              status === "error" ? "border-destructive" : status === "ok" ? "border-green-500" : ""
             }
           />
           {status === "loading" && (

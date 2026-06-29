@@ -5,13 +5,13 @@ End-to-end coverage for JointSave's critical user flows, built with
 
 ## What's covered
 
-| Spec | Flow |
-|------|------|
-| `create-pool.spec.ts` | Create each pool type (rotational / target / flexible) → redirect to the group page → read on-chain state back → pool appears in **My Groups** |
-| `deposit-flow.spec.ts` | Open a pool, deposit, see the submitted/confirming state, the updated balance, and a Deposit row in the activity feed |
-| `wallet-connection.spec.ts` | Connect wallet → truncated address renders → disconnect → back to the landing page |
-| `navigation.spec.ts` | Landing → dashboard → group detail → back, asserting no console errors |
-| `responsive.spec.ts` | Dashboard & group pages render with no horizontal overflow at 375 / 768 / 1440 px |
+| Spec                        | Flow                                                                                                                                           |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create-pool.spec.ts`       | Create each pool type (rotational / target / flexible) → redirect to the group page → read on-chain state back → pool appears in **My Groups** |
+| `deposit-flow.spec.ts`      | Open a pool, deposit, see the submitted/confirming state, the updated balance, and a Deposit row in the activity feed                          |
+| `wallet-connection.spec.ts` | Connect wallet → truncated address renders → disconnect → back to the landing page                                                             |
+| `navigation.spec.ts`        | Landing → dashboard → group detail → back, asserting no console errors                                                                         |
+| `responsive.spec.ts`        | Dashboard & group pages render with no horizontal overflow at 375 / 768 / 1440 px                                                              |
 
 ## How it works — mocked boundary + a test-gated seam
 

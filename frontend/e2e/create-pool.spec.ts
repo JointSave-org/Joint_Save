@@ -54,9 +54,7 @@ for (const c of cases) {
     await page.goto(`/dashboard/create/${c.type}`)
 
     // Heading confirms the right form rendered
-    await expect(
-      page.getByRole("heading", { name: new RegExp(c.type, "i") })
-    ).toBeVisible()
+    await expect(page.getByRole("heading", { name: new RegExp(c.type, "i") })).toBeVisible()
 
     await page.locator("#name").fill(c.name)
     await c.fill(page)
@@ -78,9 +76,7 @@ for (const c of cases) {
 
     // 3) Pool now appears in "My Groups"
     await page.goto("/dashboard")
-    await expect(
-      page.getByRole("heading", { name: "My Groups" })
-    ).toBeVisible()
+    await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
     await expect(page.getByText(c.name)).toBeVisible()
   })
 }

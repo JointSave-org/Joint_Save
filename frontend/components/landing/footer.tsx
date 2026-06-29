@@ -10,10 +10,10 @@ export function Footer() {
           <div className="col-span-1 md:col-span-2">
             <Link href="/" className="flex items-center gap-2 mb-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
-                <Image 
-                  src="/joint-save.jpg" 
-                  alt="JointSave Logo" 
-                  width={40} 
+                <Image
+                  src="/joint-save.jpg"
+                  alt="JointSave Logo"
+                  width={40}
                   height={40}
                   className="object-cover"
                 />
@@ -21,7 +21,8 @@ export function Footer() {
               <span className="text-xl font-bold">JointSave</span>
             </Link>
             <p className="text-muted-foreground max-w-md text-pretty">
-              Bringing community savings circles onchain. Save together, grow together — powered by Stellar.
+              Bringing community savings circles onchain. Save together, grow together — powered by
+              Stellar.
             </p>
           </div>
 
@@ -29,17 +30,26 @@ export function Footer() {
             <h3 className="font-semibold mb-4">Product</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Link
+                  href="#features"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
                   Features
                 </Link>
               </li>
               <li>
-                <Link href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Link
+                  href="#how-it-works"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
                   How It Works
                 </Link>
               </li>
               <li>
-                <Link href="#security" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Link
+                  href="#security"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
                   Security
                 </Link>
               </li>
