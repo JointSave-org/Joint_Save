@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   CheckCircle2,
   Clock,
@@ -19,6 +20,7 @@ import { usePoolData } from "@/lib/data-layer/PoolDataProvider";
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions";
 import { RotationalPoolState, fetchReputation, type ReputationScore } from "@/hooks/useJointSaveContracts";
 import { useToast } from "@/hooks/use-toast";
+import { countPendingMembers, filterPendingMembers } from "@/lib/member-filters";
 
 interface Member {
   id: string;
@@ -28,11 +30,20 @@ interface Member {
   joined_at: string;
 }
 
+
 interface GroupMembersProps {
   groupId: string;
   contractAddress?: string;
   poolType?: "rotational" | "target" | "flexible";
 }
+
+// Status-coded avatar tint so each member's deposit status reads at a glance,
+// matching the per-row status icon colors (green=paid, yellow=pending, red=late).
+const statusAvatarClass: Record<Member["status"], string> = {
+  paid: "bg-primary/10 text-primary",
+  pending: "bg-yellow-500/10 text-yellow-800 dark:text-yellow-300",
+  late: "bg-destructive/10 text-destructive",
+};
 
 export function GroupMembers({
   groupId,
@@ -55,6 +66,7 @@ export function GroupMembers({
 
   const [reputations, setReputations] = useState<Record<string, ReputationScore>>({});
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
 
   const handleCopyMemberAddress = async (address: string) => {
     try {
@@ -102,6 +114,10 @@ export function GroupMembers({
     optimisticState.pendingTx.type === "trigger_payout";
   const nextRecipient = getNextPayoutRecipient();
 
+  // Client-side "pending only" view derived from data already on the page (no fetching).
+  const pendingCount = countPendingMembers(members);
+  const visibleMembers = showPendingOnly ? filterPendingMembers(members) : members;
+
   if (isLoading && members.length === 0) {
     return (
       <Card className="p-6" aria-label="Loading members">
@@ -128,14 +144,44 @@ export function GroupMembers({
 
   return (
     <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-4">Members ({members.length})</h3>
+      <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold">Members ({members.length})</h3>
+          {members.length > 0 && (
+            <Badge variant="secondary" className="text-xs font-normal whitespace-nowrap tabular-nums">
+              {pendingCount} pending
+            </Badge>
+          )}
+        </div>
+        {members.length > 0 && (
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={showPendingOnly ? "pending" : "all"}
+            onValueChange={(v) => setShowPendingOnly(v === "pending")}
+            aria-label="Filter members by deposit status"
+          >
+            <ToggleGroupItem value="all" aria-label="Show all members">
+              Show all
+            </ToggleGroupItem>
+            <ToggleGroupItem value="pending" aria-label="Show pending members only">
+              Pending only
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}
+      </div>
       {members.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">
           No members yet
         </p>
+      ) : visibleMembers.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          Everyone has deposited
+        </p>
       ) : (
         <div className="space-y-3">
-          {members.map((member) => {
+          {visibleMembers.map((member) => {
             const isPendingPayout =
               isPayoutPending &&
               member.member_address.toUpperCase() === nextRecipient;
@@ -150,7 +196,7 @@ export function GroupMembers({
               >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-primary/10 text-primary">
+                    <AvatarFallback className={statusAvatarClass[member.status]}>
                       {member.member_address.slice(2, 4).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -190,13 +236,13 @@ export function GroupMembers({
                   {!isPendingPayout && (
                     <>
                       {member.status === "paid" && (
-                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                        <CheckCircle2 className="h-4 w-4 text-primary" role="img" aria-label="Paid" />
                       )}
                       {member.status === "pending" && (
-                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <Clock className="h-4 w-4 text-yellow-700 dark:text-yellow-400" role="img" aria-label="Pending" />
                       )}
                       {member.status === "late" && (
-                        <XCircle className="h-4 w-4 text-destructive" />
+                        <XCircle className="h-4 w-4 text-destructive" role="img" aria-label="Late" />
                       )}
                     </>
                   )}
