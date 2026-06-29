@@ -4,9 +4,15 @@ export default function PrivacyPage() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center p-6 text-center">
       <h1 className="mb-4 text-4xl font-bold tracking-tight">Privacy Policy</h1>
+<<<<<<< HEAD
       <p className="text-muted-foreground mb-8 max-w-md">
         We are currently drafting our official privacy policy. Please check back soon, or reach out
         to us if you have immediate questions.
+=======
+      <p className="mb-8 max-w-md text-muted-foreground">
+        We are currently drafting our official privacy policy. Please check back
+        soon, or reach out to us if you have immediate questions.
+>>>>>>> bca49214379953dd2abb4fa452eb28f060485d76
       </p>
       <Link
         href="/"
@@ -15,5 +21,9 @@ export default function PrivacyPage() {
         Return Home
       </Link>
     </div>
+<<<<<<< HEAD
   )
+=======
+  );
+>>>>>>> bca49214379953dd2abb4fa452eb28f060485d76
 }
