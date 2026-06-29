@@ -410,6 +410,13 @@ impl TargetPool {
             .unwrap_or(Vec::new(&env))
     }
 
+    pub fn deadline(env: Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Deadline)
+            .unwrap_or(0)
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     fn is_member(members: &Vec<Address>, who: &Address) -> bool {

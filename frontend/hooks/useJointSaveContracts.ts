@@ -78,6 +78,8 @@ function e2eViewResult(method: string): xdr.ScVal {
       return i128Val(BigInt((s.totalBalance as number | undefined) ?? 0))
     case "balance_of":
       return i128Val(BigInt((s.balanceOf as number | undefined) ?? 0))
+    case "deadline":
+      return u32Val((s.deadlineLedger as number | undefined) ?? 0)
     default:
       return boolVal(false)
   }
@@ -704,6 +706,7 @@ export interface TargetPoolState {
   totalDeposited: bigint
   targetAmount: bigint
   userBalance: bigint
+  deadlineLedger: number
 }
 
 export interface FlexiblePoolState {
@@ -774,8 +777,8 @@ async function fetchContractStorage(
 ): Promise<xdr.ScVal | null> {
   if (IS_E2E) {
     const s = e2eState()
-    if (keySymbol === "TreasuryFeeBps") return u32Val(s.treasuryFeeBps ?? 100)
-    if (keySymbol === "RelayerFeeBps") return u32Val(s.relayerFeeBps ?? 50)
+    if (keySymbol === "TreasuryFeeBps") return u32Val((s.treasuryFeeBps as number) ?? 100)
+    if (keySymbol === "RelayerFeeBps") return u32Val((s.relayerFeeBps as number) ?? 50)
     return null
   }
   try {
@@ -943,10 +946,11 @@ export async function fetchTargetState(
   contractId: string,
   userAddress?: string
 ): Promise<TargetPoolState> {
-  const [unlockedVal, totalVal, targetVal] = await Promise.all([
+  const [unlockedVal, totalVal, targetVal, deadlineVal] = await Promise.all([
     viewCall(contractId, "is_unlocked"),
     viewCall(contractId, "total_deposited"),
     viewCall(contractId, "target_amount"),
+    viewCall(contractId, "deadline"),
   ])
 
   let userBalance = 0n
@@ -962,6 +966,7 @@ export async function fetchTargetState(
     totalDeposited: scValToBigInt(totalVal),
     targetAmount: scValToBigInt(targetVal),
     userBalance,
+    deadlineLedger: deadlineVal.switch().name === "scvU32" ? deadlineVal.u32() : 0,
   }
 }
 
@@ -1059,6 +1064,19 @@ export async function fetchContractEvents(
 
   // Most-recent first
   return events.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+}
+
+/**
+ * Estimate a wall-clock Date from an on-chain ledger sequence number.
+ * Uses the current ledger as an anchor and assumes ~6 seconds per ledger.
+ */
+export function ledgerToEstimatedDate(
+  deadlineLedger: number,
+  currentLedger: number,
+  secondsPerLedger = 6
+): Date {
+  const secsOffset = (deadlineLedger - currentLedger) * secondsPerLedger
+  return new Date(Date.now() + secsOffset * 1000)
 }
 
 export async function fetchFlexibleState(
