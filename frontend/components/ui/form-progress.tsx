@@ -22,7 +22,9 @@ export function FormProgress({ fields, className }: FormProgressProps) {
     <div className={`space-y-3 p-4 rounded-lg bg-muted/30 border border-border ${className ?? ""}`}>
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium">Form completion</span>
-        <span className="text-muted-foreground tabular-nums">{completed}/{total} fields</span>
+        <span className="text-muted-foreground tabular-nums">
+          {completed}/{total} fields
+        </span>
       </div>
       <Progress value={pct} className="h-1.5" />
       <ul className="grid grid-cols-2 gap-1">

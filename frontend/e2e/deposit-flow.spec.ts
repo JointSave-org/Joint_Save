@@ -38,9 +38,7 @@ test.beforeEach(async ({ page }) => {
   ])
 })
 
-test("deposits into a flexible pool and reflects it in the UI", async ({
-  page,
-}) => {
+test("deposits into a flexible pool and reflects it in the UI", async ({ page }) => {
   await page.goto(`/dashboard/group/${POOL_ID}`)
 
   // Pool detail loads with the user's starting balance

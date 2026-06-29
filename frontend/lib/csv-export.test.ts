@@ -4,7 +4,13 @@ import assert from "node:assert"
 import { buildCsv } from "./csv-export"
 
 test("buildCsv - basic output with header and rows", () => {
-  const csv = buildCsv(["A", "B"], [["x", "y"], ["1", "2"]])
+  const csv = buildCsv(
+    ["A", "B"],
+    [
+      ["x", "y"],
+      ["1", "2"],
+    ]
+  )
   assert.strictEqual(csv, "A,B\nx,y\n1,2")
 })
 

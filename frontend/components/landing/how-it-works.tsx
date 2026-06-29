@@ -7,22 +7,26 @@ const steps = [
   {
     number: "01",
     title: "Connect Your Wallet",
-    description: "Link your Stellar wallet (Freighter or any supported wallet) to get started in seconds.",
+    description:
+      "Link your Stellar wallet (Freighter or any supported wallet) to get started in seconds.",
   },
   {
     number: "02",
     title: "Create or Join a Group",
-    description: "Start a new savings circle or join an existing one. Choose rotational, target, or flexible mode.",
+    description:
+      "Start a new savings circle or join an existing one. Choose rotational, target, or flexible mode.",
   },
   {
     number: "03",
     title: "Make Contributions",
-    description: "Deposit funds according to your group schedule. Soroban smart contracts handle everything automatically.",
+    description:
+      "Deposit funds according to your group schedule. Soroban smart contracts handle everything automatically.",
   },
   {
     number: "04",
     title: "Receive Payouts",
-    description: "Get your payout when it's your turn. Transparent, automated, and trustless on Stellar.",
+    description:
+      "Get your payout when it's your turn. Transparent, automated, and trustless on Stellar.",
   },
 ]
 

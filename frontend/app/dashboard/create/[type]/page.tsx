@@ -15,12 +15,12 @@ import { redirect } from "next/navigation"
 const validTypes = ["rotational", "target", "flexible"]
 
 export interface DuplicatePrefill {
-  name: string;
-  description: string;
-  amount: string;
-  frequency: string;
-  members: string[];
-  token: string;
+  name: string
+  description: string
+  amount: string
+  frequency: string
+  members: string[]
+  token: string
 }
 
 export default function CreateGroupPage({ params }: { params: Promise<{ type: string }> }) {

@@ -25,9 +25,7 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
   const { address } = useStellar()
 
   const isCreator =
-    address &&
-    creatorAddress &&
-    address.toLowerCase() === creatorAddress.toLowerCase()
+    address && creatorAddress && address.toLowerCase() === creatorAddress.toLowerCase()
 
   const [rows, setRows] = useState<AuditRow[]>([])
   const [inconsistent, setInconsistent] = useState(false)
@@ -101,9 +99,7 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
       {!loading && !error && (
         <div
           className={`flex items-start gap-3 rounded-lg px-4 py-3 text-sm ${
-            inconsistent
-              ? "bg-destructive/10 text-destructive"
-              : "bg-primary/10 text-primary"
+            inconsistent ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
           }`}
         >
           {inconsistent ? (
@@ -125,9 +121,7 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
         </div>
       )}
 
-      {error && (
-        <p className="text-sm text-destructive">{error}</p>
-      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       {!loading && !error && rows.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-4">No activity recorded.</p>
@@ -140,12 +134,12 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium capitalize">{r.activity_type}</span>
-                  {r.amount != null && (
-                    <Badge variant="secondary">{r.amount.toFixed(2)} XLM</Badge>
-                  )}
+                  {r.amount != null && <Badge variant="secondary">{r.amount.toFixed(2)} XLM</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {r.user_address ? `${r.user_address.slice(0, 8)}…${r.user_address.slice(-6)}` : "System"}
+                  {r.user_address
+                    ? `${r.user_address.slice(0, 8)}…${r.user_address.slice(-6)}`
+                    : "System"}
                 </p>
                 {r.tx_hash && (
                   <a

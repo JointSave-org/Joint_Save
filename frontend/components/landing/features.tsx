@@ -8,32 +8,38 @@ const features = [
   {
     icon: Users,
     title: "Rotational Savings",
-    description: "Traditional savings circle onchain. Members take turns receiving the full pool payout automatically.",
+    description:
+      "Traditional savings circle onchain. Members take turns receiving the full pool payout automatically.",
   },
   {
     icon: Target,
     title: "Target Pool",
-    description: "Save together toward a shared goal. Funds unlock when the target amount is reached.",
+    description:
+      "Save together toward a shared goal. Funds unlock when the target amount is reached.",
   },
   {
     icon: Zap,
     title: "Flexible Pool",
-    description: "Deposit and withdraw anytime with optional yield generation through Stellar DeFi.",
+    description:
+      "Deposit and withdraw anytime with optional yield generation through Stellar DeFi.",
   },
   {
     icon: Shield,
     title: "Smart Contract Escrow",
-    description: "Every group is governed by a Soroban smart contract. No middlemen, no trust issues.",
+    description:
+      "Every group is governed by a Soroban smart contract. No middlemen, no trust issues.",
   },
   {
     icon: TrendingUp,
     title: "Yield Integration",
-    description: "Idle funds can earn passive income for members through Stellar ecosystem protocols.",
+    description:
+      "Idle funds can earn passive income for members through Stellar ecosystem protocols.",
   },
   {
     icon: Clock,
     title: "Auto Enforcement",
-    description: "Late deposits are flagged automatically. Missed rounds result in removal from cycles.",
+    description:
+      "Late deposits are flagged automatically. Missed rounds result in removal from cycles.",
   },
 ]
 

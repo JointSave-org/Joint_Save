@@ -50,9 +50,7 @@ async function expectNoHorizontalOverflow(page: import("@playwright/test").Page)
 }
 
 for (const vp of VIEWPORTS) {
-  test(`dashboard renders without overflow at ${vp.label} (${vp.width}px)`, async ({
-    page,
-  }) => {
+  test(`dashboard renders without overflow at ${vp.label} (${vp.width}px)`, async ({ page }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height })
     await page.goto("/dashboard")
     await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
@@ -60,14 +58,10 @@ for (const vp of VIEWPORTS) {
     await expectNoHorizontalOverflow(page)
   })
 
-  test(`group detail renders without overflow at ${vp.label} (${vp.width}px)`, async ({
-    page,
-  }) => {
+  test(`group detail renders without overflow at ${vp.label} (${vp.width}px)`, async ({ page }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height })
     await page.goto(`/dashboard/group/${POOL_ID}`)
-    await expect(
-      page.getByRole("heading", { name: "Responsive Pool" })
-    ).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Responsive Pool" })).toBeVisible()
     await expectNoHorizontalOverflow(page)
   })
 }

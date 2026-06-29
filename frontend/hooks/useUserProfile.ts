@@ -35,21 +35,33 @@ export function useUserProfile(walletAddress: string | null) {
     if (!walletAddress || IS_E2E) {
       setProfile(
         walletAddress
-          ? { wallet_address: walletAddress.toLowerCase(), email: null, notification_preferences: DEFAULT_PREFS }
+          ? {
+              wallet_address: walletAddress.toLowerCase(),
+              email: null,
+              notification_preferences: DEFAULT_PREFS,
+            }
           : null
       )
       return
     }
     setLoading(true)
-    const res = await fetch(`/api/user-profile?wallet=${encodeURIComponent(walletAddress.toLowerCase())}`)
+    const res = await fetch(
+      `/api/user-profile?wallet=${encodeURIComponent(walletAddress.toLowerCase())}`
+    )
     const data = res.ok ? await res.json() : null
     setProfile(
-      data ?? { wallet_address: walletAddress.toLowerCase(), email: null, notification_preferences: DEFAULT_PREFS }
+      data ?? {
+        wallet_address: walletAddress.toLowerCase(),
+        email: null,
+        notification_preferences: DEFAULT_PREFS,
+      }
     )
     setLoading(false)
   }, [walletAddress])
 
-  useEffect(() => { fetchProfile() }, [fetchProfile])
+  useEffect(() => {
+    fetchProfile()
+  }, [fetchProfile])
 
   const saveProfile = useCallback(
     async (updates: Partial<Pick<UserProfile, "email" | "notification_preferences">>) => {

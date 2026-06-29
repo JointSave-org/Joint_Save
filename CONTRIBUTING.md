@@ -172,7 +172,10 @@ Copy `.env.example` to `.env.local` and fill in the values:
 ### Lint
 
 ```bash
-pnpm lint
+pnpm lint          # check for errors (must pass before committing)
+pnpm lint:fix      # auto-fix where possible
+pnpm format        # auto-fix formatting with Prettier
+pnpm format:check  # check formatting without writing (used in CI)
 ```
 
 ## Coding Conventions
@@ -191,14 +194,26 @@ cargo clippy
 
 ### TypeScript (Frontend)
 
-- The project uses Next.js's built-in ESLint (`next lint`)
-- Format with Prettier (add a `.prettierrc` at the frontend root if desired)
+- ESLint is configured with `@typescript-eslint/recommended`, `react-hooks`, and Next.js core-web-vitals rules
+- `@typescript-eslint/no-explicit-any` is an **error** — use specific types or `unknown` instead of `any`
+- `no-console` is a **warning** — remove debug logs before submitting
+- Prettier handles formatting — config is in `frontend/.prettierrc`
 - Use the `@/` path alias for imports (e.g. `import { Button } from "@/components/ui/button"`)
 - Follow existing patterns in the codebase
 
+Run lint and format before committing:
+
 ```bash
 cd frontend
-pnpm lint
+pnpm lint          # must pass with no errors
+pnpm format        # auto-fix formatting
+pnpm format:check  # verify formatting (what CI runs)
+```
+
+To auto-fix lint issues where possible:
+
+```bash
+pnpm lint:fix
 ```
 
 ## PR Process
@@ -233,7 +248,12 @@ Examples:
 
 1. Ensure the project builds successfully
 2. Run tests: `cargo test` (contracts) and `pnpm build` (frontend)
-3. Format your code: `cargo fmt` and `pnpm lint`
+3. **Run lint and format check before committing:**
+   ```bash
+   cd frontend
+   pnpm lint         # must pass with 0 errors
+   pnpm format       # auto-fix formatting
+   ```
 4. Keep PRs focused — one feature/fix per PR
 5. Write a clear PR description following the template
 6. **Changelog entry (required):** If your PR adds a user-facing feature or fixes a user-facing bug, add a **one-line** bullet under **`[Unreleased]`** in `CHANGELOG.md`.

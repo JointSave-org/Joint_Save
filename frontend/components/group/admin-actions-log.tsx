@@ -25,7 +25,7 @@ interface AdminAction {
   admin_address: string
   action_type: string
   target_address: string | null
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
   tx_hash: string | null
   created_at: string
 }
@@ -61,8 +61,8 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
       }
       const data = await res.json()
       setActions(data.actions || [])
-    } catch (e: any) {
-      setError(e.message || "An error occurred")
+    } catch (e: unknown) {
+      setError((e as Error).message || "An error occurred")
     } finally {
       setLoading(false)
     }
@@ -163,12 +163,12 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
         </div>
       )}
 
-      {error && (
-        <p className="text-sm text-muted-foreground text-center py-4">{error}</p>
-      )}
+      {error && <p className="text-sm text-muted-foreground text-center py-4">{error}</p>}
 
       {!loading && !error && actions.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-4">No admin actions recorded yet.</p>
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No admin actions recorded yet.
+        </p>
       )}
 
       {actions.length > 0 && (

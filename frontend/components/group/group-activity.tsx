@@ -8,7 +8,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { formatRelativeTime, formatExactDateTime } from "@/lib/utils"
-import { ArrowUpRight, ArrowDownLeft, UserPlus, Settings, Loader2, ExternalLink, RefreshCw, X } from "lucide-react"
+import {
+  ArrowUpRight,
+  ArrowDownLeft,
+  UserPlus,
+  Settings,
+  Loader2,
+  ExternalLink,
+  RefreshCw,
+  X,
+} from "lucide-react"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import { fetchContractEvents, ActivityEvent } from "@/hooks/useJointSaveContracts"
 
@@ -46,20 +55,14 @@ function mergeAndDedupe(onchain: Activity[], offchain: Activity[]): Activity[] {
     seen.add(key)
     merged.push(a)
   }
-  return merged.sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )
+  return merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
 /**
  * Filter activities to those whose created_at falls within [from, to].
  * If both are empty the full list is returned unchanged.
  */
-function applyDateFilter(
-  activities: Activity[],
-  from: string,
-  to: string
-): Activity[] {
+function applyDateFilter(activities: Activity[], from: string, to: string): Activity[] {
   if (!from && !to) return activities
 
   const fromMs = from ? new Date(from).setHours(0, 0, 0, 0) : -Infinity
@@ -72,15 +75,9 @@ function applyDateFilter(
   })
 }
 
-export function GroupActivity({
-  groupId,
-  contractAddress,
-  startLedger = 0,
-}: GroupActivityProps) {
+export function GroupActivity({ groupId, contractAddress, startLedger = 0 }: GroupActivityProps) {
   const cacheKey =
-    contractAddress && contractAddress !== "pending_deployment"
-      ? contractAddress
-      : groupId
+    contractAddress && contractAddress !== "pending_deployment" ? contractAddress : groupId
 
   const { data, isLoading, refetch: refetchCache } = usePoolData(cacheKey)
   const [onchainActivities, setOnchainActivities] = useState<Activity[]>([])
@@ -216,9 +213,7 @@ export function GroupActivity({
 
       {filteredActivities.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">
-          {isFiltered
-            ? "No activity found in the selected date range."
-            : "No activity yet"}
+          {isFiltered ? "No activity found in the selected date range." : "No activity yet"}
         </p>
       ) : (
         <>
@@ -233,8 +228,8 @@ export function GroupActivity({
                     activity.activity_type === "deposit"
                       ? "bg-primary/10"
                       : activity.activity_type === "payout"
-                      ? "bg-accent/10"
-                      : "bg-muted"
+                        ? "bg-accent/10"
+                        : "bg-muted"
                   }`}
                 >
                   {activity.activity_type === "deposit" && (
@@ -253,15 +248,17 @@ export function GroupActivity({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <p className="font-medium text-sm capitalize">
-                      {({
-                        deposit: "Deposit",
-                        payout: "Payout",
-                        withdraw: "Withdraw",
-                        complete: "Pool Complete",
-                        member_joined: "Member Joined",
-                        pool_created: "Pool Created",
-                        yield: "Yield Distributed",
-                      } as Record<string, string>)[activity.activity_type] ?? activity.activity_type}
+                      {(
+                        {
+                          deposit: "Deposit",
+                          payout: "Payout",
+                          withdraw: "Withdraw",
+                          complete: "Pool Complete",
+                          member_joined: "Member Joined",
+                          pool_created: "Pool Created",
+                          yield: "Yield Distributed",
+                        } as Record<string, string>
+                      )[activity.activity_type] ?? activity.activity_type}
                     </p>
                     {activity.amount != null && (
                       <Badge variant="secondary">{activity.amount.toFixed(2)} XLM</Badge>

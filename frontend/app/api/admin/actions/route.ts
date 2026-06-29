@@ -30,7 +30,11 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       if (existing) {
-        return NextResponse.json({ success: true, message: "Action already logged", id: existing.id })
+        return NextResponse.json({
+          success: true,
+          message: "Action already logged",
+          id: existing.id,
+        })
       }
     }
 
@@ -50,7 +54,10 @@ export async function POST(req: NextRequest) {
     if (error) {
       // Handle race condition where two inserts for same tx_hash happen simultaneously
       if (error.code === "23505") {
-        return NextResponse.json({ success: true, message: "Action already logged (race condition)" })
+        return NextResponse.json({
+          success: true,
+          message: "Action already logged (race condition)",
+        })
       }
       throw error
     }
@@ -97,7 +104,7 @@ export async function GET(req: NextRequest) {
 
     const isCreator = pool.creator_address.toLowerCase() === callerAddress.toLowerCase()
 
-    const { data: member, error: memberErr } = await supabase
+    const { data: member } = await supabase
       .from("pool_members")
       .select("id")
       .eq("pool_id", poolId)

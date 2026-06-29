@@ -1,13 +1,6 @@
 "use client"
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  type ReactNode,
-} from "react"
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import {
   StellarWalletsKit,
   WalletNetwork,
@@ -17,11 +10,11 @@ import {
   AlbedoModule,
   LobstrModule,
 } from "@creit.tech/stellar-wallets-kit"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { QueryClient } from "@tanstack/react-query"
 import { setSigningKit } from "@/lib/tx-queue"
 
-// Create a single QueryClient instance
-const queryClient = new QueryClient({
+// Create a single QueryClient instance (reserved for future use)
+const _queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
@@ -35,18 +28,19 @@ const queryClient = new QueryClient({
 // Playwright can drive connect/sign flows without a browser wallet extension.
 // This branch is dead code in production builds (the flag is unset).
 const IS_E2E = process.env.NEXT_PUBLIC_E2E === "true"
-const E2E_DEFAULT_ADDRESS =
-  "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7"
+const E2E_DEFAULT_ADDRESS = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7"
 
 function createE2EKit(): StellarWalletsKit {
   const getAddr = () =>
-    (typeof localStorage !== "undefined" &&
-      localStorage.getItem("jointsave_address")) ||
+    (typeof localStorage !== "undefined" && localStorage.getItem("jointsave_address")) ||
     E2E_DEFAULT_ADDRESS
   const stub = {
     // Auto-select Freighter so connect() resolves without a real modal
-    openModal: async ({ onWalletSelected }: any) =>
-      onWalletSelected?.({ id: FREIGHTER_ID }),
+    openModal: async ({
+      onWalletSelected,
+    }: {
+      onWalletSelected?: (option: { id: string }) => void
+    }) => onWalletSelected?.({ id: FREIGHTER_ID }),
     setWallet: () => {},
     getAddress: async () => ({ address: getAddr() }),
     // Echo the prepared XDR back as "signed" — the RPC layer is also stubbed
@@ -60,13 +54,10 @@ function createE2EKit(): StellarWalletsKit {
 
 export const STELLAR_NETWORK = WalletNetwork.TESTNET
 export const STELLAR_RPC_URL =
-  process.env.NEXT_PUBLIC_STELLAR_RPC_URL ||
-  "https://soroban-testnet.stellar.org"
+  process.env.NEXT_PUBLIC_STELLAR_RPC_URL || "https://soroban-testnet.stellar.org"
 export const STELLAR_HORIZON_URL =
-  process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ||
-  "https://horizon-testnet.stellar.org"
-export const STELLAR_NETWORK_PASSPHRASE =
-  "Test SDF Network ; September 2015"
+  process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL || "https://horizon-testnet.stellar.org"
+export const STELLAR_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
 
 // ── Context ───────────────────────────────────────────────────────────────────
 

@@ -11,7 +11,7 @@
  *   if (limited) return limited   // NextResponse 429
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from "next/server"
 
 interface WindowEntry {
   timestamps: number[]
@@ -39,14 +39,12 @@ function prune(entry: WindowEntry, windowMs: number, now: number): void {
 function resolveKey(req: NextRequest, prefix: string): string {
   // Wallet address is the preferred key — unforgeable at the application layer
   // because it is validated on-chain before any write action succeeds.
-  const wallet =
-    req.nextUrl.searchParams.get('wallet') ||
-    req.headers.get('x-wallet-address')
+  const wallet = req.nextUrl.searchParams.get("wallet") || req.headers.get("x-wallet-address")
   if (wallet) return `${prefix}:wallet:${wallet.toLowerCase()}`
 
   // IP fallback
-  const forwarded = req.headers.get('x-forwarded-for')
-  const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown'
+  const forwarded = req.headers.get("x-forwarded-for")
+  const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown"
   return `${prefix}:ip:${ip}`
 }
 
@@ -54,7 +52,7 @@ function applyLimit(
   req: NextRequest,
   prefix: string,
   max: number,
-  windowMs: number,
+  windowMs: number
 ): NextResponse | null {
   const now = Date.now()
   const key = resolveKey(req, prefix)
@@ -74,19 +72,19 @@ function applyLimit(
 
     return NextResponse.json(
       {
-        error: 'TOO_MANY_REQUESTS',
-        message: 'Rate limit exceeded. Please slow down.',
+        error: "TOO_MANY_REQUESTS",
+        message: "Rate limit exceeded. Please slow down.",
         retryAfterSec,
       },
       {
         status: 429,
         headers: {
-          'Retry-After': String(retryAfterSec),
-          'X-RateLimit-Limit': String(max),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': String(Math.ceil((oldest + windowMs) / 1000)),
+          "Retry-After": String(retryAfterSec),
+          "X-RateLimit-Limit": String(max),
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(Math.ceil((oldest + windowMs) / 1000)),
         },
-      },
+      }
     )
   }
 
@@ -105,7 +103,7 @@ const WINDOW_MS = 60_000 // 1 minute
  * browsing (roughly one request every 2 seconds) while blocking scrapers.
  */
 export function readLimiter(req: NextRequest): NextResponse | null {
-  return applyLimit(req, 'read', 30, WINDOW_MS)
+  return applyLimit(req, "read", 30, WINDOW_MS)
 }
 
 /**
@@ -117,5 +115,5 @@ export function readLimiter(req: NextRequest): NextResponse | null {
  * attacks or accidental double-submits from a buggy client.
  */
 export function writeLimiter(req: NextRequest): NextResponse | null {
-  return applyLimit(req, 'write', 10, WINDOW_MS)
+  return applyLimit(req, "write", 10, WINDOW_MS)
 }

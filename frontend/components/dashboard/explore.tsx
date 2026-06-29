@@ -12,11 +12,7 @@ import { Compass } from "lucide-react"
 import { motion } from "framer-motion"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import {
-  PoolCard,
-  PoolCardSkeleton,
-  type Pool,
-} from "@/components/dashboard/pool-card"
+import { PoolCard, PoolCardSkeleton, type Pool } from "@/components/dashboard/pool-card"
 
 const PAGE_SIZE = 6
 
@@ -126,8 +122,7 @@ export function Explore() {
           </div>
           <p className="font-medium">Nothing to explore just yet</p>
           <p className="text-sm text-muted-foreground max-w-sm">
-            Once people start creating savings pools, they&apos;ll show up here
-            for you to browse.
+            Once people start creating savings pools, they&apos;ll show up here for you to browse.
           </p>
         </Card>
       ) : (
@@ -146,8 +141,8 @@ export function Explore() {
           {totalPages > 1 && (
             <div className="flex flex-col items-center gap-3 mt-4">
               <p className="text-sm text-muted-foreground">
-                Showing {page * PAGE_SIZE + 1}–
-                {Math.min((page + 1) * PAGE_SIZE, total)} of {total} pools
+                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}{" "}
+                pools
               </p>
               <Pagination>
                 <PaginationContent>
@@ -155,11 +150,7 @@ export function Explore() {
                     <PaginationPrevious
                       onClick={() => setPage(page - 1)}
                       aria-disabled={page === 0}
-                      className={
-                        page === 0
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer"
-                      }
+                      className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     />
                   </PaginationItem>
                   <PaginationItem>
@@ -167,9 +158,7 @@ export function Explore() {
                       onClick={() => setPage(page + 1)}
                       aria-disabled={page >= totalPages - 1}
                       className={
-                        page >= totalPages - 1
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer"
+                        page >= totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
                       }
                     />
                   </PaginationItem>

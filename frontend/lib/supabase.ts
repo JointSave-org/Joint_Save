@@ -1,13 +1,20 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
 
-const isValid = (url: string) => { try { new URL(url); return true } catch { return false } }
+const isValid = (url: string) => {
+  try {
+    new URL(url)
+    return true
+  } catch {
+    return false
+  }
+}
 
 export const supabase = isValid(supabaseUrl)
   ? createClient(supabaseUrl, supabaseAnonKey)
-  : null as any
+  : (null as unknown as ReturnType<typeof createClient>)
 
 export type Database = {
   public: {
@@ -17,8 +24,8 @@ export type Database = {
           id: string
           name: string
           description: string | null
-          type: 'rotational' | 'target' | 'flexible'
-          status: 'active' | 'completed' | 'paused'
+          type: "rotational" | "target" | "flexible"
+          status: "active" | "completed" | "paused"
           creator_address: string
           contract_address: string
           token_address: string
@@ -43,8 +50,8 @@ export type Database = {
         Insert: {
           name: string
           description?: string | null
-          type: 'rotational' | 'target' | 'flexible'
-          status?: 'active' | 'completed' | 'paused'
+          type: "rotational" | "target" | "flexible"
+          status?: "active" | "completed" | "paused"
           creator_address: string
           contract_address: string
           token_address: string
@@ -67,8 +74,8 @@ export type Database = {
         Update: {
           name?: string
           description?: string | null
-          type?: 'rotational' | 'target' | 'flexible'
-          status?: 'active' | 'completed' | 'paused'
+          type?: "rotational" | "target" | "flexible"
+          status?: "active" | "completed" | "paused"
           creator_address?: string
           contract_address?: string
           token_address?: string
@@ -95,20 +102,20 @@ export type Database = {
           pool_id: string
           member_address: string
           contribution_amount: number
-          status: 'pending' | 'paid' | 'late'
+          status: "pending" | "paid" | "late"
           joined_at: string
         }
         Insert: {
           pool_id: string
           member_address: string
           contribution_amount?: number
-          status?: 'pending' | 'paid' | 'late'
+          status?: "pending" | "paid" | "late"
         }
         Update: {
           pool_id?: string
           member_address?: string
           contribution_amount?: number
-          status?: 'pending' | 'paid' | 'late'
+          status?: "pending" | "paid" | "late"
         }
       }
       pool_activity: {
@@ -176,7 +183,7 @@ export type Database = {
           id: string
           pool_id: string
           requester_address: string
-          status: 'pending' | 'accepted' | 'declined'
+          status: "pending" | "accepted" | "declined"
           created_at: string
           responded_at: string | null
           responder_id: string | null
@@ -184,10 +191,10 @@ export type Database = {
         Insert: {
           pool_id: string
           requester_address: string
-          status?: 'pending' | 'accepted' | 'declined'
+          status?: "pending" | "accepted" | "declined"
         }
         Update: {
-          status?: 'pending' | 'accepted' | 'declined'
+          status?: "pending" | "accepted" | "declined"
           responded_at?: string | null
           responder_id?: string | null
         }
@@ -309,7 +316,7 @@ export type Database = {
           admin_address: string
           action_type: string
           target_address: string | null
-          metadata: Record<string, any>
+          metadata: Record<string, unknown>
           tx_hash: string | null
           created_at: string
         }
@@ -319,7 +326,7 @@ export type Database = {
           admin_address: string
           action_type: string
           target_address?: string | null
-          metadata?: Record<string, any>
+          metadata?: Record<string, unknown>
           tx_hash?: string | null
           created_at?: string
         }
@@ -328,7 +335,7 @@ export type Database = {
           admin_address?: string
           action_type?: string
           target_address?: string | null
-          metadata?: Record<string, any>
+          metadata?: Record<string, unknown>
           tx_hash?: string | null
           created_at?: string
         }
@@ -359,7 +366,7 @@ export async function savePoolToDatabase({
 }: {
   name: string
   description: string | null
-  poolType: 'rotational' | 'target' | 'flexible'
+  poolType: "rotational" | "target" | "flexible"
   creatorAddress: string
   contractAddress: string
   tokenAddress: string
@@ -378,17 +385,17 @@ export async function savePoolToDatabase({
   try {
     // Insert pool
     const { data: pool, error: poolError } = await supabase
-      .from('pools')
+      .from("pools")
       .insert([
         {
           name,
           description,
           type: poolType,
-          status: 'active',
+          status: "active",
           creator_address: creatorAddress.toLowerCase(),
           contract_address: contractAddress,
           token_address: tokenAddress,
-          token_symbol: tokenSymbol || 'XLM',
+          token_symbol: tokenSymbol || "XLM",
           token_decimals: tokenDecimals ?? 7,
           members_count: members.length,
           contribution_amount: contributionAmount ? parseFloat(contributionAmount) : null,
@@ -404,7 +411,7 @@ export async function savePoolToDatabase({
       .select()
 
     if (poolError) throw poolError
-    if (!pool || pool.length === 0) throw new Error('Failed to create pool')
+    if (!pool || pool.length === 0) throw new Error("Failed to create pool")
 
     const poolId = pool[0].id
 
@@ -414,21 +421,19 @@ export async function savePoolToDatabase({
         pool_id: poolId,
         member_address: address.toLowerCase(),
         contribution_amount: contributionAmount ? parseFloat(contributionAmount) : 0,
-        status: 'pending' as const,
+        status: "pending" as const,
       }))
 
-      const { error: membersError } = await supabase
-        .from('pool_members')
-        .insert(memberData)
+      const { error: membersError } = await supabase.from("pool_members").insert(memberData)
 
       if (membersError) throw membersError
     }
 
     // Log activity
-    await supabase.from('pool_activity').insert([
+    await supabase.from("pool_activity").insert([
       {
         pool_id: poolId,
-        activity_type: 'pool_created',
+        activity_type: "pool_created",
         user_address: creatorAddress.toLowerCase(),
         description: `${poolType} pool created`,
       },
@@ -436,10 +441,10 @@ export async function savePoolToDatabase({
 
     return { success: true, poolId, pool: pool[0] }
   } catch (error) {
-    console.error('Failed to save pool:', error)
+    console.error("Failed to save pool:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     }
   }
 }

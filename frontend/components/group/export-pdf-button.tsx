@@ -30,8 +30,7 @@ export function ExportPdfButton({ groupId, creatorAddress }: ExportPdfButtonProp
 
   // ── Guard: only the creator sees this button ────────────────────────────────
   const isCreator =
-    address && creatorAddress &&
-    address.toLowerCase() === creatorAddress.toLowerCase()
+    address && creatorAddress && address.toLowerCase() === creatorAddress.toLowerCase()
 
   if (!isCreator) return null
 
@@ -58,8 +57,8 @@ export function ExportPdfButton({ groupId, creatorAddress }: ExportPdfButtonProp
       generatePoolPdf(pool)
       setStatus("ok")
       setTimeout(() => setStatus("idle"), 3000)
-    } catch (err: any) {
-      setErrMsg(err.message ?? "PDF generation failed")
+    } catch (err: unknown) {
+      setErrMsg((err as Error).message ?? "PDF generation failed")
       setStatus("err")
       setTimeout(() => setStatus("idle"), 5000)
     } finally {
@@ -100,9 +99,7 @@ export function ExportPdfButton({ groupId, creatorAddress }: ExportPdfButtonProp
         )}
       </Button>
 
-      {status === "err" && errMsg && (
-        <p className="text-xs text-destructive px-1">{errMsg}</p>
-      )}
+      {status === "err" && errMsg && <p className="text-xs text-destructive px-1">{errMsg}</p>}
 
       {status === "idle" && !loading && (
         <p className="text-xs text-muted-foreground px-1">

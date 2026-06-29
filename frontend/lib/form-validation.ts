@@ -14,7 +14,8 @@ export function validateStellarAddress(value: string): ValidationResult {
   if (!value) return err("Stellar address is required")
   if (!value.startsWith("G")) return err("Stellar addresses start with 'G'")
   if (value.length !== 56) return err(`Address must be 56 characters (currently ${value.length})`)
-  if (!/^G[A-Z2-7]{55}$/.test(value)) return err("Invalid characters — only A–Z and 2–7 allowed after 'G'")
+  if (!/^G[A-Z2-7]{55}$/.test(value))
+    return err("Invalid characters — only A–Z and 2–7 allowed after 'G'")
   return ok
 }
 

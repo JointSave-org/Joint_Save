@@ -45,29 +45,25 @@ test.beforeEach(async ({ page }) => {
   ])
 })
 
-test("landing → dashboard → group → back renders cleanly", async ({
-  page,
-  consoleErrors,
-}) => {
+test("landing → dashboard → group → back renders cleanly", async ({ page, consoleErrors }) => {
   // Landing
   await page.goto("/")
   await expect(page.getByRole("link", { name: "JointSave" }).first()).toBeVisible()
 
   // → Dashboard (header link appears once the wallet is connected)
-  const dashboardLink = page
-    .getByRole("banner")
-    .getByRole("link", { name: "Dashboard" })
+  const dashboardLink = page.getByRole("banner").getByRole("link", { name: "Dashboard" })
   await expect(dashboardLink).toBeVisible()
   await dashboardLink.click()
   await page.waitForURL(/\/dashboard$/)
   await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
 
   // → Group detail
-  await page.getByRole("link", { name: /view details/i }).first().click()
+  await page
+    .getByRole("link", { name: /view details/i })
+    .first()
+    .click()
   await expect(page).toHaveURL(new RegExp(`/dashboard/group/${POOL_ID}`))
-  await expect(
-    page.getByRole("heading", { name: "Navigation Pool" })
-  ).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Navigation Pool" })).toBeVisible()
 
   // → Back to dashboard
   await page.getByRole("link", { name: /back to dashboard/i }).click()

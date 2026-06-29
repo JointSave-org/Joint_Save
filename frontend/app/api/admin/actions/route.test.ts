@@ -11,7 +11,7 @@ function isAuthorized(
   const caller = callerAddress.toLowerCase()
   return (
     pool.creator_address.toLowerCase() === caller ||
-    members.map(m => m.toLowerCase()).includes(caller)
+    members.map((m) => m.toLowerCase()).includes(caller)
   )
 }
 

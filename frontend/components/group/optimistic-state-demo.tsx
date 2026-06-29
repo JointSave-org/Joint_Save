@@ -1,34 +1,28 @@
-"use client";
+"use client"
 
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Clock, CheckCircle2, AlertCircle } from "lucide-react";
-import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions";
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Clock, CheckCircle2, AlertCircle } from "lucide-react"
+import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 
 interface OptimisticStateDemoProps {
-  poolAddress: string;
-  showDebug?: boolean;
+  poolAddress: string
+  showDebug?: boolean
 }
 
 /**
  * Debug component to visualize optimistic transaction state.
  * Only renders when explicitly enabled.
  */
-export function OptimisticStateDemo({
-  poolAddress,
-  showDebug = false,
-}: OptimisticStateDemoProps) {
-  const { optimisticState, pendingTransactions } =
-    useOptimisticTransactions(poolAddress);
-  const { pendingTx } = optimisticState;
+export function OptimisticStateDemo({ poolAddress, showDebug = false }: OptimisticStateDemoProps) {
+  const { optimisticState, pendingTransactions } = useOptimisticTransactions(poolAddress)
+  const { pendingTx } = optimisticState
 
-  if (!showDebug) return null;
+  if (!showDebug) return null
 
   return (
     <Card className="p-4 bg-slate-900/50 border-slate-700/50 mb-4">
-      <h4 className="text-sm font-mono text-slate-300 mb-3">
-        Optimistic State (DEBUG)
-      </h4>
+      <h4 className="text-sm font-mono text-slate-300 mb-3">Optimistic State (DEBUG)</h4>
 
       {!pendingTx ? (
         <p className="text-xs text-slate-500">No pending transactions</p>
@@ -72,19 +66,14 @@ export function OptimisticStateDemo({
           <div className="flex items-center justify-between p-2 bg-slate-800/50 rounded">
             <span className="text-slate-400">TX Hash:</span>
             <span className="text-slate-300 font-bold">
-              {pendingTx.txHash
-                ? `${pendingTx.txHash.slice(0, 8)}...`
-                : "waiting"}
+              {pendingTx.txHash ? `${pendingTx.txHash.slice(0, 8)}...` : "waiting"}
             </span>
           </div>
 
           <div className="flex items-center justify-between p-2 bg-slate-800/50 rounded">
             <span className="text-slate-400">Amount:</span>
             <span className="text-slate-300">
-              {pendingTx.amount
-                ? (Number(pendingTx.amount) / 10_000_000).toFixed(2)
-                : "-"}{" "}
-              XLM
+              {pendingTx.amount ? (Number(pendingTx.amount) / 10_000_000).toFixed(2) : "-"} XLM
             </span>
           </div>
 
@@ -114,5 +103,5 @@ export function OptimisticStateDemo({
         </div>
       )}
     </Card>
-  );
+  )
 }

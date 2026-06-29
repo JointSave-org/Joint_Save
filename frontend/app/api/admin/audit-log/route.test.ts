@@ -10,7 +10,7 @@ function isAuthorized(callerAddress: string, creatorAddress: string): boolean {
 function getAuthErrorCode(
   poolId: string | null,
   callerAddress: string | null,
-  pool: { creator_address: string } | null,
+  pool: { creator_address: string } | null
 ): number | null {
   if (!poolId) return 400
   if (!callerAddress) return 400
@@ -23,7 +23,7 @@ function getAuthErrorCode(
 
 function computeConsistency(
   activities: { activity_type: string; amount: number | null }[],
-  recorded: number,
+  recorded: number
 ): { inconsistent: boolean; activityNet: number } {
   const activityNet = activities.reduce((sum, r) => {
     const amt = r.amount ?? 0

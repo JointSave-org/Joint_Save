@@ -17,9 +17,7 @@ function escapeCell(value: unknown): string {
 
 /** Convert a header + rows array into a CSV string. */
 export function buildCsv(headers: string[], rows: unknown[][]): string {
-  const lines = [headers, ...rows].map((row) =>
-    row.map(escapeCell).join(",")
-  )
+  const lines = [headers, ...rows].map((row) => row.map(escapeCell).join(","))
   return lines.join("\n")
 }
 

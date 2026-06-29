@@ -24,7 +24,10 @@ interface FakeKeyboardEvent {
   defaultPrevented: boolean
 }
 
-function makeEvent(key: string, mods?: { meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean }): FakeKeyboardEvent {
+function makeEvent(
+  key: string,
+  mods?: { meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean }
+): FakeKeyboardEvent {
   return {
     key,
     metaKey: mods?.meta ?? false,
@@ -81,34 +84,19 @@ function createHandler() {
       return
     }
 
-    if (
-      key === "?" &&
-      !e.metaKey &&
-      !e.ctrlKey &&
-      !e.altKey
-    ) {
+    if (key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
       handlers.onOpenHelp()
       return
     }
 
-    if (
-      key.toLowerCase() === "c" &&
-      !e.metaKey &&
-      !e.ctrlKey &&
-      !e.altKey
-    ) {
+    if (key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
       handlers.onCreatePool()
       return
     }
 
-    if (
-      key.toLowerCase() === "g" &&
-      !e.metaKey &&
-      !e.ctrlKey &&
-      !e.altKey
-    ) {
+    if (key.toLowerCase() === "g" && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
       if (gTimer) clearTimeout(gTimer)
       gTimer = setTimeout(() => {
@@ -132,7 +120,10 @@ function setup() {
 
   const { handleKeyDown } = createHandler()
 
-  function dispatch(key: string, mods?: { meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean }) {
+  function dispatch(
+    key: string,
+    mods?: { meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean }
+  ) {
     const event = makeEvent(key, mods)
     handleKeyDown(event, handlers)
     return event

@@ -73,7 +73,7 @@ function bandFor(score: number): { band: PoolHealthBand; label: string } {
  */
 export function computePoolHealth(
   reputations: MemberReputation[],
-  historyObserved: number,
+  historyObserved: number
 ): PoolHealth {
   const memberCount = reputations.length
 
@@ -91,8 +91,7 @@ export function computePoolHealth(
   }
 
   // Average on-time rate across members (basis points → percent).
-  const avgBps =
-    reputations.reduce((sum, r) => sum + r.onTimeRate, 0) / memberCount
+  const avgBps = reputations.reduce((sum, r) => sum + r.onTimeRate, 0) / memberCount
   const score = Math.round(avgBps / 100)
   const { band, label } = bandFor(score)
 

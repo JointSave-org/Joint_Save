@@ -114,9 +114,7 @@ async function processQueue() {
       const entry = queue[0]
 
       if (queue.length > 1) {
-        toastManager.info(
-          `${queue.length} transactions waiting for your approval`
-        )
+        toastManager.info(`${queue.length} transactions waiting for your approval`)
       }
 
       if (!kitRef) {
@@ -165,10 +163,7 @@ async function processQueue() {
  * the queue stops waiting on it so subsequent requests aren't blocked
  * indefinitely by an abandoned popup.
  */
-export function enqueueSign(
-  xdr: string,
-  opts: EnqueueSignOptions
-): Promise<SignResult> {
+export function enqueueSign(xdr: string, opts: EnqueueSignOptions): Promise<SignResult> {
   return new Promise<SignResult>((resolve, reject) => {
     const entry: QueueEntry = {
       xdr,
@@ -190,9 +185,7 @@ export function enqueueSign(
           "Signing request timed out after 2 minutes. The wallet popup may have been closed without a response."
         ),
       })
-      toastManager.warning(
-        "A signing request timed out and was cancelled. Please try again."
-      )
+      toastManager.warning("A signing request timed out and was cancelled. Please try again.")
       const idx = queue.indexOf(entry)
       if (idx !== -1) {
         queue.splice(idx, 1)

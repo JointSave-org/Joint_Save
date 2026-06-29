@@ -56,8 +56,8 @@ export function EmptyState({ onCreateClick }: EmptyStateProps) {
         </div>
         <h3 className="text-2xl font-bold mb-2">Start your first savings pool</h3>
         <p className="text-muted-foreground max-w-md mx-auto">
-          Choose a savings model that fits your group. Each pool is governed by a Soroban
-          smart contract for full transparency.
+          Choose a savings model that fits your group. Each pool is governed by a Soroban smart
+          contract for full transparency.
         </p>
       </div>
 
@@ -69,7 +69,12 @@ export function EmptyState({ onCreateClick }: EmptyStateProps) {
         className="grid grid-cols-1 sm:grid-cols-3 gap-4"
       >
         {poolTypes.map(({ type, icon: Icon, title, description }) => (
-          <motion.div key={type} variants={item} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <motion.div
+            key={type}
+            variants={item}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
             <Card className="p-5 h-full flex flex-col hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 mb-3">
                 <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
@@ -91,12 +96,12 @@ export function EmptyState({ onCreateClick }: EmptyStateProps) {
       {/* Learn more link */}
       <p className="text-center text-sm text-muted-foreground">
         Not sure which to pick?{" "}
-        <a
+        <Link
           href="/#how-it-works"
           className="text-primary underline-offset-4 hover:underline font-medium"
         >
           Learn how JointSave works
-        </a>
+        </Link>
       </p>
     </motion.div>
   )

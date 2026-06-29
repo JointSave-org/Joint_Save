@@ -23,15 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Search,
-  Users,
-  TrendingUp,
-  Calendar,
-  Loader2,
-  Send,
-  AlertCircle,
-} from "lucide-react"
+import { Search, Users, TrendingUp, Calendar, Loader2, Send, AlertCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import { useStellar } from "@/components/web3-provider"
 import { fetchFactoryPools } from "@/hooks/useJointSaveContracts"
@@ -63,10 +55,6 @@ const container = {
   show: { opacity: 1, transition: { staggerChildren: 0.08 } },
 }
 const itemAnim = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
-
-function formatAddress(addr: string) {
-  return `${addr.slice(0, 4)}...${addr.slice(-4)}`
-}
 
 function timeAgo(date: string) {
   const secs = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -123,7 +111,8 @@ function PoolCard({
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void
 }) {
   const typeLabel = pool.type.charAt(0).toUpperCase() + pool.type.slice(1)
-  const statusLabel = pool.status === "active" ? "Active" : pool.status === "completed" ? "Completed" : "Paused"
+  const statusLabel =
+    pool.status === "active" ? "Active" : pool.status === "completed" ? "Completed" : "Paused"
 
   return (
     <motion.div
@@ -205,10 +194,7 @@ function PoolCard({
             Request to Join
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link
-              href={`/dashboard/group/${pool.id}`}
-              onClick={(event) => event.stopPropagation()}
-            >
+            <Link href={`/dashboard/group/${pool.id}`} onClick={(event) => event.stopPropagation()}>
               View
             </Link>
           </Button>
@@ -324,15 +310,11 @@ function ExploreContent() {
   }, [pools, search, filterType, filterStatus])
 
   const activePoolIndex =
-    filteredPools.length > 0
-      ? Math.min(focusedPoolIndex, filteredPools.length - 1)
-      : 0
+    filteredPools.length > 0 ? Math.min(focusedPoolIndex, filteredPools.length - 1) : 0
 
   useEffect(() => {
     poolCardRefs.current = poolCardRefs.current.slice(0, filteredPools.length)
-    setFocusedPoolIndex((index) =>
-      Math.min(index, Math.max(filteredPools.length - 1, 0))
-    )
+    setFocusedPoolIndex((index) => Math.min(index, Math.max(filteredPools.length - 1, 0)))
   }, [filteredPools.length])
 
   const getGridColumnCount = useCallback(() => {
@@ -412,7 +394,10 @@ function ExploreContent() {
   const handleRequestJoin = useCallback(
     async (poolId: string) => {
       if (!address) {
-        toast({ title: "Connect Wallet", description: "Please connect your wallet to request joining a pool." })
+        toast({
+          title: "Connect Wallet",
+          description: "Please connect your wallet to request joining a pool.",
+        })
         return
       }
       setJoining(poolId)
@@ -547,9 +532,7 @@ function ExploreContent() {
                 }}
                 onFocus={() => setFocusedPoolIndex(index)}
                 onClick={(event) => handlePoolCardClick(event, pool.id)}
-                onKeyDown={(event) =>
-                  handlePoolCardKeyDown(event, index, pool.id)
-                }
+                onKeyDown={(event) => handlePoolCardKeyDown(event, index, pool.id)}
               />
             ))}
           </motion.div>

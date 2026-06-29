@@ -37,15 +37,13 @@ export default function NotFound() {
 
       <main className="container mx-auto flex min-h-screen items-center justify-center px-4 pt-16 sm:px-6 lg:px-8">
         <section className="mx-auto max-w-3xl py-24 text-center">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-primary">
-            404
-          </p>
+          <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-primary">404</p>
           <h1 className="mb-6 text-5xl font-bold tracking-tight text-balance sm:text-6xl lg:text-7xl">
             Page Not Found
           </h1>
           <p className="mx-auto mb-10 max-w-2xl text-xl text-muted-foreground text-pretty sm:text-2xl">
-            This page may have moved, or the link might be out of date. Let&apos;s
-            get you back to JointSave.
+            This page may have moved, or the link might be out of date. Let&apos;s get you back to
+            JointSave.
           </p>
           <Button size="lg" className="h-14 px-8 text-lg" asChild>
             <Link href={destination}>

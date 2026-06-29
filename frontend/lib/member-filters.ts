@@ -4,7 +4,7 @@
 
 /** Minimal shape needed to decide pending-ness; keeps helpers decoupled from the full Member type. */
 export interface MemberStatusLike {
-  status: string;
+  status: string
 }
 
 /**
@@ -14,15 +14,15 @@ export interface MemberStatusLike {
  * members included, this predicate is the only line to change.
  */
 export function isPendingMember(member: MemberStatusLike): boolean {
-  return member.status === "pending";
+  return member.status === "pending"
 }
 
 /** Count of members still pending a deposit. */
 export function countPendingMembers(members: MemberStatusLike[]): number {
-  return members.filter(isPendingMember).length;
+  return members.filter(isPendingMember).length
 }
 
 /** Subset of members still pending a deposit, preserving the input element type. */
 export function filterPendingMembers<T extends MemberStatusLike>(members: T[]): T[] {
-  return members.filter(isPendingMember);
+  return members.filter(isPendingMember)
 }

@@ -25,26 +25,38 @@ export function Hero() {
           </h1>
 
           <p className="text-xl sm:text-2xl text-muted-foreground mb-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200 text-pretty">
-            A decentralized community savings platform on Stellar — bringing
-            trust-based financial circles onchain with automated contributions
-            and transparent payouts.
+            A decentralized community savings platform on Stellar — bringing trust-based financial
+            circles onchain with automated contributions and transparent payouts.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
             {isConnected ? (
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 h-14" asChild>
+              <Button
+                size="lg"
+                className="bg-primary hover:bg-primary/90 text-lg px-8 h-14"
+                asChild
+              >
                 <Link href="/dashboard">
                   Go to Dashboard
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
             ) : (
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 h-14" onClick={connect}>
+              <Button
+                size="lg"
+                className="bg-primary hover:bg-primary/90 text-lg px-8 h-14"
+                onClick={connect}
+              >
                 Get Started
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             )}
-            <Button size="lg" variant="outline" className="text-lg px-8 h-14 bg-transparent" asChild>
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-lg px-8 h-14 bg-transparent"
+              asChild
+            >
               <Link href="#how-it-works">Learn More</Link>
             </Button>
           </div>

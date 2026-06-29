@@ -69,22 +69,36 @@ export async function GET(req: NextRequest) {
   const rows = activity ?? []
 
   // ── Consistency check ──────────────────────────────────────────────────────
-  const activityNet = rows.reduce((sum: number, r: { activity_type: string; amount: number | null }) => {
-    const amt = r.amount ?? 0
-    const t = r.activity_type.toLowerCase()
-    if (t === "deposit") return sum + amt
-    if (t === "withdraw" || t === "payout") return sum - amt
-    return sum
-  }, 0)
+  const activityNet = rows.reduce(
+    (sum: number, r: { activity_type: string; amount: number | null }) => {
+      const amt = r.amount ?? 0
+      const t = r.activity_type.toLowerCase()
+      if (t === "deposit") return sum + amt
+      if (t === "withdraw" || t === "payout") return sum - amt
+      return sum
+    },
+    0
+  )
 
   const recorded = pool.total_saved ?? 0
   const inconsistent = Math.abs(activityNet - recorded) > 0.01
 
-  const auditRows: AuditRow[] = rows.map((r: { id: string; pool_id: string; activity_type: string; user_address: string | null; amount: number | null; tx_hash: string | null; description: string | null; created_at: string }) => ({
-    ...r,
-    pool_name: pool.name,
-    inconsistent,
-  }))
+  const auditRows: AuditRow[] = rows.map(
+    (r: {
+      id: string
+      pool_id: string
+      activity_type: string
+      user_address: string | null
+      amount: number | null
+      tx_hash: string | null
+      description: string | null
+      created_at: string
+    }) => ({
+      ...r,
+      pool_name: pool.name,
+      inconsistent,
+    })
+  )
 
   return NextResponse.json({ rows: auditRows, inconsistent, activityNet, recorded })
 }
