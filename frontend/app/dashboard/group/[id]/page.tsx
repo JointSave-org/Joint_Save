@@ -8,6 +8,7 @@ import { GroupActivity } from "@/components/group/group-activity";
 import { GroupActions } from "@/components/group/group-actions";
 import { YieldDashboard } from "@/components/group/yield-dashboard";
 import { AdminAuditLog } from "@/components/group/admin-audit-log";
+import { AdminActionsLog } from "@/components/group/admin-actions-log";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -115,6 +116,8 @@ export default function GroupPage({
               groupId={id}
               creatorAddress={pool.creator_address}
             />
+            {/* Admin actions log — visible to all pool members */}
+            <AdminActionsLog groupId={id} />
           </div>
 
           <div className="space-y-6">

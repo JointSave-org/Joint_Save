@@ -17,6 +17,7 @@ import {
   Clock,
   UserPlus,
   Trash2,
+  LogOut,
 } from "lucide-react";
 import { useStellar } from "@/components/web3-provider";
 import {
@@ -31,6 +32,7 @@ import {
   useUnpausePool,
   useAddPoolMember,
   useRemovePoolMember,
+  useLeavePool,
   fetchRotationalState,
   fetchPoolMembers,
 } from "@/hooks/useJointSaveContracts";
@@ -88,6 +90,32 @@ async function logActivity(
     });
   } catch {}
 }
+
+async function logAdminAction(
+  poolId: string,
+  adminAddress: string,
+  actionType: string,
+  targetAddress: string | null,
+  txHash: string | null,
+  metadata?: Record<string, any>,
+) {
+  try {
+    await fetch("/api/admin/actions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        poolId,
+        adminAddress,
+        actionType,
+        targetAddress,
+        txHash,
+        metadata: metadata || {},
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to log admin action:", err);
+  }
+}
 export function GroupActions({
   groupId,
   poolAddress,
@@ -113,6 +141,7 @@ export function GroupActions({
   const [members, setMembers] = useState<string[]>([]);
   const [newMember, setNewMember] = useState("");
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const isPending = !poolAddress || poolAddress === "pending_deployment";
   // Token display metadata (persisted on the pool row; defaults to native XLM)
   const tokenSymbol: string = poolData?.token_symbol ?? "XLM";
@@ -160,6 +189,7 @@ export function GroupActions({
   const unpausePool = useUnpausePool(poolAddress);
   const addPoolMember = useAddPoolMember(poolAddress);
   const removePoolMember = useRemovePoolMember(poolAddress);
+  const leavePool = useLeavePool(poolAddress);
 
   const { optimisticState, registerOptimistic, updateTxHash, markFailed } =
     useOptimisticTransactions(poolAddress);
@@ -387,7 +417,10 @@ export function GroupActions({
     if (!address) return setError("Please connect your wallet first");
     if (isPending) return setError("Contract not yet deployed.");
     try {
-      await pausePool.pause();
+      const txHash = await pausePool.pause();
+      if (txHash) {
+        await logAdminAction(groupId, address, "pause", null, txHash);
+      }
       setSuccessMsg("Pool paused successfully.");
       onPauseChange?.();
     } catch (e: any) {
@@ -401,7 +434,10 @@ export function GroupActions({
     if (!address) return setError("Please connect your wallet first");
     if (isPending) return setError("Contract not yet deployed.");
     try {
-      await unpausePool.unpause();
+      const txHash = await unpausePool.unpause();
+      if (txHash) {
+        await logAdminAction(groupId, address, "unpause", null, txHash);
+      }
       setSuccessMsg("Pool unpaused successfully.");
       onPauseChange?.();
     } catch (e: any) {
@@ -423,6 +459,7 @@ export function GroupActions({
       const txHash = await addPoolMember.addMember(newMember.trim().toUpperCase());
       if (txHash) {
         await logActivity(groupId, "member_added", address, null, txHash, newMember.trim().toUpperCase());
+        await logAdminAction(groupId, address, "add_member", newMember.trim().toUpperCase(), txHash);
         setSuccessMsg("Member added successfully.");
         setNewMember("");
         await refreshMembers();
@@ -444,6 +481,7 @@ export function GroupActions({
       const txHash = await removePoolMember.removeMember(memberToRemove);
       if (txHash) {
         await logActivity(groupId, "member_removed", address, null, txHash, memberToRemove);
+        await logAdminAction(groupId, address, "remove_member", memberToRemove, txHash);
         setSuccessMsg("Member removed successfully.");
         setMemberToRemove(null);
         await refreshMembers();
@@ -848,6 +886,23 @@ export function GroupActions({
             </div>
           )}
 
+          {!isAdmin && address && !isPending && (
+            <div className="border-t border-border pt-6 space-y-3">
+              <p className="text-xs text-muted-foreground font-medium">
+                Leave Pool
+              </p>
+              <Button
+                variant="outline"
+                className="w-full bg-transparent text-destructive border-destructive/50 hover:bg-destructive/10"
+                onClick={() => setShowLeaveDialog(true)}
+                disabled={leavePool.isLoading || isPaused}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Leave Pool
+              </Button>
+            </div>
+          )}
+
           <div className="border-t border-border pt-6">
             <p className="text-xs text-muted-foreground mb-2">
               Your Stellar address
@@ -941,6 +996,64 @@ export function GroupActions({
                 </>
               ) : (
                 "Confirm & Sign"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showLeaveDialog}
+        onOpenChange={(open) => {
+          if (!open) setShowLeaveDialog(false);
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px] bg-background border border-border">
+          <DialogHeader>
+            <DialogTitle>Leave this pool?</DialogTitle>
+            <DialogDescription>
+              {poolType === "rotational" &&
+                "You will lose your position in the rotation. This action cannot be undone."}
+              {poolType === "target" &&
+                "Your deposited balance will be refunded before the target is reached."}
+              {poolType === "flexible" &&
+                "Your current balance will be refunded to your wallet."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowLeaveDialog(false)}
+              disabled={leavePool.isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setError("");
+                setSuccessMsg("");
+                try {
+                  const txHash = await leavePool.leavePool();
+                  if (txHash && address) {
+                    await logActivity(groupId, "member_left", address, null, txHash);
+                    setSuccessMsg("You have left the pool.");
+                    setShowLeaveDialog(false);
+                  }
+                } catch (e: any) {
+                  setError(e.message || "Transaction failed");
+                  setShowLeaveDialog(false);
+                }
+              }}
+              disabled={leavePool.isLoading}
+            >
+              {leavePool.isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Leaving...
+                </>
+              ) : (
+                "Leave Pool"
               )}
             </Button>
           </DialogFooter>
