@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await getAdminClient()
     .from("user_profiles")
-    .select("wallet_address, email, notification_preferences")
+    .select("wallet_address, email, notification_preferences, muted_pools")
     .eq("wallet_address", wallet)
     .maybeSingle()
 

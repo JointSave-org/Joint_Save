@@ -30,6 +30,7 @@ import {
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import { useToast } from "@/hooks/use-toast"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
+import { GroupMuteNotificationsToggle } from "@/components/group/GroupMuteNotificationsToggle"
 
 interface GroupDetailsProps {
   groupId: string
@@ -482,6 +483,12 @@ export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
             </Button>
           </div>
         )}
+
+        {/* Per-pool notification mute (email only) */}
+        <div className="mb-4">
+          {/* pool_id in DB is the same as groupId route param */}
+          <GroupMuteNotificationsToggle poolId={groupId} />
+        </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {stats.map((stat, i) => (
