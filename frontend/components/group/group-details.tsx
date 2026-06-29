@@ -35,13 +35,25 @@ import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import { GroupMuteNotificationsToggle } from "@/components/group/GroupMuteNotificationsToggle"
 
 interface GroupData {
-  id: string; name: string; type: "rotational" | "target" | "flexible"
-  status: string; description: string | null; total_saved: number
-  target_amount: number | null; progress: number; members_count: number
-  next_payout: string | null; next_recipient: string | null; created_at: string
-  contribution_amount: number | null; frequency: string | null
-  deadline: string | null; contract_address: string
-  token_symbol?: string; token_decimals?: number; members?: string[]
+  id: string
+  name: string
+  type: "rotational" | "target" | "flexible"
+  status: string
+  description: string | null
+  total_saved: number
+  target_amount: number | null
+  progress: number
+  members_count: number
+  next_payout: string | null
+  next_recipient: string | null
+  created_at: string
+  contribution_amount: number | null
+  frequency: string | null
+  deadline: string | null
+  contract_address: string
+  token_symbol?: string
+  token_decimals?: number
+  members?: string[]
 }
 
 interface GroupDetailsProps {

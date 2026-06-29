@@ -35,7 +35,7 @@ const cases = [
     submit: "Create Target Pool",
     fill: async (page: import("@playwright/test").Page) => {
       await page.locator("#target").fill("5000")
-      await page.locator("#deadline").fill("2027-06-21")
+      await page.locator("#deadlineDays").fill("365")
     },
   },
   {

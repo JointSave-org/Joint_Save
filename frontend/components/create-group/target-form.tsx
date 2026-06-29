@@ -137,11 +137,16 @@ export function TargetForm() {
     const nameResult = validateGroupName(formData.name)
     const amountResult = validatePositiveAmount(formData.targetAmount, "Target amount")
     const deadlineDays = parseInt(formData.deadlineDays)
-    const deadlineDaysValid = formData.deadlineDays && !isNaN(deadlineDays) && deadlineDays >= 1 && deadlineDays <= 3650
+    const deadlineDaysValid =
+      formData.deadlineDays && !isNaN(deadlineDays) && deadlineDays >= 1 && deadlineDays <= 3650
     setFieldErrors({
       name: nameResult.message,
       targetAmount: amountResult.message,
-      deadlineDays: deadlineDaysValid ? "" : (formData.deadlineDays ? "Deadline must be between 1 and 3650 days" : "Deadline is required"),
+      deadlineDays: deadlineDaysValid
+        ? ""
+        : formData.deadlineDays
+          ? "Deadline must be between 1 and 3650 days"
+          : "Deadline is required",
     })
 
     if (!address) return setError("Please connect your wallet first")
@@ -455,9 +460,12 @@ export function TargetForm() {
             <li>Members: {validMembers.length}</li>
             <li>Target Amount: {formData.targetAmount || "0"} XLM</li>
             <li>Each member contributes: {contributionPerMember} XLM</li>
-            <li>Deadline: {days > 0
-              ? `~${days} day${days !== 1 ? "s" : ""}${estimatedDeadlineLedger ? ` (ledger ~${estimatedDeadlineLedger.toLocaleString()})` : ""}`
-              : "Not set"}</li>
+            <li>
+              Deadline:{" "}
+              {days > 0
+                ? `~${days} day${days !== 1 ? "s" : ""}${estimatedDeadlineLedger ? ` (ledger ~${estimatedDeadlineLedger.toLocaleString()})` : ""}`
+                : "Not set"}
+            </li>
           </ul>
         </div>
         <Button
