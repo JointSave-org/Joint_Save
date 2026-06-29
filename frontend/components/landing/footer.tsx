@@ -60,19 +60,34 @@ export function Footer() {
             <h3 className="font-semibold mb-4">Community</h3>
             <ul className="space-y-2">
               <li>
-                <a href="https://x.com/solstream_xyz?s=21" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+                <a
+                  href="https://x.com/solstream_xyz?s=21"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+                >
                   <Twitter className="h-4 w-4" />
                   Twitter
                 </a>
               </li>
               <li>
-                <a href="https://discord.gg/PAvHKqMa" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+                <a
+                  href="https://discord.gg/PAvHKqMa"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+                >
                   <MessageCircle className="h-4 w-4" />
                   Discord
                 </a>
               </li>
               <li>
-                <a href="https://github.com/JointSave-org/Joint_Save" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+                <a
+                  href="https://github.com/JointSave-org/Joint_Save"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+                >
                   <Github className="h-4 w-4" />
                   GitHub
                 </a>
@@ -84,8 +99,12 @@ export function Footer() {
         <div className="border-t border-border/40 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">© 2025 JointSave. Built on Stellar.</p>
           <div className="flex gap-6 text-sm text-muted-foreground">
-            <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+            <Link href="/privacy" className="hover:text-foreground transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">
+              Terms of Service
+            </Link>
           </div>
         </div>
       </div>

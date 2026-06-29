@@ -1,12 +1,12 @@
-import Link from "next/link";
+import Link from "next/link"
 
 export default function TermsPage() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center p-6 text-center">
       <h1 className="mb-4 text-4xl font-bold tracking-tight">Terms of Service</h1>
       <p className="text-muted-foreground mb-8 max-w-md">
-        We are currently drafting our official terms of service. Please check back
-        soon, or reach out to us if you have immediate questions.
+        We are currently drafting our official terms of service. Please check back soon, or reach
+        out to us if you have immediate questions.
       </p>
       <Link
         href="/"
@@ -15,5 +15,5 @@ export default function TermsPage() {
         Return Home
       </Link>
     </div>
-  );
+  )
 }
