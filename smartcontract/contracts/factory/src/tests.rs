@@ -103,6 +103,43 @@ fn test_set_treasury_unauthorized() {
 }
 
 #[test]
+fn test_pause_all() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, JointSaveFactory);
+    let client = JointSaveFactoryClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let token = Address::generate(&env);
+    let treasury = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &token, &treasury);
+
+    // pause_all should succeed when called by admin
+    client.pause_all(&admin);
+    // No state change to assert — just must not panic
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn test_pause_all_unauthorized() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, JointSaveFactory);
+    let client = JointSaveFactoryClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let token = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let stranger = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &token, &treasury);
+
+    // Non-admin should be rejected
+    client.pause_all(&stranger);
+}
+
+#[test]
 fn test_bump_state() {
     let env = Env::default();
     let contract_id = env.register_contract(None, JointSaveFactory);
