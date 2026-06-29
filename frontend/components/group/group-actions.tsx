@@ -90,6 +90,32 @@ async function logActivity(
     });
   } catch {}
 }
+
+async function logAdminAction(
+  poolId: string,
+  adminAddress: string,
+  actionType: string,
+  targetAddress: string | null,
+  txHash: string | null,
+  metadata?: Record<string, any>,
+) {
+  try {
+    await fetch("/api/admin/actions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        poolId,
+        adminAddress,
+        actionType,
+        targetAddress,
+        txHash,
+        metadata: metadata || {},
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to log admin action:", err);
+  }
+}
 export function GroupActions({
   groupId,
   poolAddress,
@@ -391,7 +417,10 @@ export function GroupActions({
     if (!address) return setError("Please connect your wallet first");
     if (isPending) return setError("Contract not yet deployed.");
     try {
-      await pausePool.pause();
+      const txHash = await pausePool.pause();
+      if (txHash) {
+        await logAdminAction(groupId, address, "pause", null, txHash);
+      }
       setSuccessMsg("Pool paused successfully.");
       onPauseChange?.();
     } catch (e: any) {
@@ -405,7 +434,10 @@ export function GroupActions({
     if (!address) return setError("Please connect your wallet first");
     if (isPending) return setError("Contract not yet deployed.");
     try {
-      await unpausePool.unpause();
+      const txHash = await unpausePool.unpause();
+      if (txHash) {
+        await logAdminAction(groupId, address, "unpause", null, txHash);
+      }
       setSuccessMsg("Pool unpaused successfully.");
       onPauseChange?.();
     } catch (e: any) {
@@ -427,6 +459,7 @@ export function GroupActions({
       const txHash = await addPoolMember.addMember(newMember.trim().toUpperCase());
       if (txHash) {
         await logActivity(groupId, "member_added", address, null, txHash, newMember.trim().toUpperCase());
+        await logAdminAction(groupId, address, "add_member", newMember.trim().toUpperCase(), txHash);
         setSuccessMsg("Member added successfully.");
         setNewMember("");
         await refreshMembers();
@@ -448,6 +481,7 @@ export function GroupActions({
       const txHash = await removePoolMember.removeMember(memberToRemove);
       if (txHash) {
         await logActivity(groupId, "member_removed", address, null, txHash, memberToRemove);
+        await logAdminAction(groupId, address, "remove_member", memberToRemove, txHash);
         setSuccessMsg("Member removed successfully.");
         setMemberToRemove(null);
         await refreshMembers();
