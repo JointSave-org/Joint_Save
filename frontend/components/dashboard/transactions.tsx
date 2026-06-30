@@ -4,12 +4,19 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ArrowUpRight, ArrowDownLeft, Loader2, Download } from "lucide-react"
 import { useState, useEffect, useMemo } from "react"
 import { supabase } from "@/lib/supabase"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { formatRelativeTime, formatExactDateTime } from "@/lib/utils"
+import { buildCsv, downloadCsv } from "@/lib/csv-export"
 
 interface Activity {
   id: string
@@ -22,6 +29,7 @@ interface Activity {
   tx_hash: string | null
   pool_name: string | null
   pool_type: string | null
+  token_symbol: string | null
 }
 
 export function Transactions() {
@@ -39,20 +47,33 @@ export function Transactions() {
       try {
         const { data, error } = await supabase
           .from("pool_activity")
-          .select(`
+          .select(
+            `
             *,
-            pools ( name, type )
-          `)
+            pools ( name, type, token_symbol )
+          `
+          )
           .order("created_at", { ascending: false })
           .limit(500)
 
         if (error) throw error
 
-        const rows = (data ?? []).map((row: any) => ({
-          ...row,
-          pool_name: row.pools?.name ?? null,
-          pool_type: row.pools?.type ?? null,
-        }))
+        const rows = (data ?? []).map(
+          (
+            row: Record<string, unknown> & {
+              pools?: {
+                name?: string | null
+                type?: string | null
+                token_symbol?: string | null
+              } | null
+            }
+          ) => ({
+            ...row,
+            pool_name: row.pools?.name ?? null,
+            pool_type: row.pools?.type ?? null,
+            token_symbol: row.pools?.token_symbol ?? null,
+          })
+        )
         setActivities(rows)
       } catch (err) {
         console.error("Failed to fetch activities:", err)
@@ -88,27 +109,25 @@ export function Transactions() {
   }, [activities, dateFrom, dateTo, poolFilter, typeFilter])
 
   const exportCSV = () => {
-    const header = ["Date", "Pool Name", "Pool Type", "Activity Type", "Amount", "Transaction Hash"]
+    const headers = [
+      "Date",
+      "Pool Name",
+      "Pool Type",
+      "Activity Type",
+      "Amount",
+      "Transaction Hash",
+    ]
     const rows = filtered.map((a) => [
-      new Date(a.created_at).toLocaleDateString(),
+      new Date(a.created_at).toISOString().slice(0, 10),
       a.pool_name ?? "",
       a.pool_type ?? "",
       a.activity_type,
-      a.amount != null ? a.amount.toFixed(2) : "",
+      a.amount != null ? `${a.amount.toFixed(2)} ${a.token_symbol ?? "XLM"}` : "",
       a.tx_hash ?? "",
     ])
 
-    const csv = [header, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-      .join("\n")
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `transactions-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    const csv = buildCsv(headers, rows)
+    downloadCsv(csv, `transactions-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
   if (loading) {
@@ -158,7 +177,9 @@ export function Transactions() {
             <SelectContent>
               <SelectItem value="all">All Pools</SelectItem>
               {poolOptions.map(([id, name]) => (
-                <SelectItem key={id} value={id}>{name}</SelectItem>
+                <SelectItem key={id} value={id}>
+                  {name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -171,7 +192,9 @@ export function Transactions() {
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
               {activityTypes.map((t) => (
-                <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                <SelectItem key={t} value={t} className="capitalize">
+                  {t}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -180,17 +203,17 @@ export function Transactions() {
 
       <Card className="divide-y divide-border">
         {filtered.length === 0 ? (
-          <div className="p-6 text-center text-muted-foreground">
-            No transactions found
-          </div>
+          <div className="p-6 text-center text-muted-foreground">No transactions found</div>
         ) : (
           filtered.map((activity) => (
             <div key={activity.id} className="p-6 hover:bg-muted/30 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-                    activity.activity_type === "deposit" ? "bg-primary/10" : "bg-accent/10"
-                  }`}>
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-xl ${
+                      activity.activity_type === "deposit" ? "bg-primary/10" : "bg-accent/10"
+                    }`}
+                  >
                     {activity.activity_type === "deposit" ? (
                       <ArrowUpRight className="h-6 w-6 text-primary" />
                     ) : (

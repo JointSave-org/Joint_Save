@@ -1,4 +1,4 @@
-use soroban_sdk::{testutils::Address as _, Address, Env};
+use soroban_sdk::{testutils::{Address as _, storage::Persistent}, Address, Env};
 
 use crate::{ReputationScore, ReputationTracker, ReputationTrackerClient};
 
@@ -96,3 +96,35 @@ fn record_deposit_requires_pool_authorization() {
     let (client, pool, member) = setup(&env);
     client.record_deposit(&pool, &member, &100);
 }
+
+#[test]
+fn test_bump_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, ReputationTracker);
+    let client = ReputationTrackerClient::new(&env, &contract_id);
+    let pool = Address::generate(&env);
+    let member = Address::generate(&env);
+
+    client.record_deposit(&pool, &member, &100);
+
+    // Call bump_state
+    client.bump_state();
+
+    // Verify key TTLs were extended
+    env.as_contract(&contract_id, || {
+        let ttl_members = env.storage().persistent().get_ttl(&crate::DataKey::Members);
+        assert!(ttl_members >= 2592000);
+
+        let ttl_score = env.storage().persistent().get_ttl(&crate::DataKey::Score(member.clone()));
+        assert!(ttl_score >= 2592000);
+
+        let ttl_deposits = env.storage().persistent().get_ttl(&crate::DataKey::DepositsMade(member.clone()));
+        assert!(ttl_deposits >= 2592000);
+
+        let ttl_rounds = env.storage().persistent().get_ttl(&crate::DataKey::RoundsTracked(member.clone()));
+        assert!(ttl_rounds >= 2592000);
+    });
+}
+

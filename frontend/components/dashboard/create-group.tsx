@@ -11,7 +11,8 @@ const groupTypes = [
     type: "rotational",
     icon: Users,
     title: "Rotational Savings",
-    description: "Traditional savings circle onchain. Members take turns receiving payouts automatically.",
+    description:
+      "Traditional savings circle onchain. Members take turns receiving payouts automatically.",
     features: ["Fixed contribution amount", "Scheduled payouts", "Turn-based system"],
   },
   {
@@ -48,7 +49,11 @@ const item = {
 export function CreateGroup() {
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <h2 className="text-3xl font-bold">Create a Savings Group</h2>
         <p className="text-muted-foreground mt-1">Choose a savings mode to get started</p>
       </motion.div>
@@ -60,7 +65,12 @@ export function CreateGroup() {
         className="grid grid-cols-1 md:grid-cols-3 gap-6"
       >
         {groupTypes.map((groupType) => (
-          <motion.div key={groupType.type} variants={item} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <motion.div
+            key={groupType.type}
+            variants={item}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
             <Card className="p-6 h-full flex flex-col hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 mb-4">
                 <groupType.icon className="h-7 w-7 text-primary" />
@@ -98,7 +108,9 @@ export function CreateGroup() {
           <ul className="space-y-2 text-sm">
             <li className="flex gap-2">
               <span className="font-medium min-w-[120px]">Rotational:</span>
-              <span className="text-muted-foreground">Best for regular income groups who want predictable payouts</span>
+              <span className="text-muted-foreground">
+                Best for regular income groups who want predictable payouts
+              </span>
             </li>
             <li className="flex gap-2">
               <span className="font-medium min-w-[120px]">Target:</span>
@@ -108,7 +120,9 @@ export function CreateGroup() {
             </li>
             <li className="flex gap-2">
               <span className="font-medium min-w-[120px]">Flexible:</span>
-              <span className="text-muted-foreground">Ideal for emergency funds or groups with varying income</span>
+              <span className="text-muted-foreground">
+                Ideal for emergency funds or groups with varying income
+              </span>
             </li>
           </ul>
         </Card>

@@ -16,6 +16,7 @@ import {
   fetchFlexibleState,
   fetchIsPaused,
   fetchPoolAdmin,
+  fetchPoolTtl,
   type RotationalPoolState,
   type TargetPoolState,
   type FlexiblePoolState,
@@ -24,10 +25,11 @@ import {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PoolStateCache {
-  db: any | null
+  db: Record<string, unknown> | null
   onchain: RotationalPoolState | TargetPoolState | FlexiblePoolState | null
   isPaused: boolean
   poolAdmin: string | null
+  ttlDays: number | null
   lastFetched: number
   isLoading: boolean
   isStale: boolean
@@ -44,7 +46,7 @@ interface PoolDataContextType {
   getCache: (contractId: string) => PoolStateCache | undefined
   getStats: (contractId: string) => CacheStats | undefined
   fetchPool: (contractId: string, isBackground?: boolean) => Promise<void>
-  seedCache: (contractId: string, dbData: any) => void
+  seedCache: (contractId: string, dbData: Record<string, unknown>) => void
   registerInterest: (contractId: string) => void
   unregisterInterest: (contractId: string) => void
   /** Subscribe to re-renders when cache changes */
@@ -74,7 +76,9 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
   const addressRef = useRef<string | null>(null)
 
   // Keep address ref in sync
-  useEffect(() => { addressRef.current = address }, [address])
+  useEffect(() => {
+    addressRef.current = address
+  }, [address])
 
   /** Notify all subscribed hooks that cache changed so they can re-render */
   const notifyListeners = useCallback(() => {
@@ -96,17 +100,26 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
     statsRef.current[contractId] = { ...current, misses: current.misses + 1 }
   }
 
-  const recordHit = useCallback((contractId: string) => {
-    const current = statsRef.current[contractId] ?? { hits: 0, misses: 0, lastFetch: null }
-    statsRef.current[contractId] = { ...current, hits: current.hits + 1 }
-    notifyListeners()
-  }, [notifyListeners])
-
+  const recordHit = useCallback(
+    (contractId: string) => {
+      const current = statsRef.current[contractId] ?? { hits: 0, misses: 0, lastFetch: null }
+      statsRef.current[contractId] = { ...current, hits: current.hits + 1 }
+      notifyListeners()
+    },
+    [notifyListeners]
+  )
 
   const setEntry = (contractId: string, patch: Partial<PoolStateCache>) => {
     const prev = cacheRef.current[contractId] ?? {
-      db: null, onchain: null, isPaused: false, poolAdmin: null, lastFetched: 0,
-      isLoading: false, isStale: true, error: null,
+      db: null,
+      onchain: null,
+      isPaused: false,
+      poolAdmin: null,
+      ttlDays: null,
+      lastFetched: 0,
+      isLoading: false,
+      isStale: true,
+      error: null,
     }
     cacheRef.current[contractId] = { ...prev, ...patch }
     notifyListeners()
@@ -114,23 +127,27 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
 
   // ── Seed Cache from external list fetch ────────────────────────────────────
 
-  const seedCache = useCallback((contractId: string, dbData: any) => {
-    if (!contractId || !dbData) return
-    // Only seed if we have nothing yet — don't overwrite a live fetch
-    if (!cacheRef.current[contractId]?.lastFetched) {
-      cacheRef.current[contractId] = {
-        db: dbData,
-        onchain: null,
-        isPaused: false,
-        poolAdmin: null,
-        lastFetched: 0, // stale intentionally so the hook triggers a background refresh
-        isLoading: false,
-        isStale: true,
-        error: null,
+  const seedCache = useCallback(
+    (contractId: string, dbData: Record<string, unknown>) => {
+      if (!contractId || !dbData) return
+      // Only seed if we have nothing yet — don't overwrite a live fetch
+      if (!cacheRef.current[contractId]?.lastFetched) {
+        cacheRef.current[contractId] = {
+          db: dbData,
+          onchain: null,
+          isPaused: false,
+          poolAdmin: null,
+          ttlDays: null,
+          lastFetched: 0, // stale intentionally so the hook triggers a background refresh
+          isLoading: false,
+          isStale: true,
+          error: null,
+        }
+        notifyListeners()
       }
-      notifyListeners()
-    }
-  }, [notifyListeners])
+    },
+    [notifyListeners]
+  )
 
   // ── Register / Unregister ─────────────────────────────────────────────────
 
@@ -146,89 +163,95 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
 
   // ── Central Fetch ─────────────────────────────────────────────────────────
 
-  const fetchPool = useCallback(async (contractId: string, isBackground = false) => {
-    if (!contractId || contractId === "pending_deployment") return
+  const fetchPool = useCallback(
+    async (contractId: string, isBackground = false) => {
+      if (!contractId || contractId === "pending_deployment") return
 
-    // Deduplication: reuse inflight promise
-    if (fetchingPromisesRef.current[contractId]) {
-      return fetchingPromisesRef.current[contractId]
-    }
+      // Deduplication: reuse inflight promise
+      if (fetchingPromisesRef.current[contractId]) {
+        return fetchingPromisesRef.current[contractId]
+      }
 
-    recordMiss(contractId)
+      recordMiss(contractId)
 
-    if (!isBackground) {
-      setEntry(contractId, { isLoading: true })
-    }
+      if (!isBackground) {
+        setEntry(contractId, { isLoading: true })
+      }
 
-    const promise = (async () => {
-      try {
-        // ── A: Fetch DB record ──────────────────────────────────────────────
-        const isStellarContract = /^C[A-Z2-7]{55}$/.test(contractId)
-        const url = isStellarContract
-          ? `/api/pools?contract=${contractId}`
-          : `/api/pools?id=${contractId}`
+      const promise = (async () => {
+        try {
+          // ── A: Fetch DB record ──────────────────────────────────────────────
+          const isStellarContract = /^C[A-Z2-7]{55}$/.test(contractId)
+          const url = isStellarContract
+            ? `/api/pools?contract=${contractId}`
+            : `/api/pools?id=${contractId}`
 
-        const dbRes = await fetch(url)
-        if (!dbRes.ok) throw new Error("Failed to load pool from database")
-        const dbData = await dbRes.json()
+          const dbRes = await fetch(url)
+          if (!dbRes.ok) throw new Error("Failed to load pool from database")
+          const dbData = (await dbRes.json()) as { type?: string; contract_address?: string }
 
-        // ── B: Fetch on-chain state ─────────────────────────────────────────
-        let onchainState = null
-        let isPaused = false
-        let poolAdmin: string | null = null
-        const contractAddr: string = dbData?.contract_address ?? ""
-        const isPending = !contractAddr || contractAddr === "pending_deployment"
+          // ── B: Fetch on-chain state ─────────────────────────────────────────
+          let onchainState = null
+          let isPaused = false
+          let poolAdmin: string | null = null
+          let ttlDays: number | null = null
+          const contractAddr: string = dbData?.contract_address ?? ""
+          const isPending = !contractAddr || contractAddr === "pending_deployment"
 
-        if (!isPending) {
-          const userAddress = addressRef.current || undefined
-          const promises: Promise<any>[] = []
+          if (!isPending) {
+            const userAddress = addressRef.current || undefined
+            const promises: Promise<unknown>[] = []
 
-          if (dbData.type === "rotational") {
-            promises.push(fetchRotationalState(contractAddr))
-          } else if (dbData.type === "target") {
-            promises.push(fetchTargetState(contractAddr, userAddress))
-          } else if (dbData.type === "flexible") {
-            promises.push(fetchFlexibleState(contractAddr, userAddress))
+            if (dbData.type === "rotational") {
+              promises.push(fetchRotationalState(contractAddr))
+            } else if (dbData.type === "target") {
+              promises.push(fetchTargetState(contractAddr, userAddress))
+            } else if (dbData.type === "flexible") {
+              promises.push(fetchFlexibleState(contractAddr, userAddress))
+            }
+
+            promises.push(fetchIsPaused(contractAddr))
+            promises.push(fetchPoolAdmin(contractAddr))
+            promises.push(fetchPoolTtl(contractAddr))
+
+            const [stateVal, pausedVal, adminVal, ttlVal] = await Promise.all(promises)
+            onchainState = stateVal
+            isPaused = pausedVal
+            poolAdmin = adminVal
+            ttlDays = ttlVal
           }
 
-          promises.push(fetchIsPaused(contractAddr))
-          promises.push(fetchPoolAdmin(contractAddr))
-
-          const [stateVal, pausedVal, adminVal] = await Promise.all(promises)
-          onchainState = stateVal
-          isPaused = pausedVal
-          poolAdmin = adminVal
+          const fetchTime = Date.now()
+          cacheRef.current[contractId] = {
+            db: dbData,
+            onchain: onchainState,
+            isPaused,
+            poolAdmin,
+            ttlDays,
+            lastFetched: fetchTime,
+            isLoading: false,
+            isStale: false,
+            error: null,
+          }
+          const s = statsRef.current[contractId] ?? { hits: 0, misses: 0, lastFetch: null }
+          statsRef.current[contractId] = { ...s, lastFetch: fetchTime }
+          notifyListeners()
+        } catch (err: unknown) {
+          console.error(`[PoolDataProvider] fetch failed for ${contractId}:`, err)
+          setEntry(contractId, {
+            isLoading: false,
+            error: (err as Error)?.message ?? "Failed to load pool details",
+          })
+        } finally {
+          delete fetchingPromisesRef.current[contractId]
         }
+      })()
 
-        const fetchTime = Date.now()
-        cacheRef.current[contractId] = {
-          db: dbData,
-          onchain: onchainState,
-          isPaused,
-          poolAdmin,
-          lastFetched: fetchTime,
-          isLoading: false,
-          isStale: false,
-          error: null,
-        }
-        const s = statsRef.current[contractId] ?? { hits: 0, misses: 0, lastFetch: null }
-        statsRef.current[contractId] = { ...s, lastFetch: fetchTime }
-        notifyListeners()
-
-      } catch (err: any) {
-        console.error(`[PoolDataProvider] fetch failed for ${contractId}:`, err)
-        setEntry(contractId, {
-          isLoading: false,
-          error: err?.message ?? "Failed to load pool details",
-        })
-      } finally {
-        delete fetchingPromisesRef.current[contractId]
-      }
-    })()
-
-    fetchingPromisesRef.current[contractId] = promise
-    return promise
-  }, [notifyListeners]) // notifyListeners is stable — no cache dep, no loop
+      fetchingPromisesRef.current[contractId] = promise
+      return promise
+    },
+    [notifyListeners]
+  ) // notifyListeners is stable — no cache dep, no loop
 
   // ── Centralised Polling ───────────────────────────────────────────────────
 
@@ -238,8 +261,7 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
       if (activeIds.length === 0) return
       if (
         process.env.NEXT_PUBLIC_DEBUG_DATA_LAYER === "true" ||
-        (typeof localStorage !== "undefined" &&
-          localStorage.getItem("DEBUG_DATA_LAYER") === "true")
+        (typeof localStorage !== "undefined" && localStorage.getItem("DEBUG_DATA_LAYER") === "true")
       ) {
         console.log(`[PoolDataProvider] Polling ${activeIds.length} active pool(s)…`)
       }
@@ -254,7 +276,9 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
   const [showDebug, setShowDebug] = useState(false)
   const [debugTick, setDebugTick] = useState(0)
   const [isClient, setIsClient] = useState(false)
-  useEffect(() => { setIsClient(true) }, [])
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Refresh debug panel every 2s when open
   useEffect(() => {
@@ -266,15 +290,23 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
   const isDebugEnabled =
     isClient &&
     (process.env.NEXT_PUBLIC_DEBUG_DATA_LAYER === "true" ||
-      (typeof localStorage !== "undefined" &&
-        localStorage.getItem("DEBUG_DATA_LAYER") === "true"))
+      (typeof localStorage !== "undefined" && localStorage.getItem("DEBUG_DATA_LAYER") === "true"))
 
   const cacheSnapshot = cacheRef.current
   const statsSnapshot = statsRef.current
 
   return (
     <PoolDataContext.Provider
-      value={{ getCache, getStats, fetchPool, seedCache, registerInterest, unregisterInterest, subscribe, recordHit }}
+      value={{
+        getCache,
+        getStats,
+        fetchPool,
+        seedCache,
+        registerInterest,
+        unregisterInterest,
+        subscribe,
+        recordHit,
+      }}
     >
       {children}
 
@@ -311,11 +343,15 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
                 </div>
                 <div className="bg-slate-800/60 rounded-lg px-3 py-1.5 flex flex-col items-center">
                   <span className="text-slate-400">Active Observers</span>
-                  <span className="font-bold text-emerald-400">{activeContractsRef.current.size}</span>
+                  <span className="font-bold text-emerald-400">
+                    {activeContractsRef.current.size}
+                  </span>
                 </div>
                 <div className="bg-slate-800/60 rounded-lg px-3 py-1.5 flex flex-col items-center">
                   <span className="text-slate-400">Inflight</span>
-                  <span className="font-bold text-amber-400">{Object.keys(fetchingPromisesRef.current).length}</span>
+                  <span className="font-bold text-amber-400">
+                    {Object.keys(fetchingPromisesRef.current).length}
+                  </span>
                 </div>
                 <div className="bg-slate-800/60 rounded-lg px-3 py-1.5 flex flex-col items-center">
                   <span className="text-slate-400">Stale TTL</span>
@@ -325,7 +361,9 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
 
               {/* Per-pool table */}
               {Object.keys(statsSnapshot).length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-4">No pool requests recorded yet.</p>
+                <p className="text-xs text-slate-500 text-center py-4">
+                  No pool requests recorded yet.
+                </p>
               ) : (
                 <table className="w-full text-left text-[11px] border-collapse">
                   <thead>
@@ -346,8 +384,8 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
                       const stateBadge = isLoading
                         ? { label: "Loading", cls: "text-amber-400" }
                         : isStale
-                        ? { label: "Stale", cls: "text-rose-400" }
-                        : { label: "Fresh", cls: "text-emerald-400" }
+                          ? { label: "Stale", cls: "text-rose-400" }
+                          : { label: "Fresh", cls: "text-emerald-400" }
 
                       return (
                         <tr key={id} className="border-b border-slate-800/40 hover:bg-slate-800/20">
@@ -357,8 +395,12 @@ export function PoolDataProvider({ children }: { children: ReactNode }) {
                           >
                             {id.length > 20 ? `${id.slice(0, 8)}…${id.slice(-6)}` : id}
                           </td>
-                          <td className="py-1.5 text-center text-emerald-400 font-semibold">{s.hits}</td>
-                          <td className="py-1.5 text-center text-rose-400 font-semibold">{s.misses}</td>
+                          <td className="py-1.5 text-center text-emerald-400 font-semibold">
+                            {s.hits}
+                          </td>
+                          <td className="py-1.5 text-center text-rose-400 font-semibold">
+                            {s.misses}
+                          </td>
                           <td className={`py-1.5 text-center font-semibold ${stateBadge.cls}`}>
                             {stateBadge.label}
                           </td>
@@ -413,7 +455,8 @@ export function usePoolData(contractId: string) {
     throw new Error("usePoolData must be used within a PoolDataProvider")
   }
 
-  const { getCache, fetchPool, registerInterest, unregisterInterest, subscribe, recordHit } = context
+  const { getCache, fetchPool, registerInterest, unregisterInterest, subscribe, recordHit } =
+    context
 
   // Force re-render when provider notifies (cache updated)
   const [, forceRender] = useState(0)
@@ -453,7 +496,16 @@ export function usePoolData(contractId: string) {
 
   // Handle missing / pending pools gracefully
   if (!contractId || contractId === "pending_deployment") {
-    return { data: null, isLoading: false, isStale: false, isPaused: false, poolAdmin: null, error: null, refetch: async () => {} }
+    return {
+      data: null,
+      isLoading: false,
+      isStale: false,
+      isPaused: false,
+      poolAdmin: null,
+      ttlDays: null,
+      error: null,
+      refetch: async () => {},
+    }
   }
 
   const entry = getCache(contractId)
@@ -463,9 +515,10 @@ export function usePoolData(contractId: string) {
     /** Unified data bag: { db: SupabaseRow, onchain: PoolState | null } */
     data: entry ? { db: entry.db, onchain: entry.onchain } : null,
     isLoading: entry ? entry.isLoading : true,
-    isStale: entry ? (entry.isStale || isStale) : false,
+    isStale: entry ? entry.isStale || isStale : false,
     isPaused: entry ? entry.isPaused : false,
     poolAdmin: entry ? entry.poolAdmin : null,
+    ttlDays: entry ? entry.ttlDays : null,
     error: entry ? entry.error : null,
     refetch,
   }

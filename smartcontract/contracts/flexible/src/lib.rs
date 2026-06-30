@@ -1,8 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, contracttype, token, Address, Env, Vec, symbol_short,
-};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Address, Env, Vec};
 
 #[contracttype]
 pub enum DataKey {
@@ -20,7 +18,11 @@ pub enum DataKey {
     Balance(Address),
     YieldStrategy,
     DeployedToYield,
+    TokenDecimals,
 }
+
+const LEDGER_THRESHOLD: u32 = 518400;
+const LEDGER_BUMP: u32 = 2592000;
 
 #[contract]
 pub struct FlexiblePool;
@@ -39,10 +41,16 @@ impl FlexiblePool {
         treasury_fee_bps: u32,
     ) {
         assert!(members.len() >= 2, "need >=2 members");
+        assert!(!Self::has_duplicate_members(&members), "duplicate member address");
         assert!(minimum_deposit > 0, "minimum must be > 0");
+
+        // Validate the token is a real SEP-41 contract by reading its decimals
+        // (this call traps for a non-token address) and remember it for display.
+        let decimals = token::Client::new(&env, &token).decimals();
 
         let storage = env.storage().persistent();
         storage.set(&DataKey::Token, &token);
+        storage.set(&DataKey::TokenDecimals, &decimals);
         storage.set(&DataKey::Admin, &admin);
         storage.set(&DataKey::Treasury, &treasury);
         storage.set(&DataKey::Members, &members);
@@ -54,6 +62,8 @@ impl FlexiblePool {
         storage.set(&DataKey::Active, &true);
         storage.set(&DataKey::Paused, &false);
         storage.set(&DataKey::DeployedToYield, &0i128);
+
+        Self::bump_config_state_internal(&env);
     }
 
     pub fn deposit(env: Env, member: Address, amount: i128) {
@@ -82,7 +92,12 @@ impl FlexiblePool {
         let total: i128 = storage.get(&DataKey::TotalBalance).unwrap();
         storage.set(&DataKey::TotalBalance, &(total + amount));
 
-        env.events().publish((symbol_short!("deposit"), member), amount);
+        let bal_key = DataKey::Balance(member.clone());
+        storage.extend_ttl(&bal_key, LEDGER_THRESHOLD, LEDGER_BUMP);
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("deposit"), member), amount);
     }
 
     pub fn withdraw(env: Env, member: Address, amount: i128) {
@@ -114,7 +129,12 @@ impl FlexiblePool {
         }
         token_client.transfer(&env.current_contract_address(), &member, &net);
 
-        env.events().publish((symbol_short!("withdraw"), member), net);
+        let bal_key = DataKey::Balance(member.clone());
+        storage.extend_ttl(&bal_key, LEDGER_THRESHOLD, LEDGER_BUMP);
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("withdraw"), member), net);
     }
 
     /// Distribute yield proportionally to all members with a balance.
@@ -137,12 +157,120 @@ impl FlexiblePool {
             let bal: i128 = storage.get(&DataKey::Balance(m.clone())).unwrap_or(0);
             if bal > 0 {
                 let member_yield = (yield_amount * bal) / total;
-                storage.set(&DataKey::Balance(m.clone()), &(bal + member_yield));
+                let bal_key = DataKey::Balance(m.clone());
+                storage.set(&bal_key, &(bal + member_yield));
+                storage.extend_ttl(&bal_key, LEDGER_THRESHOLD, LEDGER_BUMP);
             }
         }
 
         storage.set(&DataKey::TotalBalance, &(total + yield_amount));
-        env.events().publish((symbol_short!("yield"),), yield_amount);
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("yield"),), yield_amount);
+    }
+
+    pub fn add_member(env: Env, admin: Address, new_member: Address) {
+        admin.require_auth();
+
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let mut members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(!Self::is_member(&members, &new_member), "already a member");
+
+        members.push_back(new_member.clone());
+        storage.set(&DataKey::Members, &members);
+
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("add_mem"), new_member), ());
+    }
+
+    pub fn remove_member(env: Env, admin: Address, member: Address) {
+        admin.require_auth();
+
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(Self::is_member(&members, &member), "not a member");
+        assert!(members.len() > 1, "need >=1 members");
+
+        let balance: i128 = storage.get(&DataKey::Balance(member.clone())).unwrap_or(0);
+        if balance > 0 {
+            let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+            token::Client::new(&env, &token_addr).transfer(
+                &env.current_contract_address(),
+                &member,
+                &balance,
+            );
+
+            let total: i128 = storage.get(&DataKey::TotalBalance).unwrap();
+            storage.set(&DataKey::TotalBalance, &(total - balance));
+            storage.set(&DataKey::Balance(member.clone()), &0i128);
+        }
+
+        let mut updated_members: Vec<Address> = Vec::new(&env);
+        for existing in members.iter() {
+            if existing != member {
+                updated_members.push_back(existing);
+            }
+        }
+
+        storage.set(&DataKey::Members, &updated_members);
+
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("rem_mem"), member), balance);
+    }
+
+    pub fn leave_pool(env: Env, member: Address) {
+        member.require_auth();
+
+        let storage = env.storage().persistent();
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(Self::is_member(&members, &member), "not a member");
+        assert!(members.len() > 1, "need >=1 members");
+
+        let balance: i128 = storage.get(&DataKey::Balance(member.clone())).unwrap_or(0);
+        if balance > 0 {
+            let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+            token::Client::new(&env, &token_addr).transfer(
+                &env.current_contract_address(),
+                &member,
+                &balance,
+            );
+
+            let total: i128 = storage.get(&DataKey::TotalBalance).unwrap();
+            storage.set(&DataKey::TotalBalance, &(total - balance));
+            storage.set(&DataKey::Balance(member.clone()), &0i128);
+        }
+
+        let mut updated_members: Vec<Address> = Vec::new(&env);
+        for existing in members.iter() {
+            if existing != member {
+                updated_members.push_back(existing);
+            }
+        }
+
+        storage.set(&DataKey::Members, &updated_members);
+        Self::bump_config_state_internal(&env);
+        env.events()
+            .publish((symbol_short!("rem_mem"), member), balance);
     }
 
     // ── Emergency controls ────────────────────────────────────────────────
@@ -153,6 +281,9 @@ impl FlexiblePool {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
         storage.set(&DataKey::Paused, &true);
+
+        Self::bump_config_state_internal(&env);
+
         env.events().publish((symbol_short!("paused"),), ());
     }
 
@@ -162,6 +293,9 @@ impl FlexiblePool {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
         storage.set(&DataKey::Paused, &false);
+
+        Self::bump_config_state_internal(&env);
+
         env.events().publish((symbol_short!("unpaused"),), ());
     }
 
@@ -179,11 +313,19 @@ impl FlexiblePool {
         let contract_balance = token_client.balance(&env.current_contract_address());
 
         if contract_balance > 0 {
-            token_client.transfer(&env.current_contract_address(), &recipient, &contract_balance);
+            token_client.transfer(
+                &env.current_contract_address(),
+                &recipient,
+                &contract_balance,
+            );
         }
 
         storage.set(&DataKey::TotalBalance, &0i128);
-        env.events().publish((symbol_short!("emrg_wd"),), contract_balance);
+
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("emrg_wd"),), contract_balance);
     }
 
     // ── Yield strategy ────────────────────────────────────────────────────
@@ -197,7 +339,11 @@ impl FlexiblePool {
         let yield_enabled: bool = storage.get(&DataKey::YieldEnabled).unwrap_or(false);
         assert!(yield_enabled, "yield disabled");
         storage.set(&DataKey::YieldStrategy, &strategy);
-        env.events().publish((symbol_short!("set_strat"),), strategy);
+
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("set_strat"),), strategy);
     }
 
     /// Deploy `amount` of pool funds to the yield strategy contract.
@@ -209,7 +355,9 @@ impl FlexiblePool {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
 
-        let strategy: Address = storage.get(&DataKey::YieldStrategy).expect("no strategy set");
+        let strategy: Address = storage
+            .get(&DataKey::YieldStrategy)
+            .expect("no strategy set");
 
         let total: i128 = storage.get(&DataKey::TotalBalance).unwrap();
         assert!(total >= amount, "insufficient pool balance");
@@ -230,6 +378,8 @@ impl FlexiblePool {
         let deployed: i128 = storage.get(&DataKey::DeployedToYield).unwrap_or(0);
         storage.set(&DataKey::DeployedToYield, &(deployed + amount));
 
+        Self::bump_config_state_internal(&env);
+
         env.events().publish((symbol_short!("deployed"),), amount);
     }
 
@@ -241,7 +391,9 @@ impl FlexiblePool {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
 
-        let strategy: Address = storage.get(&DataKey::YieldStrategy).expect("no strategy set");
+        let strategy: Address = storage
+            .get(&DataKey::YieldStrategy)
+            .expect("no strategy set");
 
         let yield_amount: i128 = env.invoke_contract(
             &strategy,
@@ -256,34 +408,97 @@ impl FlexiblePool {
                 let bal: i128 = storage.get(&DataKey::Balance(m.clone())).unwrap_or(0);
                 if bal > 0 && total > 0 {
                     let share = (yield_amount * bal) / total;
-                    storage.set(&DataKey::Balance(m.clone()), &(bal + share));
+                    let bal_key = DataKey::Balance(m.clone());
+                    storage.set(&bal_key, &(bal + share));
+                    storage.extend_ttl(&bal_key, LEDGER_THRESHOLD, LEDGER_BUMP);
                 }
             }
             storage.set(&DataKey::TotalBalance, &(total + yield_amount));
-            env.events().publish((symbol_short!("harvested"),), yield_amount);
+            env.events()
+                .publish((symbol_short!("harvested"),), yield_amount);
+        }
+
+        Self::bump_config_state_internal(&env);
+    }
+
+    pub fn bump_state(env: Env) {
+        Self::bump_config_state_internal(&env);
+        let storage = env.storage().persistent();
+        if storage.has(&DataKey::Members) {
+            let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+            for member in members.iter() {
+                let key = DataKey::Balance(member.clone());
+                if storage.has(&key) {
+                    storage.extend_ttl(&key, LEDGER_THRESHOLD, LEDGER_BUMP);
+                }
+            }
+        }
+    }
+
+    fn bump_config_state_internal(env: &Env) {
+        let storage = env.storage().persistent();
+        storage.extend_ttl(&DataKey::Token, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::Admin, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::Treasury, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::Members, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::MinimumDeposit, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::WithdrawalFeeBps, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::TreasuryFeeBps, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::YieldEnabled, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::TotalBalance, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::Active, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::Paused, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::DeployedToYield, LEDGER_THRESHOLD, LEDGER_BUMP);
+
+        if storage.has(&DataKey::YieldStrategy) {
+            storage.extend_ttl(&DataKey::YieldStrategy, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
     }
 
     // ── Views ─────────────────────────────────────────────────────────────
 
     pub fn balance_of(env: Env, member: Address) -> i128 {
-        env.storage().persistent().get(&DataKey::Balance(member)).unwrap_or(0)
+        env.storage()
+            .persistent()
+            .get(&DataKey::Balance(member))
+            .unwrap_or(0)
     }
 
     pub fn total_balance(env: Env) -> i128 {
-        env.storage().persistent().get(&DataKey::TotalBalance).unwrap_or(0)
+        env.storage()
+            .persistent()
+            .get(&DataKey::TotalBalance)
+            .unwrap_or(0)
+    }
+
+    /// Decimals of the pool's token, recorded at initialize time. Defaults to 7
+    /// (native XLM) for pools created before multi-token support.
+    pub fn token_decimals(env: Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::TokenDecimals)
+            .unwrap_or(7)
     }
 
     pub fn members(env: Env) -> Vec<Address> {
-        env.storage().persistent().get(&DataKey::Members).unwrap_or(Vec::new(&env))
+        env.storage()
+            .persistent()
+            .get(&DataKey::Members)
+            .unwrap_or(Vec::new(&env))
     }
 
     pub fn is_active(env: Env) -> bool {
-        env.storage().persistent().get(&DataKey::Active).unwrap_or(false)
+        env.storage()
+            .persistent()
+            .get(&DataKey::Active)
+            .unwrap_or(false)
     }
 
     pub fn is_paused(env: Env) -> bool {
-        env.storage().persistent().get(&DataKey::Paused).unwrap_or(false)
+        env.storage()
+            .persistent()
+            .get(&DataKey::Paused)
+            .unwrap_or(false)
     }
 
     pub fn admin(env: Env) -> Address {
@@ -295,14 +510,33 @@ impl FlexiblePool {
     }
 
     pub fn deployed_to_yield(env: Env) -> i128 {
-        env.storage().persistent().get(&DataKey::DeployedToYield).unwrap_or(0)
+        env.storage()
+            .persistent()
+            .get(&DataKey::DeployedToYield)
+            .unwrap_or(0)
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
     fn is_member(members: &Vec<Address>, who: &Address) -> bool {
         for m in members.iter() {
-            if m == *who { return true; }
+            if m == *who {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// O(n^2) pairwise scan — member lists are small, so this is cheaper
+    /// than maintaining a separate index just to dedupe at init time.
+    fn has_duplicate_members(members: &Vec<Address>) -> bool {
+        for i in 0..members.len() {
+            let a = members.get(i).unwrap();
+            for j in (i + 1)..members.len() {
+                if a == members.get(j).unwrap() {
+                    return true;
+                }
+            }
         }
         false
     }

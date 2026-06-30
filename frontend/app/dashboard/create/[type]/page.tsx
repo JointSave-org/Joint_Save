@@ -1,6 +1,7 @@
 "use client"
 
-import { use } from "react"
+import { use, useMemo } from "react"
+import { useSearchParams } from "next/navigation"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { RotationalForm } from "@/components/create-group/rotational-form"
 import { TargetForm } from "@/components/create-group/target-form"
@@ -13,12 +14,40 @@ import { redirect } from "next/navigation"
 
 const validTypes = ["rotational", "target", "flexible"]
 
+export interface DuplicatePrefill {
+  name: string
+  description: string
+  amount: string
+  frequency: string
+  members: string[]
+  token: string
+}
+
 export default function CreateGroupPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = use(params)
+  const searchParams = useSearchParams()
 
   if (!validTypes.includes(type)) {
     redirect("/dashboard")
   }
+
+  const prefill: DuplicatePrefill | undefined = useMemo(() => {
+    if (!searchParams.get("duplicate")) return undefined
+    try {
+      const membersRaw = searchParams.get("members")
+      const members = membersRaw ? JSON.parse(decodeURIComponent(membersRaw)) : []
+      return {
+        name: decodeURIComponent(searchParams.get("name") || ""),
+        description: decodeURIComponent(searchParams.get("description") || ""),
+        amount: searchParams.get("amount") || "",
+        frequency: searchParams.get("frequency") || "",
+        members,
+        token: searchParams.get("token") || "XLM",
+      }
+    } catch {
+      return undefined
+    }
+  }, [searchParams])
 
   const titles = {
     rotational: "Create Rotational Savings Group",
@@ -39,12 +68,18 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
           </Button>
 
           <Card className="p-8">
-            <h1 className="text-3xl font-bold mb-2">{titles[type as keyof typeof titles]}</h1>
-            <p className="text-muted-foreground mb-8">Fill in the details to create your savings group</p>
+            <h1 className="text-3xl font-bold mb-2">
+              {prefill ? `New Cycle: ${prefill.name}` : titles[type as keyof typeof titles]}
+            </h1>
+            <p className="text-muted-foreground mb-8">
+              {prefill
+                ? "Pre-filled from the original pool. Edit any values before creating."
+                : "Fill in the details to create your savings group"}
+            </p>
 
-            {type === "rotational" && <RotationalForm />}
-            {type === "target" && <TargetForm />}
-            {type === "flexible" && <FlexibleForm />}
+            {type === "rotational" && <RotationalForm prefill={prefill} />}
+            {type === "target" && <TargetForm prefill={prefill} />}
+            {type === "flexible" && <FlexibleForm prefill={prefill} />}
           </Card>
         </div>
       </main>

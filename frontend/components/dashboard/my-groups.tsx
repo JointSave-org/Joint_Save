@@ -26,22 +26,6 @@ import {
 
 const PAGE_SIZE = 6
 
-interface Pool {
-  id: string
-  name: string
-  type: "rotational" | "target" | "flexible"
-  status: "active" | "completed" | "paused"
-  members_count: number
-  total_saved: number
-  progress: number
-  frequency?: string
-  next_payout?: string
-  contract_address: string
-  target_amount: number | null
-  contribution_amount: number | null
-  minimum_deposit: number | null
-}
-
 interface MyGroupsProps {
   onCreateClick?: () => void
 }
@@ -201,6 +185,9 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
   const [error, setError] = useState("")
 
   const page = Math.max(0, parseInt(searchParams.get("page") || "0", 10))
+  const searchTerm = searchParams.get("search") || ""
+  const [searchInput, setSearchInput] = useState(searchTerm)
+  const debouncedSearchInput = useDebouncedValue(searchInput, 300)
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const setPage = useCallback((p: number) => {
@@ -208,6 +195,31 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
     params.set("page", String(p))
     router.push(`?${params.toString()}`, { scroll: false })
   }, [router, searchParams])
+
+  const setSearchTerm = useCallback(
+    (term: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (term) {
+        params.set("search", term)
+      } else {
+        params.delete("search")
+      }
+      // Reset to first page when searching
+      params.set("page", "0")
+      router.push(`?${params.toString()}`, { scroll: false })
+    },
+    [router, searchParams]
+  )
+
+  useEffect(() => {
+    setSearchInput(searchTerm)
+  }, [searchTerm])
+
+  useEffect(() => {
+    if (debouncedSearchInput !== searchTerm) {
+      setSearchTerm(debouncedSearchInput)
+    }
+  }, [debouncedSearchInput, searchTerm, setSearchTerm])
 
   useEffect(() => {
     if (!address) { setLoading(false); return }
@@ -263,6 +275,18 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
           </p>
         </div>
       </motion.div>
+
+      {/* Search input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder="Search pools by name..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="pl-9"
+        />
+      </div>
 
       {pools.length === 0 ? (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>

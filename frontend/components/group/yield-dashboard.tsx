@@ -7,11 +7,18 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, TrendingUp, Zap, AlertTriangle, RefreshCw } from "lucide-react"
-import { useStellar } from "@/components/web3-provider"
+import { useStellar, STELLAR_NETWORK_PASSPHRASE } from "@/components/web3-provider"
+import { enqueueSign } from "@/lib/tx-queue"
 import {
-  Contract, TransactionBuilder, BASE_FEE, nativeToScVal, xdr,
+  Contract,
+  TransactionBuilder,
+  BASE_FEE,
+  nativeToScVal,
+  xdr,
   Address,
   rpc,
+  Account,
+  Transaction,
 } from "@stellar/stellar-sdk"
 import { STELLAR_RPC_URL } from "@/components/web3-provider"
 import { STELLAR_NETWORK_PASSPHRASE } from "@/components/web3-provider"
@@ -41,10 +48,14 @@ async function viewCall(contractId: string, method: string, ...args: xdr.ScVal[]
     accountId: () => "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7",
     sequenceNumber: () => "0",
     incrementSequenceNumber: () => {},
-  } as any
-  const tx = new TransactionBuilder(dummy, { fee: BASE_FEE, networkPassphrase: STELLAR_NETWORK_PASSPHRASE })
+  } as unknown as Account
+  const tx = new TransactionBuilder(dummy, {
+    fee: BASE_FEE,
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+  })
     .addOperation(new Contract(contractId.toUpperCase()).call(method, ...args))
-    .setTimeout(TX_TIMEOUT).build()
+    .setTimeout(TX_TIMEOUT)
+    .build()
   const sim = await server.simulateTransaction(tx)
   if (rpc.Api.isSimulationError(sim)) throw new Error(sim.error)
   return (sim as rpc.Api.SimulateTransactionSuccessResponse).result!.retval
@@ -75,8 +86,6 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
     if (isPending) return
     setLoading(true)
     try {
-      const { rpc } = await import("@stellar/stellar-sdk")
-
       // Fetch yield_strategy (optional — returns None if not set)
       let strategyAddress: string | null = null
       let deployedAmount = 0n
@@ -120,32 +129,36 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
       }
 
       setState({ strategyAddress, deployedAmount, totalHarvested })
-    } catch (e: any) {
-      setMsg({ type: "error", text: e.message })
+    } catch (e: unknown) {
+      setMsg({ type: "error", text: (e as Error).message })
     } finally {
       setLoading(false)
     }
   }, [poolAddress, isPending])
 
-  useEffect(() => { loadState() }, [loadState])
+  useEffect(() => {
+    loadState()
+  }, [loadState])
 
-  async function submitTx(buildOp: (account: any) => any) {
-    const { rpc, Transaction } = await import("@stellar/stellar-sdk")
+  async function submitTx(buildOp: (account: Account) => Transaction) {
+    const { rpc: rpcModule, Transaction: TransactionClass } = await import("@stellar/stellar-sdk")
     const server = getRpc()
     const account = await server.getAccount(address!)
-    const tx = buildOp(account)
+    const tx = buildOp(account as Account)
     const sim = await server.simulateTransaction(tx)
-    if (rpc.Api.isSimulationError(sim)) throw new Error(`Simulation: ${sim.error}`)
-    const prepared = rpc.assembleTransaction(tx, sim).build()
-    const { signedTxXdr } = await kit!.signTransaction(prepared.toXDR(), {
+    if (rpcModule.Api.isSimulationError(sim)) throw new Error(`Simulation: ${sim.error}`)
+    const prepared = rpcModule.assembleTransaction(tx, sim).build()
+    const { signedTxXdr } = await enqueueSign(prepared.toXDR(), {
       networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
     })
-    const result = await server.sendTransaction(new Transaction(signedTxXdr, STELLAR_NETWORK_PASSPHRASE))
+    const result = await server.sendTransaction(
+      new TransactionClass(signedTxXdr, STELLAR_NETWORK_PASSPHRASE)
+    )
     if (result.status === "ERROR") throw new Error("Transaction failed")
     // Poll
     let poll = await server.getTransaction(result.hash)
     for (let i = 0; poll.status === rpc.Api.GetTransactionStatus.NOT_FOUND && i < 30; i++) {
-      await new Promise(r => setTimeout(r, 1500))
+      await new Promise((r) => setTimeout(r, 1500))
       poll = await server.getTransaction(result.hash)
     }
     if (poll.status === rpc.Api.GetTransactionStatus.FAILED) throw new Error("On-chain failure")
@@ -154,58 +167,87 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
 
   const handleSetStrategy = async () => {
     if (!kit || !address || !strategyInput) return
-    setBusy(true); setMsg(null)
+    setBusy(true)
+    setMsg(null)
     try {
-      await submitTx(account =>
-        new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: STELLAR_NETWORK_PASSPHRASE })
-          .addOperation(new Contract(poolAddress.toUpperCase()).call(
-            "set_yield_strategy", addressVal(address), addressVal(strategyInput)
-          ))
-          .setTimeout(TX_TIMEOUT).build()
+      await submitTx((account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(poolAddress.toUpperCase()).call(
+              "set_yield_strategy",
+              addressVal(address),
+              addressVal(strategyInput)
+            )
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build()
       )
       setMsg({ type: "success", text: "Yield strategy set!" })
       setStrategyInput("")
       loadState()
-    } catch (e: any) {
-      setMsg({ type: "error", text: e.message })
-    } finally { setBusy(false) }
+    } catch (e: unknown) {
+      setMsg({ type: "error", text: (e as Error).message })
+    } finally {
+      setBusy(false)
+    }
   }
 
   const handleDeploy = async () => {
     if (!kit || !address || !deployAmount) return
-    setBusy(true); setMsg(null)
+    setBusy(true)
+    setMsg(null)
     try {
-      await submitTx(account =>
-        new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: STELLAR_NETWORK_PASSPHRASE })
-          .addOperation(new Contract(poolAddress.toUpperCase()).call(
-            "deploy_to_yield", addressVal(address), i128Val(toStroops(deployAmount))
-          ))
-          .setTimeout(TX_TIMEOUT).build()
+      await submitTx((account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(poolAddress.toUpperCase()).call(
+              "deploy_to_yield",
+              addressVal(address),
+              i128Val(toStroops(deployAmount))
+            )
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build()
       )
       setMsg({ type: "success", text: `Deployed ${deployAmount} XLM to yield strategy!` })
       setDeployAmount("")
       loadState()
-    } catch (e: any) {
-      setMsg({ type: "error", text: e.message })
-    } finally { setBusy(false) }
+    } catch (e: unknown) {
+      setMsg({ type: "error", text: (e as Error).message })
+    } finally {
+      setBusy(false)
+    }
   }
 
   const handleHarvest = async () => {
     if (!kit || !address) return
-    setBusy(true); setMsg(null)
+    setBusy(true)
+    setMsg(null)
     try {
-      await submitTx(account =>
-        new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: STELLAR_NETWORK_PASSPHRASE })
-          .addOperation(new Contract(poolAddress.toUpperCase()).call(
-            "harvest_yield", addressVal(address)
-          ))
-          .setTimeout(TX_TIMEOUT).build()
+      await submitTx((account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(poolAddress.toUpperCase()).call("harvest_yield", addressVal(address))
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build()
       )
       setMsg({ type: "success", text: "Yield harvested and distributed!" })
       loadState()
-    } catch (e: any) {
-      setMsg({ type: "error", text: e.message })
-    } finally { setBusy(false) }
+    } catch (e: unknown) {
+      setMsg({ type: "error", text: (e as Error).message })
+    } finally {
+      setBusy(false)
+    }
   }
 
   if (isPending) return null
@@ -225,9 +267,13 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
       </div>
 
       {msg && (
-        <div className={`flex gap-2 p-3 rounded-lg text-sm ${
-          msg.type === "success" ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
-        }`}>
+        <div
+          className={`flex gap-2 p-3 rounded-lg text-sm ${
+            msg.type === "success"
+              ? "bg-primary/10 text-primary"
+              : "bg-destructive/10 text-destructive"
+          }`}
+        >
           {msg.type === "error" && <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />}
           {msg.text}
         </div>
@@ -253,7 +299,9 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
             <Badge variant="secondary" className="text-xs font-mono truncate max-w-[200px]">
               {state.strategyAddress}
             </Badge>
-            <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 text-xs">Active</Badge>
+            <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 text-xs">
+              Active
+            </Badge>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No strategy configured</p>
@@ -268,7 +316,7 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
             id="strategy-addr"
             placeholder="C... contract address"
             value={strategyInput}
-            onChange={e => setStrategyInput(e.target.value)}
+            onChange={(e) => setStrategyInput(e.target.value)}
             disabled={busy}
             className="font-mono text-xs"
           />
@@ -292,11 +340,18 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
               step="0.01"
               placeholder="Amount (XLM)"
               value={deployAmount}
-              onChange={e => setDeployAmount(e.target.value)}
+              onChange={(e) => setDeployAmount(e.target.value)}
               disabled={busy}
             />
             <Button onClick={handleDeploy} disabled={busy || !deployAmount || !address}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Zap className="h-4 w-4 mr-1" />Deploy</>}
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-1" />
+                  Deploy
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -311,12 +366,21 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
             onClick={handleHarvest}
             disabled={busy || !address}
           >
-            {busy
-              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
-              : <><TrendingUp className="mr-2 h-4 w-4" />Harvest & Distribute Yield</>}
+            {busy ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Harvest & Distribute Yield
+              </>
+            )}
           </Button>
           <p className="text-xs text-muted-foreground mt-2 text-center">
-            Harvests accumulated yield from the protocol and distributes proportionally to all members.
+            Harvests accumulated yield from the protocol and distributes proportionally to all
+            members.
           </p>
         </div>
       )}

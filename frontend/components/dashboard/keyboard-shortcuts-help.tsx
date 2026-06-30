@@ -35,24 +35,13 @@ export function KeyboardShortcutsHelp({
         </DialogHeader>
         <div className="space-y-3 py-2">
           {shortcuts.map((shortcut) => (
-            <div
-              key={shortcut.keys.join("-")}
-              className="flex items-center justify-between"
-            >
-              <span className="text-sm text-muted-foreground">
-                {shortcut.description}
-              </span>
+            <div key={shortcut.keys.join("-")} className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{shortcut.description}</span>
               <span className="flex items-center gap-1.5">
                 {shortcut.keys.map((key, i) => (
                   <span key={key} className="flex items-center gap-1.5">
-                    {i > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        then
-                      </span>
-                    )}
-                    <Kbd>
-                      {key === " " ? "Space" : key}
-                    </Kbd>
+                    {i > 0 && <span className="text-xs text-muted-foreground">then</span>}
+                    <Kbd>{key === " " ? "Space" : key}</Kbd>
                   </span>
                 ))}
               </span>

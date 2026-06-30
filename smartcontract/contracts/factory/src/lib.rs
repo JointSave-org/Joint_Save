@@ -22,6 +22,9 @@ pub enum DataKey {
     Flexible,
 }
 
+const LEDGER_THRESHOLD: u32 = 518400;
+const LEDGER_BUMP: u32 = 2592000;
+
 #[contract]
 pub struct JointSaveFactory;
 
@@ -37,6 +40,7 @@ impl JointSaveFactory {
         storage.set(&DataKey::Rotational, &Vec::<BytesN<32>>::new(&env));
         storage.set(&DataKey::Target, &Vec::<BytesN<32>>::new(&env));
         storage.set(&DataKey::Flexible, &Vec::<BytesN<32>>::new(&env));
+        Self::bump_state(env.clone());
     }
 
     /// Register a deployed rotational pool contract.
@@ -48,6 +52,7 @@ impl JointSaveFactory {
         storage.set(&DataKey::Rotational, &list);
         env.events()
             .publish((symbol_short!("rot_reg"), caller), pool_id);
+        Self::bump_state(env.clone());
     }
 
     /// Register a deployed target pool contract.
@@ -59,6 +64,7 @@ impl JointSaveFactory {
         storage.set(&DataKey::Target, &list);
         env.events()
             .publish((symbol_short!("tgt_reg"), caller), pool_id);
+        Self::bump_state(env.clone());
     }
 
     /// Register a deployed flexible pool contract.
@@ -70,6 +76,7 @@ impl JointSaveFactory {
         storage.set(&DataKey::Flexible, &list);
         env.events()
             .publish((symbol_short!("flx_reg"), caller), pool_id);
+        Self::bump_state(env.clone());
     }
 
     /// Update treasury address (admin only).
@@ -78,6 +85,7 @@ impl JointSaveFactory {
         let admin: Address = storage.get(&DataKey::Admin).unwrap();
         admin.require_auth();
         storage.set(&DataKey::Treasury, &new_treasury);
+        Self::bump_state(env.clone());
     }
 
     /// Emit a pause_all event signalling all registered pools should be paused.
@@ -88,6 +96,28 @@ impl JointSaveFactory {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
         env.events().publish((symbol_short!("pause_all"), admin), ());
+    }
+
+    pub fn bump_state(env: Env) {
+        let storage = env.storage().persistent();
+        if storage.has(&DataKey::Admin) {
+            storage.extend_ttl(&DataKey::Admin, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::Token) {
+            storage.extend_ttl(&DataKey::Token, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::Treasury) {
+            storage.extend_ttl(&DataKey::Treasury, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::Rotational) {
+            storage.extend_ttl(&DataKey::Rotational, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::Target) {
+            storage.extend_ttl(&DataKey::Target, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::Flexible) {
+            storage.extend_ttl(&DataKey::Flexible, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
     }
 
     // ── Views ──────────────────────────────────────────────────────────────

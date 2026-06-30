@@ -52,34 +52,19 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
         return
       }
 
-      if (
-        key === "?" &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey
-      ) {
+      if (key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault()
         handlersRef.current.onOpenHelp()
         return
       }
 
-      if (
-        key.toLowerCase() === "c" &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey
-      ) {
+      if (key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault()
         handlersRef.current.onCreatePool()
         return
       }
 
-      if (
-        key.toLowerCase() === "g" &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey
-      ) {
+      if (key.toLowerCase() === "g" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault()
         if (gTimerRef.current) clearTimeout(gTimerRef.current)
         gTimerRef.current = setTimeout(() => {

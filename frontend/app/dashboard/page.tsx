@@ -21,6 +21,11 @@ export default function DashboardPage() {
     onGoToProfile: () => setActiveTab("profile"),
     onOpenHelp: () => setShowHelp(true),
   })
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" })
+  }, [activeTab])
+
   useEffect(() => {
     if (!isInitializing && !isConnected) {
       redirect("/")

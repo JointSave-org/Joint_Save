@@ -8,7 +8,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Plus, X, Loader2, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useStellar } from "@/components/web3-provider"
-import { useDeployPool, useInitializePool, useRegisterPool, getRpc } from "@/hooks/useJointSaveContracts"
+import {
+  useDeployPool,
+  useInitializePool,
+  useRegisterPool,
+  getRpc,
+  resolveTokenAddress,
+} from "@/hooks/useJointSaveContracts"
+import { TokenSelect, type SelectedToken } from "@/components/create-group/token-select"
+import BulkImport from "@/components/create-group/BulkImport"
 import { FieldTooltip } from "@/components/ui/field-tooltip"
 import { FieldError } from "@/components/ui/form"
 import { FormProgress, type ProgressField } from "@/components/ui/form-progress"
@@ -17,14 +25,13 @@ import {
   validateStellarAddress,
   validatePositiveAmount,
   validateDeadline,
+  findDuplicateAddresses,
 } from "@/lib/form-validation"
+import { MAX_POOL_MEMBERS } from "@/lib/constants"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
 }
-
-const TREASURY = process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID || ""
-const TOKEN = process.env.NEXT_PUBLIC_TOKEN_CONTRACT_ID || "native"
 
 // Convert a JS Date to an approximate Stellar ledger sequence number.
 // Stellar testnet: ~5 ledgers/sec. We fetch current ledger and extrapolate.
@@ -41,11 +48,22 @@ type Touched = Partial<Record<"name" | "targetAmount" | "deadline", boolean>>
 export function TargetForm() {
   const router = useRouter()
   const { address } = useStellar()
+  const [token, setToken] = useState<SelectedToken>({
+    address: "native",
+    symbol: "XLM",
+    decimals: 7,
+  })
   const [members, setMembers] = useState<string[]>([""])
-  const [memberErrors, setMemberErrors] = useState<string[]>([""])
   const [error, setError] = useState("")
-  const [step, setStep] = useState<"idle" | "deploying" | "initializing" | "registering" | "saving">("idle")
-  const [formData, setFormData] = useState({ name: "", description: "", targetAmount: "", deadline: "" })
+  const [step, setStep] = useState<
+    "idle" | "deploying" | "initializing" | "registering" | "saving"
+  >("idle")
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    targetAmount: "",
+    deadline: "",
+  })
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Touched>({})
   const errorRef = useRef<HTMLDivElement>(null)
@@ -60,12 +78,24 @@ export function TargetForm() {
 
   const allMembers = address ? [address, ...members] : members
   const validMembers = Array.from(new Set(allMembers.filter(isValidStellarAddress)))
+  const duplicateIndices = findDuplicateAddresses(allMembers)
+  const memberErrors = members.map((m, i) => {
+    if (!m) return ""
+    const format = validateStellarAddress(m)
+    if (!format.valid) return format.message
+    const allMembersIndex = address ? i + 1 : i
+    return duplicateIndices.has(allMembersIndex)
+      ? "Duplicate address — already in this pool's member list"
+      : ""
+  })
   const isCreating = step !== "idle"
+  const isMemberLimitReached = members.length >= MAX_POOL_MEMBERS
 
   const validateField = useCallback((name: keyof FieldErrors, value: string) => {
     let message = ""
     if (name === "name") message = validateGroupName(value).message
-    else if (name === "targetAmount") message = validatePositiveAmount(value, "Target amount").message
+    else if (name === "targetAmount")
+      message = validatePositiveAmount(value, "Target amount").message
     else if (name === "deadline") message = validateDeadline(value).message
     setFieldErrors((prev) => ({ ...prev, [name]: message }))
   }, [])
@@ -76,16 +106,17 @@ export function TargetForm() {
   }
 
   const updateMember = (i: number, v: string) => {
-    const next = [...members]; next[i] = v; setMembers(next)
-    const errs = [...memberErrors]
-    errs[i] = v ? (validateStellarAddress(v).valid ? "" : validateStellarAddress(v).message) : ""
-    setMemberErrors(errs)
+    const next = [...members]
+    next[i] = v
+    setMembers(next)
   }
 
-  const addMember = () => { setMembers([...members, ""]); setMemberErrors([...memberErrors, ""]) }
+  const addMember = () => {
+    if (isMemberLimitReached) return
+    setMembers([...members, ""])
+  }
   const removeMember = (i: number) => {
     setMembers(members.filter((_, idx) => idx !== i))
-    setMemberErrors(memberErrors.filter((_, idx) => idx !== i))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,7 +134,12 @@ export function TargetForm() {
     })
 
     if (!address) return setError("Please connect your wallet first")
-    if (validMembers.length < 2) return setError("Need at least 2 valid Stellar addresses (you + 1 other)")
+    if (duplicateIndices.size > 0)
+      return setError(
+        "Duplicate member addresses found — please remove duplicates before continuing"
+      )
+    if (validMembers.length < 2)
+      return setError("Need at least 2 valid Stellar addresses (you + 1 other)")
     if (!nameResult.valid || !amountResult.valid || !deadlineResult.valid) return
 
     try {
@@ -113,7 +149,8 @@ export function TargetForm() {
       setStep("initializing")
       const deadlineLedger = await dateToLedger(new Date(formData.deadline))
       await initTarget(contractId, {
-        token: TOKEN === "native" ? "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC" : TOKEN,
+        token: resolveTokenAddress(token.address),
+        decimals: token.decimals,
         admin: address,
         members: validMembers,
         targetAmount: formData.targetAmount,
@@ -124,8 +161,8 @@ export function TargetForm() {
       setStep("registering")
       try {
         await register(address, contractId)
-      } catch (regErr: any) {
-        console.warn("Factory registration skipped:", regErr.message)
+      } catch (regErr: unknown) {
+        console.warn("Factory registration skipped:", (regErr as Error).message)
       }
 
       setStep("saving")
@@ -138,7 +175,9 @@ export function TargetForm() {
           poolType: "target",
           creatorAddress: address,
           poolAddress: contractId,
-          tokenAddress: TOKEN,
+          tokenAddress: token.address,
+          tokenSymbol: token.symbol,
+          tokenDecimals: token.decimals,
           members: validMembers,
           targetAmount: formData.targetAmount,
           deadline: formData.deadline,
@@ -147,8 +186,8 @@ export function TargetForm() {
       if (!res.ok) throw new Error("Failed to save pool metadata")
       const pool = await res.json()
       router.push(`/dashboard/group/${pool.id}`)
-    } catch (err: any) {
-      setError(err.message || "Failed to create group")
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to create group")
       setStep("idle")
     }
   }
@@ -168,7 +207,10 @@ export function TargetForm() {
 
   const progressFields: ProgressField[] = [
     { label: "Group name", valid: validateGroupName(formData.name).valid },
-    { label: "Target amount", valid: validatePositiveAmount(formData.targetAmount, "Amount").valid },
+    {
+      label: "Target amount",
+      valid: validatePositiveAmount(formData.targetAmount, "Amount").valid,
+    },
     { label: "Deadline", valid: validateDeadline(formData.deadline).valid },
     { label: "Members (2+)", valid: validMembers.length >= 2 },
   ]
@@ -176,7 +218,10 @@ export function TargetForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div ref={errorRef} className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
+        <div
+          ref={errorRef}
+          className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive"
+        >
           <AlertCircle className="h-5 w-5 shrink-0" />
           <p className="text-sm">{error}</p>
         </div>
@@ -191,15 +236,23 @@ export function TargetForm() {
       <FormProgress fields={progressFields} />
 
       <div className="space-y-1">
-        <FieldTooltip
-          htmlFor="name"
-          label="Group Name"
-          tooltip="A descriptive name for your savings goal — e.g. 'Wedding Fund'. Visible to all members."
-          required
-        />
+        <div className="flex items-center justify-between">
+          <FieldTooltip
+            htmlFor="name"
+            label="Group Name"
+            tooltip="A descriptive name for your savings goal — e.g. 'Wedding Fund'. Visible to all members."
+            required
+          />
+          <span
+            className={`text-xs tabular-nums ${formData.name.length > 45 ? "text-destructive" : "text-muted-foreground"}`}
+          >
+            {formData.name.length}/50
+          </span>
+        </div>
         <Input
           id="name"
           placeholder="e.g., Wedding Fund"
+          maxLength={50}
           value={formData.name}
           onChange={(e) => {
             setFormData({ ...formData, name: e.target.value })
@@ -211,25 +264,37 @@ export function TargetForm() {
       </div>
 
       <div className="space-y-1">
-        <FieldTooltip
-          htmlFor="description"
-          label="Description"
-          tooltip="Optional context about the savings goal — what you're saving for, any rules, or milestones to reach."
-        />
+        <div className="flex items-center justify-between">
+          <FieldTooltip
+            htmlFor="description"
+            label="Description"
+            tooltip="Optional context about the savings goal — what you're saving for, any rules, or milestones to reach."
+          />
+          <span
+            className={`text-xs tabular-nums ${formData.description.length > 270 ? "text-destructive" : "text-muted-foreground"}`}
+          >
+            {formData.description.length}/300
+          </span>
+        </div>
         <Textarea
           id="description"
           placeholder="Describe the savings goal"
+          maxLength={300}
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={3}
         />
       </div>
 
+      <TokenSelect onChange={setToken} />
+      {/* Bulk Import Component */}
+      <BulkImport onMembersChange={setMembers} />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
           <FieldTooltip
             htmlFor="target"
-            label="Target Amount (XLM)"
+            label={`Target Amount (${token.symbol})`}
             tooltip="The total amount the group aims to save collectively. Members contribute until this amount is reached."
             required
           />
@@ -277,19 +342,39 @@ export function TargetForm() {
             tooltip="Add the public Stellar address (starts with G) for each person joining this pool. You are automatically included."
             required
           />
-          <Button type="button" variant="outline" size="sm" onClick={addMember}>
-            <Plus className="h-4 w-4 mr-1" />Add Member
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addMember}
+            disabled={isMemberLimitReached}
+            aria-describedby={isMemberLimitReached ? "target-member-limit" : undefined}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Member
           </Button>
         </div>
+        {isMemberLimitReached && (
+          <p id="target-member-limit" className="text-xs text-muted-foreground">
+            Maximum of {MAX_POOL_MEMBERS} members reached
+          </p>
+        )}
 
         <div className="space-y-3">
           <div className="space-y-1">
             <div className="flex gap-2 items-center">
-              <Input value={address || "Connect your wallet"} readOnly disabled className="font-mono text-xs opacity-70" />
+              <Input
+                value={address || "Connect your wallet"}
+                readOnly
+                disabled
+                className="font-mono text-xs opacity-70"
+              />
               <span className="text-xs text-muted-foreground whitespace-nowrap">You</span>
             </div>
             {!address && (
-              <p className="text-xs text-amber-600">Connect your wallet to be included as a member</p>
+              <p className="text-xs text-amber-600">
+                Connect your wallet to be included as a member
+              </p>
             )}
           </div>
 
@@ -300,7 +385,13 @@ export function TargetForm() {
                   placeholder="G... (56-character Stellar address)"
                   value={member}
                   onChange={(e) => updateMember(i, e.target.value)}
-                  className={memberErrors[i] ? "border-destructive" : member && isValidStellarAddress(member) ? "border-green-500" : ""}
+                  className={
+                    memberErrors[i]
+                      ? "border-destructive"
+                      : member && isValidStellarAddress(member)
+                        ? "border-green-500"
+                        : ""
+                  }
                 />
                 {members.length > 1 && (
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)}>
@@ -316,7 +407,9 @@ export function TargetForm() {
           ))}
 
           {validMembers.length < 2 && members.some((m) => m) && (
-            <p className="text-xs text-muted-foreground">At least 2 valid members are required (you + 1 other)</p>
+            <p className="text-xs text-muted-foreground">
+              At least 2 valid members are required (you + 1 other)
+            </p>
           )}
         </div>
       </div>
@@ -331,9 +424,16 @@ export function TargetForm() {
             <li>Deadline: {formData.deadline || "Not set"}</li>
           </ul>
         </div>
-        <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isCreating}>
+        <Button
+          type="submit"
+          className="w-full bg-primary hover:bg-primary/90"
+          disabled={isCreating}
+        >
           {isCreating ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{stepLabel[step]}</>
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {stepLabel[step]}
+            </>
           ) : (
             "Create Target Pool"
           )}

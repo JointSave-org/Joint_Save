@@ -174,6 +174,28 @@ Features:
 - Proportional yield allocation based on balance
 
 
+### Storage TTL (Time-To-Live) Management
+
+To prevent critical contract state expiry under Soroban's state archival rules, all persistent storage entries utilize a Time-To-Live (TTL) management strategy:
+
+- **Bumping Thresholds**:
+  - `LEDGER_THRESHOLD = 518400` (~30 days): Bumping is triggered if the remaining TTL falls below this sequence count.
+  - `LEDGER_BUMP = 2592000` (~150 days): Storage entries have their TTL extended to this maximum.
+
+- **Optimized O(1) Automatic Bumping**:
+  To prevent gas exhaustion and out-of-gas (DoS) vulnerabilities on hot transaction paths, automatic state bumping is highly optimized:
+  - Configuration/global keys are bumped collectively in an O(1) helper function `bump_config_state_internal` at the end of every state-changing method.
+  - Member-specific keys (like individual `Balance` or transient flags like `HasDeposited`) are bumped individually in O(1) time within the methods that modify them (e.g. `deposit`, `withdraw`).
+
+- **Administrative Sweep**:
+  - Each contract exposes a public `bump_state(env: Env)` endpoint with no authentication required.
+  - Calling this sweeps the contract, executing an O(N) loop to extend the TTL of all configuration keys and all registered member balance keys. This is useful for reviving long-lived pools that have had no user interaction for a long period.
+
+- **Frontend Exposing & Warnings**:
+  - The frontend caches and tracks `ttlDays` using the centralized `PoolDataProvider` context.
+  - If a pool's storage lease is close to expiry (TTL < 7 days), the pool details view displays a warning alert banner with an "Extend Storage" button to allow users to trigger the manual `bump_state` sweep transaction.
+
+
 ## Frontend Architecture
 
 ### Application Structure

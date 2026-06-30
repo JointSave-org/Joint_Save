@@ -3,24 +3,28 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { useStellar } from "@/components/web3-provider"
-import { Wallet, Award, TrendingUp, Users } from "lucide-react"
+import { Wallet, Award, TrendingUp, Users, Bell, Mail, Loader2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
+import { useUserProfile } from "@/hooks/useUserProfile"
 import {
   fetchTargetState,
   fetchFlexibleState,
   fetchReputation,
-  stroopsToXlm,
+  formatTokenAmount,
   type ReputationScore,
 } from "@/hooks/useJointSaveContracts"
 
 interface ProfileStats {
-  totalSaved: number        // live on-chain XLM across all pools
-  groupsJoined: number      // distinct pools the address is a member of
+  totalSaved: number // live on-chain XLM across all pools
+  groupsJoined: number // distinct pools the address is a member of
   successfulPayouts: number // payout/withdraw activity count
-  reputation: number        // 0-100 derived from on-chain behaviour
-  onChain: ReputationScore  // raw on-chain reputation tracker data
+  reputation: number // 0-100 derived from on-chain behaviour
+  onChain: ReputationScore // raw on-chain reputation tracker data
 }
 
 async function fetchProfileStats(address: string): Promise<ProfileStats> {
@@ -29,12 +33,16 @@ async function fetchProfileStats(address: string): Promise<ProfileStats> {
   // Fetch all pools where user is a member
   const { data: memberships } = await supabase
     .from("pool_members")
-    .select("pool_id, pools(id, type, contract_address, target_amount)")
+    .select("pool_id, pools(id, type, contract_address, target_amount, token_decimals)")
     .eq("member_address", lower)
 
-  const pools: any[] = (memberships || [])
-    .map((m: any) => m.pools)
-    .filter(Boolean)
+  const pools: {
+    id: string
+    type: string
+    contract_address: string
+    target_amount: number | null
+    token_decimals: number | null
+  }[] = (memberships || []).map((m: { pools: unknown }) => m.pools).filter(Boolean)
 
   // Fetch activity for reputation signals
   const { data: activity } = await supabase
@@ -43,9 +51,11 @@ async function fetchProfileStats(address: string): Promise<ProfileStats> {
     .eq("user_address", lower)
 
   const activityList = activity || []
-  const depositCount = activityList.filter((a: any) => a.activity_type === "deposit").length
+  const depositCount = activityList.filter(
+    (a: { activity_type: string }) => a.activity_type === "deposit"
+  ).length
   const payoutCount = activityList.filter(
-    (a: any) => a.activity_type === "payout" || a.activity_type === "withdraw"
+    (a: { activity_type: string }) => a.activity_type === "payout" || a.activity_type === "withdraw"
   ).length
 
   // Fetch live on-chain balances in parallel
@@ -54,12 +64,13 @@ async function fetchProfileStats(address: string): Promise<ProfileStats> {
     pools.map(async (pool) => {
       if (!pool.contract_address || pool.contract_address === "pending_deployment") return
       try {
+        const decimals = pool.token_decimals ?? 7
         if (pool.type === "target") {
           const state = await fetchTargetState(pool.contract_address, address)
-          totalSaved += stroopsToXlm(state.userBalance)
+          totalSaved += formatTokenAmount(state.userBalance, decimals)
         } else if (pool.type === "flexible") {
           const state = await fetchFlexibleState(pool.contract_address, address)
-          totalSaved += stroopsToXlm(state.userBalance)
+          totalSaved += formatTokenAmount(state.userBalance, decimals)
         }
         // rotational: no per-user balance view — skip
       } catch {}
@@ -87,13 +98,46 @@ async function fetchProfileStats(address: string): Promise<ProfileStats> {
   }
 }
 
+const PREF_LABELS: Record<string, string> = {
+  email_on_payout: "Payout received",
+  email_on_deposit: "Member deposited",
+  email_on_round: "Round advanced",
+  email_on_target: "Target reached",
+}
+
 export function Profile() {
   const { address } = useStellar()
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const { profile, saving, saveProfile } = useUserProfile(address)
+  const [emailDraft, setEmailDraft] = useState("")
+  const [emailSaved, setEmailSaved] = useState(false)
+
+  // Sync draft when profile loads
   useEffect(() => {
-    if (!address) { setLoading(false); return }
+    if (profile?.email != null) setEmailDraft(profile.email)
+  }, [profile?.email])
+
+  const handleSaveEmail = async () => {
+    const trimmed = emailDraft.trim()
+    await saveProfile({ email: trimmed || null })
+    setEmailSaved(true)
+    setTimeout(() => setEmailSaved(false), 2500)
+  }
+
+  const handleTogglePref = (key: string, value: boolean) => {
+    if (!profile) return
+    saveProfile({
+      notification_preferences: { ...profile.notification_preferences, [key]: value },
+    })
+  }
+
+  useEffect(() => {
+    if (!address) {
+      setLoading(false)
+      return
+    }
     fetchProfileStats(address)
       .then(setStats)
       .catch(() =>
@@ -108,8 +152,9 @@ export function Profile() {
       .finally(() => setLoading(false))
   }, [address])
 
-  const fmt = (n: number) =>
-    n >= 1000 ? `${(n / 1000).toFixed(1)}k XLM` : `${n.toFixed(2)} XLM`
+  // Balances can span multiple tokens, so the aggregate is token-agnostic
+  // (no single currency symbol). Per-pool views show the real token symbol.
+  const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toFixed(2))
 
   return (
     <div className="space-y-6">
@@ -139,7 +184,9 @@ export function Profile() {
                 {loading ? (
                   <Skeleton className="h-8 w-14" />
                 ) : (
-                  <span className="text-2xl font-bold text-primary">{stats?.reputation ?? 50}%</span>
+                  <span className="text-2xl font-bold text-primary">
+                    {stats?.reputation ?? 50}%
+                  </span>
                 )}
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -153,7 +200,11 @@ export function Profile() {
             <div className="pt-4 border-t border-border">
               <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
                 <Award className="h-3 w-3 mr-1" />
-                {(stats?.reputation ?? 0) >= 80 ? "Trusted Member" : (stats?.reputation ?? 0) >= 60 ? "Active Saver" : "New Member"}
+                {(stats?.reputation ?? 0) >= 80
+                  ? "Trusted Member"
+                  : (stats?.reputation ?? 0) >= 60
+                    ? "Active Saver"
+                    : "New Member"}
               </Badge>
             </div>
           </div>
@@ -164,7 +215,10 @@ export function Profile() {
           {loading ? (
             <div className="space-y-4" aria-label="Loading statistics">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-4 rounded-lg bg-muted/30"
+                >
                   <div className="flex items-center gap-3">
                     <Skeleton className="h-10 w-10 rounded-lg" />
                     <Skeleton className="h-4 w-24" />
@@ -212,7 +266,10 @@ export function Profile() {
       <Card className="p-6">
         <h3 className="font-semibold text-lg mb-6">Reputation Breakdown</h3>
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" aria-label="Loading reputation breakdown">
+          <div
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+            aria-label="Loading reputation breakdown"
+          >
             {[0, 1, 2].map((i) => (
               <div key={i} className="p-4 rounded-lg bg-muted/30 space-y-2">
                 <Skeleton className="h-4 w-24" />
@@ -240,10 +297,80 @@ export function Profile() {
         )}
       </Card>
 
+      {/* ── Email address ──────────────────────────────────────────────── */}
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <Mail className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Email Address</h3>
+            <p className="text-sm text-muted-foreground">
+              Receive pool event notifications by email
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <Input
+            type="email"
+            placeholder="you@example.com"
+            value={emailDraft}
+            onChange={(e) => setEmailDraft(e.target.value)}
+            className="flex-1"
+          />
+          <Button onClick={handleSaveEmail} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : emailSaved ? "Saved!" : "Save"}
+          </Button>
+        </div>
+        {!profile?.email && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Add an email to receive notifications. Your address is never shared.
+          </p>
+        )}
+      </Card>
+
+      {/* ── Notification preferences ───────────────────────────────────── */}
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <Bell className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Notifications</h3>
+            <p className="text-sm text-muted-foreground">Choose which events send you an email</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {Object.entries(PREF_LABELS).map(([key, label]) => (
+            <div key={key} className="flex items-center justify-between">
+              <span className="text-sm">{label}</span>
+              <Switch
+                checked={
+                  profile?.notification_preferences?.[
+                    key as keyof typeof profile.notification_preferences
+                  ] ?? true
+                }
+                onCheckedChange={(val) => handleTogglePref(key, val)}
+                disabled={saving || !profile}
+              />
+            </div>
+          ))}
+        </div>
+
+        {!profile?.email && (
+          <p className="mt-4 text-xs text-muted-foreground border-t border-border pt-4">
+            Add an email above to receive these notifications.
+          </p>
+        )}
+      </Card>
+
       <Card className="p-6 bg-muted/30">
         <h3 className="text-lg font-semibold mb-2">About Reputation Score</h3>
         <p className="text-muted-foreground text-sm mb-4">
-          Your reputation score is calculated from your on-chain savings activity — deposits, payouts, and group participation.
+          Your reputation score is calculated from your on-chain savings activity — deposits,
+          payouts, and group participation.
         </p>
         <ul className="space-y-2 text-sm">
           {[

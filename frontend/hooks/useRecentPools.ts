@@ -49,27 +49,22 @@ export function useRecentPools(address: string | null) {
     }
   }, [address])
 
-  const trackVisit = useCallback(
-    (pool: Omit<RecentPool, "visitedAt">) => {
-      const currentAddr = addressRef.current
-      if (!currentAddr) return
+  const trackVisit = useCallback((pool: Omit<RecentPool, "visitedAt">) => {
+    const currentAddr = addressRef.current
+    if (!currentAddr) return
 
-      setRecentPools((prev) => {
-        const dedupKey = pool.contract_address || pool.id
-        const filtered = prev.filter(
-          (p) => (p.contract_address || p.id) !== dedupKey
-        )
-        const updated: RecentPool[] = [
-          { ...pool, visitedAt: Date.now() },
-          ...filtered,
-        ].slice(0, MAX_ITEMS)
+    setRecentPools((prev) => {
+      const dedupKey = pool.contract_address || pool.id
+      const filtered = prev.filter((p) => (p.contract_address || p.id) !== dedupKey)
+      const updated: RecentPool[] = [{ ...pool, visitedAt: Date.now() }, ...filtered].slice(
+        0,
+        MAX_ITEMS
+      )
 
-        writeStorage(currentAddr, updated)
-        return updated
-      })
-    },
-    []
-  )
+      writeStorage(currentAddr, updated)
+      return updated
+    })
+  }, [])
 
   return { recentPools, trackVisit }
 }

@@ -1,0 +1,48 @@
+name: CI – Frontend Unit Tests
+
+on:
+  push:
+    paths:
+      - "frontend/lib/**"
+      - "frontend/hooks/**"
+      - ".github/workflows/frontend-unit-tests.yml"
+  pull_request:
+    paths:
+      - "frontend/lib/**"
+      - "frontend/hooks/**"
+      - ".github/workflows/frontend-unit-tests.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-unit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Node.js unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test:unit

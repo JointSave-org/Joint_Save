@@ -13,7 +13,10 @@
 //! direct caller of the current invocation, so only the genuine pool
 //! contract (not an arbitrary spoofed caller) can update a member's score.
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, symbol_short};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, symbol_short, Vec};
+
+const LEDGER_THRESHOLD: u32 = 518400;
+const LEDGER_BUMP: u32 = 2592000;
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -29,6 +32,7 @@ pub enum DataKey {
     Score(Address),
     DepositsMade(Address),
     RoundsTracked(Address),
+    Members,
 }
 
 #[contract]
@@ -38,6 +42,7 @@ pub struct ReputationTracker;
 impl ReputationTracker {
     /// Record a successful deposit made by `member` through `pool`.
     pub fn record_deposit(env: Env, pool: Address, member: Address, amount: i128) {
+        Self::track_member(&env, &member);
         pool.require_auth();
         assert!(amount > 0, "amount must be > 0");
 
@@ -60,11 +65,13 @@ impl ReputationTracker {
         storage.set(&DataKey::Score(member.clone()), &score);
 
         env.events()
-            .publish((symbol_short!("rep_dep"), pool, member), amount);
+            .publish((symbol_short!("rep_dep"), pool, member.clone()), amount);
+        Self::bump_member_state_internal(&env, &member);
     }
 
     /// Record that `member` received a completed payout from `pool`.
     pub fn record_payout_received(env: Env, pool: Address, member: Address) {
+        Self::track_member(&env, &member);
         pool.require_auth();
 
         let storage = env.storage().persistent();
@@ -73,11 +80,13 @@ impl ReputationTracker {
         storage.set(&DataKey::Score(member.clone()), &score);
 
         env.events()
-            .publish((symbol_short!("rep_pay"), pool, member), ());
+            .publish((symbol_short!("rep_pay"), pool, member.clone()), ());
+        Self::bump_member_state_internal(&env, &member);
     }
 
     /// Record that `member` skipped a round they were expected to deposit into.
     pub fn record_missed_round(env: Env, pool: Address, member: Address) {
+        Self::track_member(&env, &member);
         pool.require_auth();
 
         let storage = env.storage().persistent();
@@ -97,7 +106,30 @@ impl ReputationTracker {
         storage.set(&DataKey::Score(member.clone()), &score);
 
         env.events()
-            .publish((symbol_short!("rep_miss"), pool, member), ());
+            .publish((symbol_short!("rep_miss"), pool, member.clone()), ());
+        Self::bump_member_state_internal(&env, &member);
+    }
+
+    pub fn bump_state(env: Env) {
+        let storage = env.storage().persistent();
+        if storage.has(&DataKey::Members) {
+            storage.extend_ttl(&DataKey::Members, LEDGER_THRESHOLD, LEDGER_BUMP);
+            let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+            for member in members.iter() {
+                let key_score = DataKey::Score(member.clone());
+                if storage.has(&key_score) {
+                    storage.extend_ttl(&key_score, LEDGER_THRESHOLD, LEDGER_BUMP);
+                }
+                let key_deposits = DataKey::DepositsMade(member.clone());
+                if storage.has(&key_deposits) {
+                    storage.extend_ttl(&key_deposits, LEDGER_THRESHOLD, LEDGER_BUMP);
+                }
+                let key_rounds = DataKey::RoundsTracked(member.clone());
+                if storage.has(&key_rounds) {
+                    storage.extend_ttl(&key_rounds, LEDGER_THRESHOLD, LEDGER_BUMP);
+                }
+            }
+        }
     }
 
     // ── Views ──────────────────────────────────────────────────────────────
@@ -108,6 +140,37 @@ impl ReputationTracker {
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
+
+    fn track_member(env: &Env, member: &Address) {
+        let storage = env.storage().persistent();
+        if storage.has(&DataKey::Score(member.clone())) {
+            return;
+        }
+        let mut members: Vec<Address> = storage
+            .get(&DataKey::Members)
+            .unwrap_or_else(|| Vec::new(env));
+        members.push_back(member.clone());
+        storage.set(&DataKey::Members, &members);
+    }
+
+    fn bump_member_state_internal(env: &Env, member: &Address) {
+        let storage = env.storage().persistent();
+        if storage.has(&DataKey::Members) {
+            storage.extend_ttl(&DataKey::Members, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        let key_score = DataKey::Score(member.clone());
+        if storage.has(&key_score) {
+            storage.extend_ttl(&key_score, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        let key_deposits = DataKey::DepositsMade(member.clone());
+        if storage.has(&key_deposits) {
+            storage.extend_ttl(&key_deposits, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        let key_rounds = DataKey::RoundsTracked(member.clone());
+        if storage.has(&key_rounds) {
+            storage.extend_ttl(&key_rounds, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+    }
 
     fn load_score(env: &Env, member: &Address) -> ReputationScore {
         env.storage()

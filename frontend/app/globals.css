@@ -3,8 +3,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
-*, *::before, *::after {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+*,
+*::before,
+*::after {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.15s ease;
 }
 
 :root {

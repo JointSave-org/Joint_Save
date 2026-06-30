@@ -10,6 +10,8 @@ import { PoolDataProvider } from "@/lib/data-layer/PoolDataProvider"
 import "@/lib/env"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Suspense } from "react"
+import { TxQueueBadge } from "@/components/tx-queue-badge"
+import { ScrollToTop } from "@/components/ui/scroll-to-top"
 
 export const metadata: Metadata = {
   title: "JointSave — Decentralized Community Savings on Stellar",
@@ -44,6 +46,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <ScrollToTop />
           <Suspense fallback={null}>
             <Web3Provider>
               <PoolDataProvider>{children}</PoolDataProvider>
@@ -52,6 +55,7 @@ export default function RootLayout({
         </ThemeProvider>
         <Analytics />
         <Toaster />
+        <TxQueueBadge />
       </body>
     </html>
   )

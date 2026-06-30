@@ -8,7 +8,7 @@ import { useStellar } from "@/components/web3-provider"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { Copy, Check, ExternalLink, LogOut, ChevronDown, Clock } from "lucide-react"
+import { Copy, Check, ExternalLink, LogOut, ChevronDown, Clock, Bell } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,23 +18,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useRecentPools } from "@/hooks/useRecentPools"
+import { useNotifications } from "@/hooks/useNotifications"
 import { formatRelativeTime } from "@/lib/utils"
 
 export function DashboardHeader() {
-  const { address, walletId, disconnect } = useStellar()
+  const { address, disconnect } = useStellar()
   const router = useRouter()
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
   const { recentPools } = useRecentPools(address)
+  const { notifications, initialLoading, unreadCount, markAllRead } = useNotifications(address)
 
-  const truncatedAddress = address
-    ? `${address.slice(0, 4)}...${address.slice(-4)}`
-    : ""
+  const truncatedAddress = address ? `${address.slice(0, 4)}...${address.slice(-4)}` : ""
 
-  const explorerUrl = address
-    ? `https://stellar.expert/explorer/testnet/account/${address}`
-    : "#"
+  const explorerUrl = address ? `https://stellar.expert/explorer/testnet/account/${address}` : "#"
 
   const handleDisconnect = () => {
     disconnect()
@@ -45,14 +44,15 @@ export function DashboardHeader() {
     if (!address) return
     await navigator.clipboard.writeText(address)
     setCopied(true)
+    toast({ title: "Address copied", description: "Wallet address copied to clipboard." })
     setTimeout(() => setCopied(false), 2500)
   }
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-lg">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="flex h-16 items-center justify-between gap-2">
+          <Link href="/" className="flex shrink-0 items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
               <Image
                 src="/joint-save.jpg"
@@ -62,14 +62,108 @@ export function DashboardHeader() {
                 className="object-cover"
               />
             </div>
-            <span className="text-xl font-bold">JointSave</span>
+            <span className="hidden text-xl font-bold sm:inline">JointSave</span>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             <span className="text-xs text-muted-foreground hidden md:block">
-              Press <kbd className="rounded-sm border border-border bg-muted px-1 font-sans text-[10px] font-medium">?</kbd> for shortcuts
+              Press{" "}
+              <kbd className="rounded-sm border border-border bg-muted px-1 font-sans text-[10px] font-medium">
+                ?
+              </kbd>{" "}
+              for shortcuts
             </span>
+            <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
+              <Link href="/explore">Explore</Link>
+            </Button>
             <ThemeToggle />
+
+            {/* Notification bell — only shown when wallet is connected */}
+            {address && (
+              <DropdownMenu
+                onOpenChange={(open) => {
+                  if (open && unreadCount > 0) markAllRead()
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative"
+                    aria-label="Notifications"
+                  >
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {initialLoading ? (
+                    [0, 1, 2].map((i) => (
+                      <div key={i} className="flex flex-col gap-1.5 px-3 py-2.5">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    ))
+                  ) : notifications.length === 0 ? (
+                    <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      No notifications yet
+                    </p>
+                  ) : (
+                    notifications.map((n) => (
+                      <DropdownMenuItem
+                        key={n.id}
+                        className="flex flex-col items-start gap-0.5 py-2.5"
+                        asChild={!!n.pool_id}
+                      >
+                        {n.pool_id ? (
+                          <Link
+                            href={`/dashboard/group/${n.pool_id}`}
+                            className="w-full cursor-pointer"
+                          >
+                            <span
+                              className={`block text-sm leading-snug ${!n.read ? "font-medium" : "text-muted-foreground"}`}
+                            >
+                              {n.message}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {formatRelativeTime(new Date(n.created_at))}
+                            </span>
+                          </Link>
+                        ) : (
+                          <>
+                            <span
+                              className={`text-sm leading-snug ${!n.read ? "font-medium" : "text-muted-foreground"}`}
+                            >
+                              {n.message}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {formatRelativeTime(new Date(n.created_at))}
+                            </span>
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                  {!initialLoading && notifications.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        asChild
+                        className="justify-center text-sm font-medium text-primary cursor-pointer"
+                      >
+                        <Link href="/dashboard/notifications">View all notifications</Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             {address && recentPools.length > 0 && (
               <DropdownMenu>
@@ -118,7 +212,11 @@ export function DashboardHeader() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleCopyAddress}>
-                    {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                    {copied ? (
+                      <Check className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Copy className="mr-2 h-4 w-4" />
+                    )}
                     {copied ? "Copied" : "Copy Address"}
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

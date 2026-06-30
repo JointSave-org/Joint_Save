@@ -19,9 +19,7 @@ import {
   Download,
   AlertTriangle,
   Activity as ActivityIcon,
-  ShieldAlert,
   Loader2,
-  Users,
   Wallet,
   Calendar,
   Layers,
@@ -38,9 +36,8 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
 } from "recharts"
+import { buildCsv, downloadCsv } from "@/lib/csv-export"
 
 interface AnalyticsData {
   totalPools: number
@@ -51,11 +48,11 @@ interface AnalyticsData {
   poolsAnalytics: Array<{
     id: string
     name: string
-    type: 'rotational' | 'target' | 'flexible'
+    type: "rotational" | "target" | "flexible"
     status: string
     balance: number
     healthScore: number
-    riskIndicator: 'Low' | 'Medium' | 'High'
+    riskIndicator: "Low" | "Medium" | "High"
   }>
   globalChartData: Array<{
     date: string
@@ -69,8 +66,8 @@ interface PoolAnalyticsData {
   pool: {
     id: string
     name: string
-    type: 'rotational' | 'target' | 'flexible'
-    status: 'active' | 'completed' | 'paused'
+    type: "rotational" | "target" | "flexible"
+    status: "active" | "completed" | "paused"
     target_amount?: number | null
     deadline?: string | null
     round_duration?: number | null
@@ -83,7 +80,7 @@ interface PoolAnalyticsData {
     health: {
       healthScore: number
       participationRate: number
-      riskIndicator: 'Low' | 'Medium' | 'High'
+      riskIndicator: "Low" | "Medium" | "High"
     }
     prediction: {
       daysToTarget: number
@@ -141,29 +138,28 @@ export function AnalyticsDashboard() {
 
   // Export to CSV Function
   const handleExportCSV = () => {
-    let csvContent = "data:text/csv;charset=utf-8,"
-    const headers = ["Date", "Cumulative Deposits (XLM)", "Cumulative Withdrawals (XLM)", "Net Savings/Balance (XLM)"]
-    csvContent += headers.join(",") + "\n"
+    const headers = [
+      "Date",
+      "Cumulative Deposits (XLM)",
+      "Cumulative Withdrawals (XLM)",
+      "Net Savings/Balance (XLM)",
+    ]
+    const dataPoints =
+      selectedPoolId === "overview" ? generalData?.globalChartData || [] : poolData?.chartData || []
 
-    const dataPoints = selectedPoolId === "overview"
-      ? generalData?.globalChartData || []
-      : poolData?.chartData || []
+    const rows = dataPoints.map((point) => [
+      point.date,
+      point.deposits,
+      point.withdrawals,
+      point.balance,
+    ])
 
-    dataPoints.forEach((point) => {
-      const row = [point.date, point.deposits, point.withdrawals, point.balance]
-      csvContent += row.join(",") + "\n"
-    })
-
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    const filename = selectedPoolId === "overview"
-      ? "jointsave_portfolio_analytics.csv"
-      : `jointsave_pool_${selectedPoolId}_analytics.csv`
-    link.setAttribute("download", filename)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    const filename =
+      selectedPoolId === "overview"
+        ? "jointsave_portfolio_analytics.csv"
+        : `jointsave_pool_${selectedPoolId}_analytics.csv`
+    const csv = buildCsv(headers, rows)
+    downloadCsv(csv, filename)
   }
 
   if (!address) {
@@ -182,7 +178,9 @@ export function AnalyticsDashboard() {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-muted-foreground font-medium animate-pulse">Aggregating advanced pool analytics...</p>
+        <p className="text-muted-foreground font-medium animate-pulse">
+          Aggregating advanced pool analytics...
+        </p>
       </div>
     )
   }
@@ -193,13 +191,14 @@ export function AnalyticsDashboard() {
         <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
         <h4 className="font-semibold text-destructive">Analytics Load Failed</h4>
         <p className="text-sm text-muted-foreground mt-1">
-          {generalError instanceof Error ? generalError.message : "An error occurred while fetching metrics."}
+          {generalError instanceof Error
+            ? generalError.message
+            : "An error occurred while fetching metrics."}
         </p>
       </div>
     )
   }
 
-  const COLORS = ["#00C49F", "#FFBB28", "#FF8042"]
   const hasPools = (generalData?.totalPools || 0) > 0
 
   return (
@@ -258,7 +257,8 @@ export function AnalyticsDashboard() {
             <ActivityIcon className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
             <h3 className="text-lg font-semibold">No Analytics Data Yet</h3>
             <p className="text-muted-foreground max-w-sm mt-1">
-              Join or create a savings pool first. Once contributions start, you'll see advanced analytics here.
+              Join or create a savings pool first. Once contributions start, you'll see advanced
+              analytics here.
             </p>
           </CardContent>
         </Card>
@@ -269,40 +269,56 @@ export function AnalyticsDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="bg-card/50 backdrop-blur-md border-border/80 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Net Savings</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Net Savings
+                </CardTitle>
                 <TrendingUp className="h-4 w-4 text-emerald-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{(generalData?.totalSaved || 0).toFixed(2)} XLM</div>
+                <div className="text-2xl font-bold">
+                  {(generalData?.totalSaved || 0).toFixed(2)} XLM
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">Across all savings groups</p>
               </CardContent>
             </Card>
 
             <Card className="bg-card/50 backdrop-blur-md border-border/80 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Contributions</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Contributions
+                </CardTitle>
                 <Layers className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{(generalData?.totalDeposits || 0).toFixed(2)} XLM</div>
+                <div className="text-2xl font-bold">
+                  {(generalData?.totalDeposits || 0).toFixed(2)} XLM
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">Cumulative deposits made</p>
               </CardContent>
             </Card>
 
             <Card className="bg-card/50 backdrop-blur-md border-border/80 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Payouts / Outflows</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Payouts / Outflows
+                </CardTitle>
                 <Wallet className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{(generalData?.totalWithdrawals || 0).toFixed(2)} XLM</div>
-                <p className="text-xs text-muted-foreground mt-1">Withdrawals and payouts received</p>
+                <div className="text-2xl font-bold">
+                  {(generalData?.totalWithdrawals || 0).toFixed(2)} XLM
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Withdrawals and payouts received
+                </p>
               </CardContent>
             </Card>
 
             <Card className="bg-card/50 backdrop-blur-md border-border/80 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Average Pool Health</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Average Pool Health
+                </CardTitle>
                 <ActivityIcon className="h-4 w-4 text-emerald-400" />
               </CardHeader>
               <CardContent>
@@ -316,24 +332,50 @@ export function AnalyticsDashboard() {
           <Card className="p-6 bg-card/40 backdrop-blur-lg border-border">
             <CardHeader className="px-0 pt-0">
               <CardTitle className="text-lg font-bold">Historical Portfolio Performance</CardTitle>
-              <CardDescription>Visualizing deposit accumulation, withdrawals, and total balance trends over time.</CardDescription>
+              <CardDescription>
+                Visualizing deposit accumulation, withdrawals, and total balance trends over time.
+              </CardDescription>
             </CardHeader>
             <div className="h-[320px] w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={generalData?.globalChartData || []}>
                   <defs>
                     <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-primary, #00C49F)" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="var(--color-primary, #00C49F)" stopOpacity={0} />
+                      <stop
+                        offset="5%"
+                        stopColor="var(--color-primary, #00C49F)"
+                        stopOpacity={0.4}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--color-primary, #00C49F)"
+                        stopOpacity={0}
+                      />
                     </linearGradient>
                     <linearGradient id="colorDeposits" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="date" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} unit=" XLM" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="rgba(255,255,255,0.05)"
+                  />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#888888"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="#888888"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    unit=" XLM"
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "rgba(17, 24, 39, 0.95)",
@@ -369,7 +411,9 @@ export function AnalyticsDashboard() {
           {/* Group Health Scoring & Risk Indicators List */}
           <Card className="bg-card/40 border-border">
             <CardHeader>
-              <CardTitle className="text-lg font-bold">Group Health Scoring & Risk Indicators</CardTitle>
+              <CardTitle className="text-lg font-bold">
+                Group Health Scoring & Risk Indicators
+              </CardTitle>
               <CardDescription>
                 Summary of risk levels based on savings activity and late payment factors.
               </CardDescription>
@@ -394,7 +438,9 @@ export function AnalyticsDashboard() {
                         className="border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors"
                       >
                         <td className="py-3.5 px-4 font-medium">{pool.name}</td>
-                        <td className="py-3.5 px-4 capitalize text-muted-foreground">{pool.type}</td>
+                        <td className="py-3.5 px-4 capitalize text-muted-foreground">
+                          {pool.type}
+                        </td>
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-2">
                             <Progress value={pool.healthScore} className="h-1.5 w-16" />
@@ -407,14 +453,16 @@ export function AnalyticsDashboard() {
                               pool.riskIndicator === "High"
                                 ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
                                 : pool.riskIndicator === "Medium"
-                                ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
-                                : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+                                  ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
+                                  : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
                             }
                           >
                             {pool.riskIndicator} Risk
                           </Badge>
                         </td>
-                        <td className="py-3.5 px-4 text-right font-semibold">{pool.balance.toFixed(2)} XLM</td>
+                        <td className="py-3.5 px-4 text-right font-semibold">
+                          {pool.balance.toFixed(2)} XLM
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -423,266 +471,306 @@ export function AnalyticsDashboard() {
             </CardContent>
           </Card>
         </div>
+      ) : /* ================= DRILL-DOWN MODE ================= */
+      isPoolLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground animate-pulse">
+            Loading specific pool analysis...
+          </p>
+        </div>
+      ) : poolError ? (
+        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-center text-destructive">
+          Failed to load pool analytics.
+        </div>
       ) : (
-        /* ================= DRILL-DOWN MODE ================= */
-        isPoolLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground animate-pulse">Loading specific pool analysis...</p>
-          </div>
-        ) : poolError ? (
-          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-center text-destructive">
-            Failed to load pool analytics.
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Quick pool overview cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Health Score Card */}
-              <Card className="bg-card/50 border-border relative overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    Pool Health
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center py-4">
-                  <div className="relative flex items-center justify-center">
-                    {/* Ring score visualization */}
-                    <svg className="w-28 h-28 transform -rotate-90">
-                      <circle cx="56" cy="56" r="46" stroke="rgba(255,255,255,0.05)" strokeWidth="8" fill="transparent" />
-                      <circle
-                        cx="56"
-                        cy="56"
-                        r="46"
-                        stroke={
-                          (poolData?.metrics.health.healthScore || 100) >= 80
-                            ? "#00C49F"
-                            : (poolData?.metrics.health.healthScore || 100) >= 50
+        <div className="space-y-6">
+          {/* Quick pool overview cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Health Score Card */}
+            <Card className="bg-card/50 border-border relative overflow-hidden">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  Pool Health
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center py-4">
+                <div className="relative flex items-center justify-center">
+                  {/* Ring score visualization */}
+                  <svg className="w-28 h-28 transform -rotate-90">
+                    <circle
+                      cx="56"
+                      cy="56"
+                      r="46"
+                      stroke="rgba(255,255,255,0.05)"
+                      strokeWidth="8"
+                      fill="transparent"
+                    />
+                    <circle
+                      cx="56"
+                      cy="56"
+                      r="46"
+                      stroke={
+                        (poolData?.metrics.health.healthScore || 100) >= 80
+                          ? "#00C49F"
+                          : (poolData?.metrics.health.healthScore || 100) >= 50
                             ? "#FFBB28"
                             : "#FF8042"
-                        }
-                        strokeWidth="8"
-                        strokeDasharray={2 * Math.PI * 46}
-                        strokeDashoffset={2 * Math.PI * 46 * (1 - (poolData?.metrics.health.healthScore || 100) / 100)}
-                        strokeLinecap="round"
-                        fill="transparent"
-                        className="transition-all duration-1000 ease-out"
-                      />
-                    </svg>
-                    <div className="absolute flex flex-col items-center justify-center">
-                      <span className="text-3xl font-extrabold">{poolData?.metrics.health.healthScore}%</span>
-                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Score</span>
-                    </div>
+                      }
+                      strokeWidth="8"
+                      strokeDasharray={2 * Math.PI * 46}
+                      strokeDashoffset={
+                        2 * Math.PI * 46 * (1 - (poolData?.metrics.health.healthScore || 100) / 100)
+                      }
+                      strokeLinecap="round"
+                      fill="transparent"
+                      className="transition-all duration-1000 ease-out"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <span className="text-3xl font-extrabold">
+                      {poolData?.metrics.health.healthScore}%
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-semibold uppercase">
+                      Score
+                    </span>
                   </div>
+                </div>
 
-                  <div className="mt-4 flex items-center gap-2">
-                    <Badge
-                      className={
-                        poolData?.metrics.health.riskIndicator === "High"
-                          ? "bg-red-500/10 text-red-500"
-                          : poolData?.metrics.health.riskIndicator === "Medium"
+                <div className="mt-4 flex items-center gap-2">
+                  <Badge
+                    className={
+                      poolData?.metrics.health.riskIndicator === "High"
+                        ? "bg-red-500/10 text-red-500"
+                        : poolData?.metrics.health.riskIndicator === "Medium"
                           ? "bg-amber-500/10 text-amber-500"
                           : "bg-emerald-500/10 text-emerald-500"
-                      }
-                    >
-                      {poolData?.metrics.health.riskIndicator} Risk Level
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
+                    }
+                  >
+                    {poolData?.metrics.health.riskIndicator} Risk Level
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Balances Card */}
-              <Card className="bg-card/50 border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    Pool Balances
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-2">
+            {/* Balances Card */}
+            <Card className="bg-card/50 border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  Pool Balances
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-2">
+                <div>
+                  <span className="text-xs text-muted-foreground">Current Pool Balance</span>
+                  <div className="text-3xl font-black text-primary">
+                    {poolData?.metrics.currentBalance.toFixed(2)} XLM
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/80">
                   <div>
-                    <span className="text-xs text-muted-foreground">Current Pool Balance</span>
-                    <div className="text-3xl font-black text-primary">
-                      {poolData?.metrics.currentBalance.toFixed(2)} XLM
-                    </div>
+                    <span className="text-[10px] text-muted-foreground block">Deposits</span>
+                    <span className="text-sm font-bold">
+                      {poolData?.metrics.totalDeposits.toFixed(2)} XLM
+                    </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/80">
-                    <div>
-                      <span className="text-[10px] text-muted-foreground block">Deposits</span>
-                      <span className="text-sm font-bold">{poolData?.metrics.totalDeposits.toFixed(2)} XLM</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-muted-foreground block">Withdrawals</span>
-                      <span className="text-sm font-bold">{poolData?.metrics.totalWithdrawals.toFixed(2)} XLM</span>
-                    </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Withdrawals</span>
+                    <span className="text-sm font-bold">
+                      {poolData?.metrics.totalWithdrawals.toFixed(2)} XLM
+                    </span>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Predictive Analytics Card */}
-              <Card className="bg-card/50 border-border relative overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    Predictive Analytics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-2">
-                  {poolData?.pool.type === "target" ? (
-                    <div className="space-y-3">
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {poolData?.metrics.prediction.message}
-                      </p>
-                      {poolData?.metrics.prediction.daysToTarget > 0 && (
-                        <div className="pt-2">
-                          <span className="text-xs font-semibold text-muted-foreground block mb-1">
-                            Progress toward Target ({poolData.pool.target_amount} XLM)
-                          </span>
-                          <Progress
-                            value={Math.min(
-                              100,
-                              ((poolData?.metrics.currentBalance || 0) / (poolData.pool.target_amount || 1)) * 100
-                            )}
-                            className="h-2"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  ) : poolData?.pool.type === "rotational" ? (
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        Rotational cycles execute automatically once all member contributions are verified.
-                      </p>
-                      <div className="p-3 bg-muted/40 rounded-lg text-xs space-y-1.5 mt-2 border border-border/50">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Round Duration:</span>
-                          <span className="font-semibold">
-                            {poolData?.pool.round_duration
-                              ? `${Math.round(poolData.pool.round_duration / 86400)} days`
-                              : "N/A"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Cycle Payouts:</span>
-                          <span className="font-semibold text-emerald-400">
-                            {poolData?.pool.target_amount || poolData?.metrics.totalDeposits || 0} XLM
-                          </span>
-                        </div>
+            {/* Predictive Analytics Card */}
+            <Card className="bg-card/50 border-border relative overflow-hidden">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  Predictive Analytics
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-2">
+                {poolData?.pool.type === "target" ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {poolData?.metrics.prediction.message}
+                    </p>
+                    {poolData?.metrics.prediction.daysToTarget > 0 && (
+                      <div className="pt-2">
+                        <span className="text-xs font-semibold text-muted-foreground block mb-1">
+                          Progress toward Target ({poolData.pool.target_amount} XLM)
+                        </span>
+                        <Progress
+                          value={Math.min(
+                            100,
+                            ((poolData?.metrics.currentBalance || 0) /
+                              (poolData.pool.target_amount || 1)) *
+                              100
+                          )}
+                          className="h-2"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : poolData?.pool.type === "rotational" ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Rotational cycles execute automatically once all member contributions are
+                      verified.
+                    </p>
+                    <div className="p-3 bg-muted/40 rounded-lg text-xs space-y-1.5 mt-2 border border-border/50">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Round Duration:</span>
+                        <span className="font-semibold">
+                          {poolData?.pool.round_duration
+                            ? `${Math.round(poolData.pool.round_duration / 86400)} days`
+                            : "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Cycle Payouts:</span>
+                        <span className="font-semibold text-emerald-400">
+                          {poolData?.pool.target_amount || poolData?.metrics.totalDeposits || 0} XLM
+                        </span>
                       </div>
                     </div>
-                  ) : (
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <p>
-                        Flexible saving structure allows withdrawals at any time (subject to configured fees).
-                      </p>
-                      <p className="text-xs pt-1">
-                        Predictive models suggest maintaining deposits for a minimum of 30 days to optimize yield compounding benefits.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Charts & Participation Details */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Pool Chart */}
-              <Card className="lg:col-span-2 p-6 bg-card/40 border-border">
-                <CardHeader className="px-0 pt-0">
-                  <CardTitle className="text-lg font-bold">Pool Saving Accumulation Timeline</CardTitle>
-                </CardHeader>
-                <div className="h-[280px] w-full mt-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={poolData?.chartData || []}>
-                      <defs>
-                        <linearGradient id="colorPoolBalance" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#00C49F" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#00C49F" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                      <XAxis dataKey="date" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} unit=" XLM" />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "rgba(17, 24, 39, 0.95)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderRadius: "8px",
-                          color: "#fff",
-                        }}
-                      />
-                      <Area
-                        type="monotone"
-                        name="Pool Balance"
-                        dataKey="balance"
-                        stroke="#00C49F"
-                        strokeWidth={2.5}
-                        fillOpacity={1}
-                        fill="url(#colorPoolBalance)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card>
-
-              {/* User Participation Breakdown (Donut Chart) */}
-              <Card className="bg-card/40 border-border p-6 flex flex-col justify-between">
-                <CardHeader className="px-0 pt-0">
-                  <CardTitle className="text-lg font-bold">Participation Metrics</CardTitle>
-                  <CardDescription>Breakdown of current round payment status</CardDescription>
-                </CardHeader>
-
-                <div className="flex-1 h-[180px] flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: "Paid", value: poolData?.metrics.activeMembersCount || 0 },
-                          { name: "Pending", value: poolData?.metrics.pendingMembersCount || 0 },
-                          { name: "Late", value: poolData?.metrics.lateMembersCount || 0 },
-                        ].filter((d) => d.value > 0)}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={75}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        <Cell fill="#00C49F" />
-                        <Cell fill="#FFBB28" />
-                        <Cell fill="#FF8042" />
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="space-y-2 mt-4 pt-4 border-t border-border/80">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                      <span>Active / Paid</span>
-                    </div>
-                    <span className="font-bold">{poolData?.metrics.activeMembersCount}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full bg-amber-500" />
-                      <span>Pending</span>
-                    </div>
-                    <span className="font-bold">{poolData?.metrics.pendingMembersCount}</span>
+                ) : (
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <p>
+                      Flexible saving structure allows withdrawals at any time (subject to
+                      configured fees).
+                    </p>
+                    <p className="text-xs pt-1">
+                      Predictive models suggest maintaining deposits for a minimum of 30 days to
+                      optimize yield compounding benefits.
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full bg-red-500" />
-                      <span>Late</span>
-                    </div>
-                    <span className="font-bold">{poolData?.metrics.lateMembersCount}</span>
-                  </div>
-                </div>
-              </Card>
-            </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        )
+
+          {/* Charts & Participation Details */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Pool Chart */}
+            <Card className="lg:col-span-2 p-6 bg-card/40 border-border">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle className="text-lg font-bold">
+                  Pool Saving Accumulation Timeline
+                </CardTitle>
+              </CardHeader>
+              <div className="h-[280px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={poolData?.chartData || []}>
+                    <defs>
+                      <linearGradient id="colorPoolBalance" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#00C49F" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#00C49F" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="rgba(255,255,255,0.05)"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      stroke="#888888"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="#888888"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      unit=" XLM"
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "rgba(17, 24, 39, 0.95)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "8px",
+                        color: "#fff",
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      name="Pool Balance"
+                      dataKey="balance"
+                      stroke="#00C49F"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#colorPoolBalance)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
+            {/* User Participation Breakdown (Donut Chart) */}
+            <Card className="bg-card/40 border-border p-6 flex flex-col justify-between">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle className="text-lg font-bold">Participation Metrics</CardTitle>
+                <CardDescription>Breakdown of current round payment status</CardDescription>
+              </CardHeader>
+
+              <div className="flex-1 h-[180px] flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Paid", value: poolData?.metrics.activeMembersCount || 0 },
+                        { name: "Pending", value: poolData?.metrics.pendingMembersCount || 0 },
+                        { name: "Late", value: poolData?.metrics.lateMembersCount || 0 },
+                      ].filter((d) => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={75}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      <Cell fill="#00C49F" />
+                      <Cell fill="#FFBB28" />
+                      <Cell fill="#FF8042" />
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="space-y-2 mt-4 pt-4 border-t border-border/80">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                    <span>Active / Paid</span>
+                  </div>
+                  <span className="font-bold">{poolData?.metrics.activeMembersCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-amber-500" />
+                    <span>Pending</span>
+                  </div>
+                  <span className="font-bold">{poolData?.metrics.pendingMembersCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-red-500" />
+                    <span>Late</span>
+                  </div>
+                  <span className="font-bold">{poolData?.metrics.lateMembersCount}</span>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
       )}
     </div>
   )

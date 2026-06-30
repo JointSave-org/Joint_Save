@@ -3,11 +3,12 @@
 import { useState, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MyGroups } from "@/components/dashboard/my-groups"
+import { Explore } from "@/components/dashboard/explore"
 import { CreateGroup } from "@/components/dashboard/create-group"
 import { Transactions } from "@/components/dashboard/transactions"
 import { Profile } from "@/components/dashboard/profile"
 import { AnalyticsDashboard } from "@/components/dashboard/analytics"
-import { Home, PlusCircle, Receipt, User, TrendingUp } from "lucide-react"
+import { Home, PlusCircle, Receipt, User, TrendingUp, Compass } from "lucide-react"
 
 export function DashboardTabs({
   activeTab: controlledActiveTab,
@@ -26,10 +27,14 @@ export function DashboardTabs({
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-5 mb-8">
+      <TabsList className="grid w-full grid-cols-6 mb-8">
         <TabsTrigger value="groups" className="flex items-center gap-2">
           <Home className="h-4 w-4" />
           <span className="hidden sm:inline">My Groups</span>
+        </TabsTrigger>
+        <TabsTrigger value="explore" className="flex items-center gap-2">
+          <Compass className="h-4 w-4" />
+          <span className="hidden sm:inline">Explore</span>
         </TabsTrigger>
         <TabsTrigger value="create" className="flex items-center gap-2">
           <PlusCircle className="h-4 w-4" />
@@ -51,6 +56,10 @@ export function DashboardTabs({
 
       <TabsContent value="groups" className="mt-0">
         <MyGroups onCreateClick={handleCreateClick} />
+      </TabsContent>
+
+      <TabsContent value="explore" className="mt-0">
+        <Explore />
       </TabsContent>
 
       <TabsContent value="create" className="mt-0">

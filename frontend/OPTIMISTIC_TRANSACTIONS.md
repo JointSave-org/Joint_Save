@@ -39,14 +39,10 @@ Manages pending transaction state and polling:
 
 ```typescript
 // Register a pending deposit before submission
-const { pendingTx } = registerOptimistic(
-  "deposit",
-  userAddress,
-  amountInStroops,
-);
+const { pendingTx } = registerOptimistic("deposit", userAddress, amountInStroops)
 
 // After getting txHash, enable polling
-updateTxHash(txHash);
+updateTxHash(txHash)
 
 // Hook automatically:
 // - Starts polling server.getTransaction(txHash)
@@ -58,15 +54,15 @@ updateTxHash(txHash);
 
 ```typescript
 interface PendingTransaction {
-  id: string; // Unique ID (txHash or local ID)
-  type: "deposit" | "withdraw" | "trigger_payout";
-  poolAddress: string;
-  userAddress: string;
-  amount?: bigint; // In stroops (for deposit/withdraw)
-  timestamp: number;
-  txHash?: string; // Set after submission
-  status: "pending" | "confirmed" | "failed";
-  error?: string;
+  id: string // Unique ID (txHash or local ID)
+  type: "deposit" | "withdraw" | "trigger_payout"
+  poolAddress: string
+  userAddress: string
+  amount?: bigint // In stroops (for deposit/withdraw)
+  timestamp: number
+  txHash?: string // Set after submission
+  status: "pending" | "confirmed" | "failed"
+  error?: string
 }
 ```
 
@@ -93,8 +89,8 @@ Bridges with the existing `useToast` hook:
 Usage:
 
 ```typescript
-toastManager.success("Deposit confirmed ✓");
-toastManager.error("Deposit failed — please retry");
+toastManager.success("Deposit confirmed ✓")
+toastManager.error("Deposit failed — please retry")
 ```
 
 ---
@@ -140,10 +136,10 @@ Example:
 
 ```typescript
 const handleDeposit = async () => {
-  let txHash = await rotationalDeposit.deposit();
+  let txHash = await rotationalDeposit.deposit()
   // Wait 5-15 seconds...
-  setSuccessMsg("Deposit successful!");
-};
+  setSuccessMsg("Deposit successful!")
+}
 ```
 
 **After (with optimistic state):**
@@ -151,19 +147,19 @@ const handleDeposit = async () => {
 ```typescript
 const handleDeposit = async () => {
   // 1. Register optimistic state BEFORE submission
-  registerOptimistic("deposit", address, amount);
+  registerOptimistic("deposit", address, amount)
 
   // 2. UI immediately shows pending indicator
 
   // 3. Submit transaction
-  let txHash = await rotationalDeposit.deposit();
+  let txHash = await rotationalDeposit.deposit()
 
   // 4. Enable polling for confirmation
-  updateTxHash(txHash);
+  updateTxHash(txHash)
 
   // 5. useEffect watches for confirmation
   // 6. Toast fires automatically
-};
+}
 ```
 
 ### GroupDetails Component
@@ -171,12 +167,8 @@ const handleDeposit = async () => {
 **Optimistic balance calculation:**
 
 ```typescript
-if (
-  pendingTx &&
-  pendingTx.status === "pending" &&
-  pendingTx.type === "deposit"
-) {
-  const optimisticTotal = stroopsToXlm(s.totalDeposited + pendingTx.amount);
+if (pendingTx && pendingTx.status === "pending" && pendingTx.type === "deposit") {
+  const optimisticTotal = stroopsToXlm(s.totalDeposited + pendingTx.amount)
   // Display with dashed border + "pending" badge
 }
 ```
@@ -227,10 +219,10 @@ Clear optimisticState
 
 ```typescript
 try {
-  txHash = await rotationalDeposit.deposit();
+  txHash = await rotationalDeposit.deposit()
 } catch (e) {
-  markFailed(e.message); // Clear optimistic state
-  toastManager.error("Deposit failed — " + e.message);
+  markFailed(e.message) // Clear optimistic state
+  toastManager.error("Deposit failed — " + e.message)
 }
 ```
 
@@ -369,27 +361,27 @@ toastManager.error("Deposit failed — Transaction confirmation timeout")
 ```typescript
 // In GroupActions component
 const { optimisticState, registerOptimistic, updateTxHash, markFailed } =
-  useOptimisticTransactions(poolAddress);
+  useOptimisticTransactions(poolAddress)
 
 const handleCustomAction = async () => {
   try {
     // 1. Register optimistic state (before submission)
-    registerOptimistic("deposit", address, amountInStroops);
+    registerOptimistic("deposit", address, amountInStroops)
 
     // 2. Submit transaction
-    const txHash = await customHook.action();
+    const txHash = await customHook.action()
 
     // 3. Enable polling
-    updateTxHash(txHash);
+    updateTxHash(txHash)
 
     // 4. Auto-handled by useEffect:
     // - Watches optimisticState.pendingTx.status
     // - Fires toast on confirmed/failed
     // - Clears state after 2s
   } catch (e) {
-    markFailed(e.message);
+    markFailed(e.message)
   }
-};
+}
 ```
 
 ---
