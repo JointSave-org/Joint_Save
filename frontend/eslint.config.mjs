@@ -5,19 +5,19 @@ import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
   {
+    ignores: [".next/**", "node_modules/**", "out/**", "build/**"],
+  },
+  {
     files: ["**/*.{js,jsx,ts,tsx}"],
     languageOptions: {
       globals: {
         ...globals.browser,
         ...globals.node,
       },
+      parser: tsParser,
       parserOptions: {
         ecmaVersion: 2024,
         sourceType: "module",
-      },
-      parser: {
-        ts: tsParser,
-        tsx: tsParser,
       },
     },
     plugins: {
