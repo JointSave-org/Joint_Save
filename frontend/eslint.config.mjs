@@ -1,52 +1,42 @@
-import tseslint from "typescript-eslint"
-import nextPlugin from "@next/eslint-plugin-next"
-import reactHooksPlugin from "eslint-plugin-react-hooks"
-import prettierConfig from "eslint-config-prettier"
+import globals from "globals";
+import tsParser from "@typescript-eslint/parser";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import reactHooks from "eslint-plugin-react-hooks";
 
-export default tseslint.config(
-  // Files to lint
+export default [
   {
-    files: ["**/*.ts", "**/*.tsx"],
+    ignores: [".next/**", "node_modules/**", "out/**", "build/**"],
   },
-
-  // Next.js core-web-vitals flat config (includes @next/next plugin + rules)
-  nextPlugin.configs["core-web-vitals"],
-
-  // TypeScript recommended rules
-  ...tseslint.configs.recommended,
-
-  // React hooks rules
   {
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 2024,
+        sourceType: "module",
+      },
+    },
     plugins: {
-      "react-hooks": reactHooksPlugin,
+      "@typescript-eslint": tsPlugin,
+      "react-hooks": reactHooks,
     },
     rules: {
+      ...tsPlugin.configs.recommended.rules,
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
     },
   },
-
-  // Project-specific rule overrides
   {
-    rules: {
-      "no-console": "warn",
-      "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        {
-          varsIgnorePattern: "^_",
-          argsIgnorePattern: "^_",
-          caughtErrorsIgnorePattern: "^_",
-        },
-      ],
+    files: ["**/*.{ts,tsx}"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
   },
-
-  // Prettier must be last — disables all formatting rules that could conflict
-  prettierConfig,
-
-  // Ignore patterns
-  {
-    ignores: ["node_modules/**", ".next/**", "out/**", "e2e/**", "playwright.config.ts"],
-  }
-)
+];

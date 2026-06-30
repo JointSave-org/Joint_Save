@@ -1,22 +1,20 @@
 "use client"
 
-import { Card } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Button } from "@/components/ui/button"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { CheckCircle2, Clock, XCircle, AlertCircle, Award, Copy, Check } from "lucide-react"
-import { useState, useEffect } from "react"
-import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
-import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
-  RotationalPoolState,
-  fetchReputation,
-  type ReputationScore,
-} from "@/hooks/useJointSaveContracts"
-import { useToast } from "@/hooks/use-toast"
-import { countPendingMembers, filterPendingMembers } from "@/lib/member-filters"
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Loader2,
+  AlertCircle,
+  Award,
+} from "lucide-react";
+import { useState, useEffect } from "react";
+import { usePoolData } from "@/lib/data-layer/PoolDataProvider";
+import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions";
+import { RotationalPoolState, fetchReputation, type ReputationScore } from "@/hooks/useJointSaveContracts";
 
 interface Member {
   id: string
@@ -117,23 +115,9 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
 
   if (isLoading && members.length === 0) {
     return (
-      <Card className="p-6" aria-label="Loading members">
-        <Skeleton className="h-6 w-32 mb-4" />
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-              <div className="flex items-center gap-3">
-                {/* avatar */}
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="space-y-1.5">
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              </div>
-              {/* status icon */}
-              <Skeleton className="h-4 w-4 rounded-full" />
-            </div>
-          ))}
+      <Card className="p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       </Card>
     )

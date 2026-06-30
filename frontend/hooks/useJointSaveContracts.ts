@@ -796,12 +796,9 @@ async function fetchContractStorage(
 
       if (entry && typeof entry === "object") {
         if ("xdr" in entry) {
-          rawXdr = entry.xdr as string
-        } else if (
-          entry.val &&
-          typeof (entry.val as unknown as { toXDR?: () => string }).toXDR === "function"
-        ) {
-          rawXdr = (entry.val as unknown as { toXDR: (encoding: string) => string }).toXDR("base64")
+          rawXdr  = (entry.xdr as string)
+        } else if (entry.val && typeof (entry.val as any).toXDR === "function") {
+          rawXdr = (entry.val as any).toXDR("base64")
         }
       }
       if (!rawXdr) return null

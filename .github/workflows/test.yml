@@ -2,7 +2,11 @@ name: CI – Build & Test Soroban Contracts
 
 on:
   push:
+    paths:
+      - 'smartcontract/**'
   pull_request:
+    paths:
+      - 'smartcontract/**'
   workflow_dispatch:
 
 

@@ -20,6 +20,8 @@ import {
   Account,
   Transaction,
 } from "@stellar/stellar-sdk"
+import { STELLAR_RPC_URL } from "@/components/web3-provider"
+import { STELLAR_NETWORK_PASSPHRASE } from "@/components/web3-provider"
 import { getRpc } from "@/hooks/useJointSaveContracts"
 
 const TX_TIMEOUT = 300
@@ -95,10 +97,21 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
           strategyAddress = null
         } else {
           // scvOption wrapping an address
-          const inner =
-            stratVal.switch().name === "scvAddress"
-              ? stratVal
-              : (stratVal.value() as unknown as xdr.ScVal)
+          const kind = stratVal.switch().name;
+
+        let inner: xdr.ScVal;
+
+        if (kind === "scvAddress") {
+          inner = stratVal;
+        } else {
+          const value = stratVal.value();
+
+          if (!(value instanceof xdr.ScVal)) {
+            throw new Error("Expected ScVal");
+          }
+
+          inner = value;
+        }
           strategyAddress = Address.fromScVal(inner).toString()
         }
       } catch {}

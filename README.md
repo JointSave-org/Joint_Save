@@ -3,9 +3,11 @@
   
   # JointSave
 
-  [![CI – Build & Test Soroban Contracts](https://github.com/Sendi0011/Joint_Save/actions/workflows/test.yml/badge.svg)](https://github.com/Sendi0011/Joint_Save/actions/workflows/test.yml)
+[![CI – Build & Test Soroban Contracts](https://github.com/Sendi0011/Joint_Save/actions/workflows/test.yml/badge.svg)](https://github.com/Sendi0011/Joint_Save/actions/workflows/test.yml)
+[![CI – Frontend Build & Typecheck](https://github.com/Sendi0011/Joint_Save/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/Sendi0011/Joint_Save/actions/workflows/frontend-ci.yml)
 
-  A decentralized community savings platform built on Stellar, enabling trusted groups to automate contributions, payouts, and transparency using Soroban smart contracts.
+A decentralized community savings platform built on Stellar, enabling trusted groups to automate contributions, payouts, and transparency using Soroban smart contracts.
+
 </div>
 
 ## Live Demo
@@ -52,11 +54,13 @@ The frontend is built with Next.js and integrates with multiple Stellar wallets 
 ## Technology Stack
 
 ### Smart Contracts
+
 - **Rust** with Soroban SDK for smart contract development
 - **WebAssembly (WASM)** compilation for efficient execution
 - **Stellar Testnet** for secure, low-cost transactions
 
 ### Frontend
+
 - **Next.js 14** with App Router for modern React development
 - **TypeScript** for type-safe development
 - **Tailwind CSS** for responsive, mobile-first styling
@@ -65,6 +69,7 @@ The frontend is built with Next.js and integrates with multiple Stellar wallets 
 - **Stellar Wallets Kit** for multi-wallet support
 
 ### Infrastructure
+
 - **Vercel** for frontend deployment and hosting
 - **Supabase** for off-chain metadata and user data
 - **GitHub Actions** for automated CI/CD pipeline
@@ -73,14 +78,14 @@ The frontend is built with Next.js and integrates with multiple Stellar wallets 
 
 All contracts are deployed on **Stellar Testnet**:
 
-| Contract | Address |
-|----------|---------|
-| **Factory** | `CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI` |
+| Contract            | Address                                                            |
+| ------------------- | ------------------------------------------------------------------ |
+| **Factory**         | `CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI`         |
 | **Rotational WASM** | `d350a325d8734263a3d7150c875555d8956e13a527fb3497d5141b8b3f3d2c74` |
-| **Target WASM** | `133a62226501fc5443e70007d79deeeb0b33fdf8c85c7fcd3cf16293bb5c7292` |
-| **Flexible WASM** | `df6ff088fd79f13d8d03e72160434517fdb4a83b8c7bfdd887be4369805e0d6b` |
+| **Target WASM**     | `133a62226501fc5443e70007d79deeeb0b33fdf8c85c7fcd3cf16293bb5c7292` |
+| **Flexible WASM**   | `df6ff088fd79f13d8d03e72160434517fdb4a83b8c7bfdd887be4369805e0d6b` |
 
-*Deployed on April 16, 2026*
+_Deployed on April 16, 2026_
 
 For complete API documentation — functions, events, storage keys, error conditions, and CLI examples — see **[docs/contract-api.md](docs/contract-api.md)**.
 
@@ -96,12 +101,14 @@ For complete API documentation — functions, events, storage keys, error condit
 ### Quick Start
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/Sendi0011/Joint_Save.git
    cd Joint_Save
    ```
 
 2. **Set up the frontend**
+
    ```bash
    cd frontend
    npm install
@@ -109,7 +116,6 @@ For complete API documentation — functions, events, storage keys, error condit
    ```
 
 3. **Configure environment variables**
-   Use the inline comments in `frontend/.env.example` as the source of truth for each value. The frontend validates required variables during startup, so missing values fail fast with a clear `Missing required env var: ...` error.
 
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
@@ -121,6 +127,7 @@ For complete API documentation — functions, events, storage keys, error condit
    ```
 
 4. **Start the development server**
+
    ```bash
    npm run dev
    ```
@@ -189,11 +196,10 @@ JointSave demonstrates several advanced Soroban patterns:
 
 <div align="center">
 
-
-
 ### Desktop Features
+
 ![CI/CD Pipeline](docs/ci-screenshot.png)
-*Automated testing and deployment*
+_Automated testing and deployment_
 
 ### Transaction Export
 ![Transaction History with CSV Export](docs/transactions-screenshot.png)
@@ -204,6 +210,7 @@ JointSave demonstrates several advanced Soroban patterns:
 ## Roadmap
 
 ### 🚀 Phase 1 - Foundation (Current)
+
 - ✅ Core savings pool functionality (Rotational, Target, Flexible)
 - ✅ Multi-wallet Stellar integration
 - ✅ Factory contract for pool discovery
@@ -211,7 +218,13 @@ JointSave demonstrates several advanced Soroban patterns:
 - ✅ Real-time on-chain state synchronization
 - ✅ Automated CI/CD pipeline
 
+### CI Checks
+
+- **Smart Contracts** – Rust/Soroban contracts are built and tested on push/PR (any branch)
+- **Frontend** – TypeScript typecheck, lint, and Next.js build run on PRs affecting `frontend/**`
+
 ### 🔧 Phase 2 - Enhancement
+
 - **DeFi Integration** – Connect flexible pools to Stellar DeFi protocols for yield
 - **Mobile App** – Native iOS and Android applications
 - **Advanced Analytics** – Detailed savings insights and projections
@@ -219,6 +232,7 @@ JointSave demonstrates several advanced Soroban patterns:
 - **Reputation System** – Trust scores based on participation history
 
 ### 🌍 Phase 3 - Scale
+
 - **Mainnet Deployment** – Production-ready contracts on Stellar mainnet
 - **Fiat Integration** – Direct bank transfers and credit card support
 - **Social Features** – Friend invitations and community building
@@ -230,17 +244,20 @@ JointSave demonstrates several advanced Soroban patterns:
 We welcome contributions from the community! Here's how you can help:
 
 ### Development
+
 - 🐛 **Bug Reports** – Found an issue? [Open an issue](https://github.com/Sendi0011/Joint_Save/issues)
 - 💡 **Feature Requests** – Have an idea? We'd love to hear it
 - 🔧 **Code Contributions** – Submit pull requests for improvements
 - 📖 **Documentation** – Help improve our docs and guides
 
 ### Testing
+
 - 🧪 **Testnet Testing** – Try the app and report issues
 - 📱 **Device Testing** – Test on different devices and browsers
 - 🔍 **Security Review** – Help audit smart contracts and frontend code
 
 ### Community
+
 - 💬 **Discussions** – Join conversations in GitHub Discussions
 - 🌟 **Spread the Word** – Share JointSave with your network
 - 🎓 **Education** – Help others learn about decentralized savings
@@ -272,7 +289,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built with ❤️ for communities worldwide**
 
-*Powered by [Stellar](https://stellar.org) • [Soroban](https://soroban.stellar.org) • [Next.js](https://nextjs.org)*
+_Powered by [Stellar](https://stellar.org) • [Soroban](https://soroban.stellar.org) • [Next.js](https://nextjs.org)_
 
 [Live Demo](https://joint-save.vercel.app) • [Watch Video](https://youtu.be/Iuy-As9im7A) • [View Code](https://github.com/Sendi0011/Joint_Save)
 
