@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { FC } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -26,11 +26,35 @@ import {
   TargetPoolState,
   FlexiblePoolState,
   useBumpPoolState,
+  ledgerToEstimatedDate,
+  getRpc,
 } from "@/hooks/useJointSaveContracts"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import { useToast } from "@/hooks/use-toast"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import { GroupMuteNotificationsToggle } from "@/components/group/GroupMuteNotificationsToggle"
+
+interface GroupData {
+  id: string
+  name: string
+  type: "rotational" | "target" | "flexible"
+  status: string
+  description: string | null
+  total_saved: number
+  target_amount: number | null
+  progress: number
+  members_count: number
+  next_payout: string | null
+  next_recipient: string | null
+  created_at: string
+  contribution_amount: number | null
+  frequency: string | null
+  deadline: string | null
+  contract_address: string
+  token_symbol?: string
+  token_decimals?: number
+  members?: string[]
+}
 
 interface GroupDetailsProps {
   groupId: string
@@ -40,6 +64,7 @@ interface GroupDetailsProps {
 
 export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
   const [copied, setCopied] = useState(false)
+  const [currentLedger, setCurrentLedger] = useState<number | null>(null)
   const { toast } = useToast()
 
   // Use contract address as cache key when available; otherwise key on DB id.
@@ -49,9 +74,18 @@ export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
 
   const { data, isLoading, isStale, isPaused, ttlDays, error, refetch } = usePoolData(cacheKey)
   const { optimisticState } = useOptimisticTransactions(cacheKey)
-  const { bumpPoolState, isLoading: isBumping } = useBumpPoolState(data?.db?.contract_address || "")
+  const { bumpPoolState, isLoading: isBumping } = useBumpPoolState(
+    (data?.db?.contract_address as string) || ""
+  )
 
-  const group = data?.db ?? null
+  const group = (data?.db ?? null) as GroupData | null
+
+  useEffect(() => {
+    getRpc()
+      .getLatestLedger()
+      .then((l) => setCurrentLedger(l.sequence))
+      .catch(() => {})
+  }, [])
 
   const handleExtendStorage = async () => {
     try {
@@ -214,11 +248,14 @@ export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
         label: "Target",
         value: `${fmt(s.targetAmount).toFixed(2)} ${tokenSymbol}`,
       })
-      base.push({
-        icon: Clock,
-        label: "Deadline",
-        value: group.deadline ? new Date(group.deadline).toLocaleDateString() : "N/A",
-      })
+      let deadlineValue = "N/A"
+      if (s.deadlineLedger && currentLedger) {
+        const estimated = ledgerToEstimatedDate(s.deadlineLedger, currentLedger)
+        deadlineValue = `${estimated.toLocaleDateString()} (ledger ${s.deadlineLedger.toLocaleString()})`
+      } else if (group.deadline) {
+        deadlineValue = new Date(group.deadline).toLocaleDateString()
+      }
+      base.push({ icon: Clock, label: "Deadline", value: deadlineValue })
     } else if (group.type === "flexible" && onchainState) {
       const s = onchainState as FlexiblePoolState
       let userBalanceDisplay = fmt(s.userBalance).toFixed(2)

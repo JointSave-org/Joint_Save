@@ -5,7 +5,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, X, Loader2, AlertCircle } from "lucide-react"
+import { Plus, X, Loader2, AlertCircle, Info } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useStellar } from "@/components/web3-provider"
 import {
@@ -24,7 +24,6 @@ import {
   validateGroupName,
   validateStellarAddress,
   validatePositiveAmount,
-  validateDeadline,
   findDuplicateAddresses,
 } from "@/lib/form-validation"
 import { MAX_POOL_MEMBERS } from "@/lib/constants"
@@ -33,17 +32,15 @@ function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
 }
 
-// Convert a JS Date to an approximate Stellar ledger sequence number.
-// Stellar testnet: ~5 ledgers/sec. We fetch current ledger and extrapolate.
-async function dateToLedger(date: Date): Promise<number> {
-  const rpc = getRpc()
-  const ledger = await rpc.getLatestLedger()
-  const secsFromNow = Math.max(0, Math.floor((date.getTime() - Date.now()) / 1000))
-  return ledger.sequence + Math.floor(secsFromNow * 5)
+// Stellar: ~6 seconds per ledger
+const SECONDS_PER_LEDGER = 6
+
+function daysToLedgers(days: number): number {
+  return Math.floor((days * 24 * 60 * 60) / SECONDS_PER_LEDGER)
 }
 
-type FieldErrors = Partial<Record<"name" | "targetAmount" | "deadline", string>>
-type Touched = Partial<Record<"name" | "targetAmount" | "deadline", boolean>>
+type FieldErrors = Partial<Record<"name" | "targetAmount" | "deadlineDays", string>>
+type Touched = Partial<Record<"name" | "targetAmount" | "deadlineDays", boolean>>
 
 export function TargetForm() {
   const router = useRouter()
@@ -62,15 +59,23 @@ export function TargetForm() {
     name: "",
     description: "",
     targetAmount: "",
-    deadline: "",
+    deadlineDays: "",
   })
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Touched>({})
+  const [currentLedger, setCurrentLedger] = useState<number | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }, [error])
+
+  useEffect(() => {
+    getRpc()
+      .getLatestLedger()
+      .then((l) => setCurrentLedger(l.sequence))
+      .catch(() => {})
+  }, [])
 
   const { deploy } = useDeployPool()
   const { initTarget } = useInitializePool()
@@ -96,7 +101,12 @@ export function TargetForm() {
     if (name === "name") message = validateGroupName(value).message
     else if (name === "targetAmount")
       message = validatePositiveAmount(value, "Target amount").message
-    else if (name === "deadline") message = validateDeadline(value).message
+    else if (name === "deadlineDays") {
+      const d = parseInt(value)
+      if (!value) message = "Deadline is required"
+      else if (isNaN(d) || d < 1) message = "Deadline must be at least 1 day"
+      else if (d > 3650) message = "Deadline cannot exceed 10 years"
+    }
     setFieldErrors((prev) => ({ ...prev, [name]: message }))
   }, [])
 
@@ -123,14 +133,20 @@ export function TargetForm() {
     e.preventDefault()
     setError("")
 
-    setTouched({ name: true, targetAmount: true, deadline: true })
+    setTouched({ name: true, targetAmount: true, deadlineDays: true })
     const nameResult = validateGroupName(formData.name)
     const amountResult = validatePositiveAmount(formData.targetAmount, "Target amount")
-    const deadlineResult = validateDeadline(formData.deadline)
+    const deadlineDays = parseInt(formData.deadlineDays)
+    const deadlineDaysValid =
+      formData.deadlineDays && !isNaN(deadlineDays) && deadlineDays >= 1 && deadlineDays <= 3650
     setFieldErrors({
       name: nameResult.message,
       targetAmount: amountResult.message,
-      deadline: deadlineResult.message,
+      deadlineDays: deadlineDaysValid
+        ? ""
+        : formData.deadlineDays
+          ? "Deadline must be between 1 and 3650 days"
+          : "Deadline is required",
     })
 
     if (!address) return setError("Please connect your wallet first")
@@ -140,14 +156,16 @@ export function TargetForm() {
       )
     if (validMembers.length < 2)
       return setError("Need at least 2 valid Stellar addresses (you + 1 other)")
-    if (!nameResult.valid || !amountResult.valid || !deadlineResult.valid) return
+    if (!nameResult.valid || !amountResult.valid || !deadlineDaysValid) return
 
     try {
       setStep("deploying")
       const contractId = await deploy("target")
 
       setStep("initializing")
-      const deadlineLedger = await dateToLedger(new Date(formData.deadline))
+      // Fetch fresh ledger at submit time for the most accurate deadline
+      const ledger = await getRpc().getLatestLedger()
+      const deadlineLedger = ledger.sequence + daysToLedgers(deadlineDays)
       await initTarget(contractId, {
         token: resolveTokenAddress(token.address),
         decimals: token.decimals,
@@ -165,6 +183,11 @@ export function TargetForm() {
         console.warn("Factory registration skipped:", (regErr as Error).message)
       }
 
+      // Derive ISO deadline from days so the DB has a human-readable date
+      const estimatedDeadlineISO = new Date(
+        Date.now() + deadlineDays * 24 * 60 * 60 * 1000
+      ).toISOString()
+
       setStep("saving")
       const res = await fetch("/api/pools", {
         method: "POST",
@@ -180,7 +203,7 @@ export function TargetForm() {
           tokenDecimals: token.decimals,
           members: validMembers,
           targetAmount: formData.targetAmount,
-          deadline: formData.deadline,
+          deadline: estimatedDeadlineISO,
         }),
       })
       if (!res.ok) throw new Error("Failed to save pool metadata")
@@ -205,13 +228,17 @@ export function TargetForm() {
       ? (parseFloat(formData.targetAmount || "0") / validMembers.length).toFixed(2)
       : "0"
 
+  const days = parseInt(formData.deadlineDays) || 0
+  const estimatedDeadlineLedger =
+    currentLedger !== null && days > 0 ? currentLedger + daysToLedgers(days) : null
+
   const progressFields: ProgressField[] = [
     { label: "Group name", valid: validateGroupName(formData.name).valid },
     {
       label: "Target amount",
       valid: validatePositiveAmount(formData.targetAmount, "Amount").valid,
     },
-    { label: "Deadline", valid: validateDeadline(formData.deadline).valid },
+    { label: "Deadline (days)", valid: days >= 1 && days <= 3650 },
     { label: "Members (2+)", valid: validMembers.length >= 2 },
   ]
 
@@ -316,22 +343,34 @@ export function TargetForm() {
 
         <div className="space-y-1">
           <FieldTooltip
-            htmlFor="deadline"
-            label="Target Deadline"
-            tooltip="The date by which the group aims to reach the savings target. Must be at least 1 day in the future."
+            htmlFor="deadlineDays"
+            label="Deadline (days from now)"
+            tooltip="How many days until the savings target deadline. Stored as a Stellar ledger sequence number (~6 sec/ledger)."
             required
           />
           <Input
-            id="deadline"
-            type="date"
-            value={formData.deadline}
+            id="deadlineDays"
+            type="number"
+            min="1"
+            max="3650"
+            step="1"
+            placeholder="30"
+            value={formData.deadlineDays}
             onChange={(e) => {
-              setFormData({ ...formData, deadline: e.target.value })
-              if (touched.deadline) validateField("deadline", e.target.value)
+              setFormData({ ...formData, deadlineDays: e.target.value })
+              if (touched.deadlineDays) validateField("deadlineDays", e.target.value)
             }}
-            onBlur={(e) => handleBlur("deadline", e.target.value)}
+            onBlur={(e) => handleBlur("deadlineDays", e.target.value)}
           />
-          {touched.deadline && <FieldError message={fieldErrors.deadline} />}
+          {days > 0 && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              {estimatedDeadlineLedger
+                ? `Ledger ~${estimatedDeadlineLedger.toLocaleString()} · Est. ${new Date(Date.now() + days * 86_400_000).toLocaleDateString()}`
+                : "Fetching current ledger…"}
+            </p>
+          )}
+          {touched.deadlineDays && <FieldError message={fieldErrors.deadlineDays} />}
         </div>
       </div>
 
@@ -421,7 +460,12 @@ export function TargetForm() {
             <li>Members: {validMembers.length}</li>
             <li>Target Amount: {formData.targetAmount || "0"} XLM</li>
             <li>Each member contributes: {contributionPerMember} XLM</li>
-            <li>Deadline: {formData.deadline || "Not set"}</li>
+            <li>
+              Deadline:{" "}
+              {days > 0
+                ? `~${days} day${days !== 1 ? "s" : ""}${estimatedDeadlineLedger ? ` (ledger ~${estimatedDeadlineLedger.toLocaleString()})` : ""}`
+                : "Not set"}
+            </li>
           </ul>
         </div>
         <Button
