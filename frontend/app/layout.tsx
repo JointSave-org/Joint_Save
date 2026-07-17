@@ -12,6 +12,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Suspense } from "react"
 import { TxQueueBadge } from "@/components/tx-queue-badge"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
+import { TransactionRecoveryProvider } from "@/components/transaction-recovery-provider"
 
 export const metadata: Metadata = {
   title: "JointSave — Decentralized Community Savings on Stellar",
@@ -49,7 +50,9 @@ export default function RootLayout({
           <ScrollToTop />
           <Suspense fallback={null}>
             <Web3Provider>
-              <PoolDataProvider>{children}</PoolDataProvider>
+              <TransactionRecoveryProvider>
+                <PoolDataProvider>{children}</PoolDataProvider>
+              </TransactionRecoveryProvider>
             </Web3Provider>
           </Suspense>
         </ThemeProvider>
