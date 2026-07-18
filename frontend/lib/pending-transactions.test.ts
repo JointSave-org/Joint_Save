@@ -31,7 +31,7 @@ function createStorage(): StorageLike & { dump(): Record<string, string> } {
 test("pendingTransactionStorageKey normalizes the address", () => {
   assert.equal(
     pendingTransactionStorageKey("gaaa-bbbb-cccc"),
-    "jointsave:pending-tx:GAAA-BBBB-CCCC",
+    "jointsave:pending-tx:GAAA-BBBB-CCCC"
   )
 })
 
@@ -72,8 +72,14 @@ test("findRecentPendingTransaction only matches recent same-pool same-type recor
   addPendingTransactionRecord(address, recent, storage)
   addPendingTransactionRecord(address, old, storage)
 
-  assert.equal(findRecentPendingTransaction(address, "pool-1", "withdraw", Date.now(), storage)?.hash, "hash-1")
-  assert.equal(findRecentPendingTransaction(address, "pool-1", "deposit", Date.now(), storage), null)
+  assert.equal(
+    findRecentPendingTransaction(address, "pool-1", "withdraw", Date.now(), storage)?.hash,
+    "hash-1"
+  )
+  assert.equal(
+    findRecentPendingTransaction(address, "pool-1", "deposit", Date.now(), storage),
+    null
+  )
 })
 
 test("reconcilePendingTransactions clears resolved records and surfaces failure reasons", async () => {
@@ -106,7 +112,7 @@ test("reconcilePendingTransactions clears resolved records and surfaces failure 
       },
     },
     storage,
-    3_000,
+    3_000
   )
 
   assert.deepEqual(outcomes, [
@@ -143,7 +149,7 @@ test("reconcilePendingTransactions keeps recent not-found records but removes st
       },
     },
     storage,
-    Date.now(),
+    Date.now()
   )
 
   assert.deepEqual(outcomes, [{ record: stale, outcome: "dropped" }])

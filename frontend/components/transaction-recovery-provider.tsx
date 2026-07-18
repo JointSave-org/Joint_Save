@@ -36,16 +36,14 @@ export function TransactionRecoveryProvider({ children }: { children: ReactNode 
             toastManager.success(pendingTransactionSuccessMessage(outcome.record.type))
           } else if (outcome.outcome === "failed") {
             toastManager.error(
-              pendingTransactionFailureMessage(outcome.record.type, outcome.reason),
+              pendingTransactionFailureMessage(outcome.record.type, outcome.reason)
             )
           } else {
             toastManager.warning(pendingTransactionDroppedMessage(outcome.record.type))
           }
         }
       } catch (error) {
-        if (!cancelled) {
-          console.error("Failed to recover pending transactions", error)
-        }
+        void error
       } finally {
         scanInFlight.current = false
       }

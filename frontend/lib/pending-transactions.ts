@@ -85,7 +85,7 @@ function writeRawRecords(storage: StorageLike, key: string, records: PendingTran
 
 export function readPendingTransactionRecords(
   address: string,
-  storage?: StorageLike,
+  storage?: StorageLike
 ): PendingTransactionRecord[] {
   const resolvedStorage = getStorage(storage)
   if (!resolvedStorage) return []
@@ -95,7 +95,7 @@ export function readPendingTransactionRecords(
 export function writePendingTransactionRecords(
   address: string,
   records: PendingTransactionRecord[],
-  storage?: StorageLike,
+  storage?: StorageLike
 ) {
   const resolvedStorage = getStorage(storage)
   if (!resolvedStorage) return
@@ -105,7 +105,7 @@ export function writePendingTransactionRecords(
 export function addPendingTransactionRecord(
   address: string,
   record: PendingTransactionRecord,
-  storage?: StorageLike,
+  storage?: StorageLike
 ) {
   const records = readPendingTransactionRecords(address, storage)
   const next = [...records.filter((entry) => entry.hash !== record.hash), record]
@@ -115,7 +115,7 @@ export function addPendingTransactionRecord(
 export function removePendingTransactionRecord(
   address: string,
   hash: string,
-  storage?: StorageLike,
+  storage?: StorageLike
 ) {
   const records = readPendingTransactionRecords(address, storage)
   const next = records.filter((entry) => entry.hash !== hash)
@@ -129,7 +129,7 @@ export function findRecentPendingTransaction(
   poolId: string,
   type: PendingTransactionType,
   now = Date.now(),
-  storage?: StorageLike,
+  storage?: StorageLike
 ): PendingTransactionRecord | null {
   const records = readPendingTransactionRecords(address, storage)
   const normalizedPoolId = normalizeKeyPart(poolId)
@@ -138,7 +138,7 @@ export function findRecentPendingTransaction(
       (record) =>
         normalizeKeyPart(record.poolId) === normalizedPoolId &&
         record.type === type &&
-        now - record.submittedAt <= RECENT_DUPLICATE_WINDOW_MS,
+        now - record.submittedAt <= RECENT_DUPLICATE_WINDOW_MS
     ) ?? null
   )
 }
@@ -171,7 +171,7 @@ export function pendingTransactionDroppedMessage(type: PendingTransactionType): 
 
 export function pendingTransactionFailureMessage(
   type: PendingTransactionType,
-  reason?: string,
+  reason?: string
 ): string {
   if (reason) {
     return `Your ${pendingTransactionLabel(type)} from earlier failed on-chain. ${reason}`
@@ -183,10 +183,10 @@ export async function reconcilePendingTransactions(
   address: string,
   client: PendingTransactionStatusClient,
   storage?: StorageLike,
-  now = Date.now(),
+  now = Date.now()
 ): Promise<RecoveryOutcome[]> {
   const records = readPendingTransactionRecords(address, storage).sort(
-    (left, right) => left.submittedAt - right.submittedAt,
+    (left, right) => left.submittedAt - right.submittedAt
   )
   const outcomes: RecoveryOutcome[] = []
 

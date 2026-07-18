@@ -46,12 +46,17 @@ test("calculatePoolHealth - Rotational Pool health calculations", () => {
 })
 
 test("calculatePoolHealth - Target Pool health calculations", () => {
+  const now = Date.now()
+  const futureDeadline = new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString()
+  const pastDeadline = new Date(now - 24 * 60 * 60 * 1000).toISOString()
+  const createdAt = new Date(now - 60 * 24 * 60 * 60 * 1000).toISOString()
+
   const pool = {
     type: "target" as const,
     status: "active" as const,
     target_amount: 1000,
-    deadline: "2026-07-16T00:00:00Z",
-    created_at: "2026-06-16T00:00:00Z",
+    deadline: futureDeadline,
+    created_at: createdAt,
   }
 
   const members = [
@@ -67,7 +72,7 @@ test("calculatePoolHealth - Target Pool health calculations", () => {
   // 2. Deadline passed and target not met -> Health score = 0 (High risk)
   const passedPool = {
     ...pool,
-    deadline: "2026-06-15T00:00:00Z", // In the past
+    deadline: pastDeadline,
   }
   const result2 = calculatePoolHealth(passedPool, members, [])
   assert.strictEqual(result2.healthScore, 0)

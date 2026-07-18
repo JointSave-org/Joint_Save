@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -112,21 +112,19 @@ async function logAdminAction(
         metadata: metadata || {},
       }),
     })
-  } catch (err) {
-    console.error("Failed to log admin action:", err)
-  }
+  } catch {}
 }
 
 function confirmRecentPendingTransaction(
   address: string | null,
   poolId: string,
-  type: PendingTransactionType,
+  type: PendingTransactionType
 ): boolean {
   if (!address) return true
   const recent = findRecentPendingTransaction(address, poolId, type)
   if (!recent) return true
   return window.confirm(
-    `You have a recent pending ${pendingTransactionLabel(type)} on this pool. Submit anyway?`,
+    `You have a recent pending ${pendingTransactionLabel(type)} on this pool. Submit anyway?`
   )
 }
 
@@ -175,18 +173,18 @@ export function GroupActions({
     fetch(`/api/pools?id=${groupId}`)
       .then((res) => res.json())
       .then((data) => setPoolData(data))
-      .catch((err) => console.error("Failed to load pool details:", err))
+      .catch(() => undefined)
   }, [groupId])
 
-  const refreshMembers = async () => {
+  const refreshMembers = useCallback(async () => {
     if (isPending || !isAdmin || !poolAddress) return
     const onchainMembers = await fetchPoolMembers(poolAddress)
     setMembers(onchainMembers)
-  }
+  }, [isAdmin, isPending, poolAddress])
 
   useEffect(() => {
-    refreshMembers()
-  }, [isAdmin, isPending, poolAddress])
+    void refreshMembers()
+  }, [refreshMembers])
 
   const rotationalDeposit = useRotationalDeposit(poolAddress)
   const triggerPayout = useTriggerPayout(poolAddress)

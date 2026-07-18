@@ -870,9 +870,7 @@ async function fetchContractStorage(
       const ledgerData = xdr.LedgerEntryData.fromXDR(rawXdr, "base64")
       return ledgerData.contractData().val()
     }
-  } catch (err) {
-    console.error(`Error fetching contract storage for ${keySymbol}:`, err)
-  }
+  } catch {}
   return null
 }
 
@@ -980,9 +978,7 @@ export async function fetchRotationalState(
         depositChecks.push(...results)
       }
       depositCount = depositChecks.filter(Boolean).length
-    } catch (e) {
-      console.error("Failed to query deposit checks for members:", e)
-    }
+    } catch {}
   }
 
   const treasuryFeeBps =
@@ -1217,8 +1213,7 @@ export async function fetchFactoryPools(): Promise<{
       target: parseContractIdVec(tgtVal),
       flexible: parseContractIdVec(flxVal),
     }
-  } catch (err) {
-    console.error("Failed to fetch factory pools:", err)
+  } catch {
     return { rotational: [], target: [], flexible: [] }
   }
 }
@@ -1410,9 +1405,7 @@ export async function fetchPoolTtl(contractId: string): Promise<number | null> {
         return days
       }
     }
-  } catch (err) {
-    console.error("Error fetching pool TTL:", err)
-  }
+  } catch {}
   return null
 }
 
