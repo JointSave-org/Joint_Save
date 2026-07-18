@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,6 +48,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  findRecentPendingTransaction,
+  pendingTransactionLabel,
+  type PendingTransactionType,
+} from "@/lib/pending-transactions"
 
 interface GroupActionsProps {
   groupId: string
@@ -107,10 +112,22 @@ async function logAdminAction(
         metadata: metadata || {},
       }),
     })
-  } catch (err) {
-    console.error("Failed to log admin action:", err)
-  }
+  } catch {}
 }
+
+function confirmRecentPendingTransaction(
+  address: string | null,
+  poolId: string,
+  type: PendingTransactionType
+): boolean {
+  if (!address) return true
+  const recent = findRecentPendingTransaction(address, poolId, type)
+  if (!recent) return true
+  return window.confirm(
+    `You have a recent pending ${pendingTransactionLabel(type)} on this pool. Submit anyway?`
+  )
+}
+
 export function GroupActions({
   groupId,
   poolAddress,
@@ -156,18 +173,18 @@ export function GroupActions({
     fetch(`/api/pools?id=${groupId}`)
       .then((res) => res.json())
       .then((data) => setPoolData(data))
-      .catch((err) => console.error("Failed to load pool details:", err))
+      .catch(() => undefined)
   }, [groupId])
 
-  const refreshMembers = async () => {
+  const refreshMembers = useCallback(async () => {
     if (isPending || !isAdmin || !poolAddress) return
     const onchainMembers = await fetchPoolMembers(poolAddress)
     setMembers(onchainMembers)
-  }
+  }, [isAdmin, isPending, poolAddress])
 
   useEffect(() => {
-    refreshMembers()
-  }, [isAdmin, isPending, poolAddress])
+    void refreshMembers()
+  }, [refreshMembers])
 
   const rotationalDeposit = useRotationalDeposit(poolAddress)
   const triggerPayout = useTriggerPayout(poolAddress)
@@ -207,6 +224,7 @@ export function GroupActions({
     if (!address) return setError("Please connect your wallet first")
     if (isPending) return setError("Contract not yet deployed.")
     if (isPaused) return setError("Pool is paused. Deposits are disabled.")
+    if (!confirmRecentPendingTransaction(address, poolAddress, "deposit")) return
     try {
       const amount = poolType !== "rotational" ? toBaseUnits(parseFloat(depositAmount)) : undefined
       registerOptimistic("deposit", address, amount)
@@ -237,6 +255,7 @@ export function GroupActions({
 
     if (poolType === "target") {
       // Direct withdrawal since target pool exit has no fee parameters stored/previewed
+      if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
       try {
         registerOptimistic("withdraw", address)
         const txHash = await targetWithdraw.withdraw()
@@ -272,6 +291,7 @@ export function GroupActions({
           { label: "Net Amount You Receive", value: `${netAmount.toFixed(2)} ${tokenSymbol}` },
         ],
         onConfirm: async () => {
+          if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
           const amountStroops = toBaseUnits(amount)
           registerOptimistic("withdraw", address, amountStroops)
           const txHash = await flexibleWithdraw.withdraw()
@@ -349,6 +369,7 @@ export function GroupActions({
           },
         ],
         onConfirm: async () => {
+          if (!confirmRecentPendingTransaction(address, poolAddress, "trigger_payout")) return
           registerOptimistic("trigger_payout", address)
           const txHash = await triggerPayout.trigger()
           if (txHash) {
@@ -372,14 +393,19 @@ export function GroupActions({
     setSuccessMsg("")
     if (!address) return setError("Please connect your wallet first")
     if (isPending) return setError("Contract not yet deployed.")
+    if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
     try {
+      registerOptimistic("withdraw", address)
       const txHash = await targetRefund.refund()
       if (txHash) {
+        updateTxHash(txHash)
         await logActivity(groupId, "refund", address, null, txHash)
-        setSuccessMsg("Refund initiated!")
+        setSuccessMsg("Refund submitted (confirming on-chain)â€¦")
       }
     } catch (e: unknown) {
-      setError((e as Error).message || "Transaction failed")
+      const msg = (e as Error).message || "Transaction failed"
+      setError(msg)
+      markFailed(msg)
     }
   }
 

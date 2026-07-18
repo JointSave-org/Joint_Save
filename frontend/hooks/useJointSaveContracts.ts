@@ -16,6 +16,11 @@ import {
 } from "@stellar/stellar-sdk"
 import { useStellar, STELLAR_RPC_URL, STELLAR_NETWORK_PASSPHRASE } from "@/components/web3-provider"
 import { enqueueSign } from "@/lib/tx-queue"
+import {
+  addPendingTransactionRecord,
+  removePendingTransactionRecord,
+  type PendingTransactionType,
+} from "@/lib/pending-transactions"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -168,7 +173,13 @@ async function submitTx(
       opts: { networkPassphrase: string }
     ) => Promise<{ signedTxXdr: string }>
   },
-  tx: Transaction
+  tx: Transaction,
+  pendingTx?: {
+    address: string
+    type: PendingTransactionType
+    poolId: string
+    amount?: string
+  }
 ): Promise<string> {
   if (IS_E2E) return E2E_TX_HASH
   const server = getRpc()
@@ -192,6 +203,16 @@ async function submitTx(
     throw new Error(`Send failed: ${JSON.stringify(result.errorResult)}`)
   }
 
+  if (pendingTx) {
+    addPendingTransactionRecord(pendingTx.address, {
+      hash: result.hash,
+      type: pendingTx.type,
+      poolId: pendingTx.poolId,
+      submittedAt: Date.now(),
+      amount: pendingTx.amount,
+    })
+  }
+
   // Poll for confirmation
   let getResult = await server.getTransaction(result.hash)
   let attempts = 0
@@ -202,7 +223,14 @@ async function submitTx(
   }
 
   if (getResult.status === rpc.Api.GetTransactionStatus.FAILED) {
+    if (pendingTx) {
+      removePendingTransactionRecord(pendingTx.address, result.hash)
+    }
     throw new Error("Transaction failed on-chain")
+  }
+
+  if (getResult.status === rpc.Api.GetTransactionStatus.SUCCESS && pendingTx) {
+    removePendingTransactionRecord(pendingTx.address, result.hash)
   }
 
   return result.hash
@@ -505,7 +533,11 @@ export function useRotationalDeposit(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("deposit", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitTx(kit, tx, {
+        address,
+        type: "deposit",
+        poolId: contractId,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -532,7 +564,11 @@ export function useTriggerPayout(contractId: string) {
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitTx(kit, tx, {
+        address,
+        type: "trigger_payout",
+        poolId: contractId,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -565,7 +601,12 @@ export function useTargetContribute(contractId: string, amount: string, decimals
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitTx(kit, tx, {
+        address,
+        type: "deposit",
+        poolId: contractId,
+        amount,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -590,7 +631,11 @@ export function useTargetWithdraw(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("withdraw", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitTx(kit, tx, {
+        address,
+        type: "withdraw",
+        poolId: contractId,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -615,7 +660,11 @@ export function useTargetRefund(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("refund", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitTx(kit, tx, {
+        address,
+        type: "withdraw",
+        poolId: contractId,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -648,7 +697,12 @@ export function useFlexibleDeposit(contractId: string, amount: string, decimals 
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitTx(kit, tx, {
+        address,
+        type: "deposit",
+        poolId: contractId,
+        amount,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -679,7 +733,12 @@ export function useFlexibleWithdraw(contractId: string, amount: string, decimals
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitTx(kit, tx, {
+        address,
+        type: "withdraw",
+        poolId: contractId,
+        amount,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -811,9 +870,7 @@ async function fetchContractStorage(
       const ledgerData = xdr.LedgerEntryData.fromXDR(rawXdr, "base64")
       return ledgerData.contractData().val()
     }
-  } catch (err) {
-    console.error(`Error fetching contract storage for ${keySymbol}:`, err)
-  }
+  } catch {}
   return null
 }
 
@@ -921,9 +978,7 @@ export async function fetchRotationalState(
         depositChecks.push(...results)
       }
       depositCount = depositChecks.filter(Boolean).length
-    } catch (e) {
-      console.error("Failed to query deposit checks for members:", e)
-    }
+    } catch {}
   }
 
   const treasuryFeeBps =
@@ -1158,8 +1213,7 @@ export async function fetchFactoryPools(): Promise<{
       target: parseContractIdVec(tgtVal),
       flexible: parseContractIdVec(flxVal),
     }
-  } catch (err) {
-    console.error("Failed to fetch factory pools:", err)
+  } catch {
     return { rotational: [], target: [], flexible: [] }
   }
 }
@@ -1351,9 +1405,7 @@ export async function fetchPoolTtl(contractId: string): Promise<number | null> {
         return days
       }
     }
-  } catch (err) {
-    console.error("Error fetching pool TTL:", err)
-  }
+  } catch {}
   return null
 }
 
