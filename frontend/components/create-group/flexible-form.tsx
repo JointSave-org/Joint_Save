@@ -5,7 +5,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, X, Loader2, AlertCircle } from "lucide-react"
+import { Plus, X, Loader2, AlertCircle, CopyPlus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useStellar } from "@/components/web3-provider"
 import {
@@ -27,6 +27,7 @@ import {
   findDuplicateAddresses,
 } from "@/lib/form-validation"
 import { MAX_POOL_MEMBERS } from "@/lib/constants"
+import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -37,23 +38,26 @@ const TREASURY = process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID || ""
 type FieldErrors = Partial<Record<"name" | "minimumDeposit" | "withdrawalFee", string>>
 type Touched = Partial<Record<"name" | "minimumDeposit" | "withdrawalFee", boolean>>
 
-export function FlexibleForm() {
+export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const router = useRouter()
   const { address } = useStellar()
   const [token, setToken] = useState<SelectedToken>({
     address: "native",
-    symbol: "XLM",
+    symbol: prefill?.token || "XLM",
     decimals: 7,
   })
-  const [members, setMembers] = useState<string[]>([""])
+  const initialMembers = prefill?.members?.filter((m: string) => m !== address) ?? [""]
+  const [members, setMembers] = useState<string[]>(
+    initialMembers.length > 0 ? initialMembers : [""]
+  )
   const [error, setError] = useState("")
   const [step, setStep] = useState<
     "idle" | "deploying" | "initializing" | "registering" | "saving"
   >("idle")
   const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    minimumDeposit: "",
+    name: prefill?.name || "",
+    description: prefill?.description || "",
+    minimumDeposit: prefill?.minimumDeposit || "",
     enableYield: false,
     withdrawalFee: "1",
   })
@@ -227,6 +231,16 @@ export function FlexibleForm() {
       )}
 
       <FormProgress fields={progressFields} />
+
+      {prefill && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground">
+          <CopyPlus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+          <span>
+            Pre-filled from the original pool — all values are editable. Submitting will deploy a{" "}
+            <strong>new, independent contract</strong> with no connection to the original.
+          </span>
+        </div>
+      )}
 
       <div className="space-y-1">
         <div className="flex items-center justify-between">

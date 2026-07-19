@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import type { FC } from "react"
+import { useStellar } from "@/components/web3-provider"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -48,24 +49,30 @@ interface GroupData {
   next_recipient: string | null
   created_at: string
   contribution_amount: number | null
+  minimum_deposit?: number | null
   frequency: string | null
   deadline: string | null
   contract_address: string
   token_symbol?: string
   token_decimals?: number
   members?: string[]
+  pool_members?: { member_address: string }[]
 }
 
 interface GroupDetailsProps {
   groupId: string
   /** Contract address if already known — avoids a redundant /api/pools fetch */
   contractAddress?: string
+  /** On-chain admin address — passed from the parent page after fetchPoolAdmin resolves */
+  poolAdmin?: string | null
 }
 
-export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
+export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetailsProps) {
   const [copied, setCopied] = useState(false)
   const [currentLedger, setCurrentLedger] = useState<number | null>(null)
   const { toast } = useToast()
+  const { address } = useStellar()
+  const isAdmin = !!address && !!poolAdmin && address.toUpperCase() === poolAdmin.toUpperCase()
 
   // Use contract address as cache key when available; otherwise key on DB id.
   // The provider resolves DB data first, so the DB id key works fine too.
@@ -381,6 +388,27 @@ export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
   const hasLowMemberCount =
     group.type === "rotational" && (group.members_count ?? 0) <= LOW_MEMBER_THRESHOLD
 
+  const duplicateMemberAddresses =
+    group.pool_members?.map((m) => m.member_address) ?? group.members ?? []
+  let duplicateTypeParams = ""
+  if (group.type === "rotational") {
+    duplicateTypeParams = `&amount=${group.contribution_amount || ""}&frequency=${encodeURIComponent(group.frequency || "weekly")}`
+  } else if (group.type === "target") {
+    duplicateTypeParams = `&targetAmount=${group.target_amount || ""}`
+  } else {
+    duplicateTypeParams = `&minimumDeposit=${group.minimum_deposit ?? group.contribution_amount ?? ""}`
+  }
+  const duplicateHref =
+    `/dashboard/create/${group.type}?duplicate=1` +
+    `&name=${encodeURIComponent(group.name)}` +
+    `&description=${encodeURIComponent(group.description || "")}` +
+    `&members=${encodeURIComponent(JSON.stringify(duplicateMemberAddresses))}` +
+    `&token=${encodeURIComponent(group.token_symbol || "XLM")}` +
+    duplicateTypeParams
+
+  const showDuplicateButton =
+    !isPending(group.contract_address) && group.status !== "pending" && isAdmin
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -508,12 +536,17 @@ export function GroupDetails({ groupId, contractAddress }: GroupDetailsProps) {
           </div>
         )}
 
-        {!isPending(group.contract_address) && group.status !== "pending" && (
-          <div className="mb-4">
+        {showDuplicateButton && (
+          <div className="mb-4 space-y-2">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground">
+              <CopyPlus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+              <span>
+                Starting a new cycle deploys a <strong>fresh, independent contract</strong> — the
+                original pool is unaffected.
+              </span>
+            </div>
             <Button variant="outline" size="sm" className="w-full gap-2" asChild>
-              <Link
-                href={`/dashboard/create/${group.type}?duplicate=1&name=${encodeURIComponent(group.name)}&description=${encodeURIComponent(group.description || "")}&amount=${group.contribution_amount || ""}&frequency=${group.frequency || ""}&members=${encodeURIComponent(JSON.stringify(group.members || []))}&token=${group.token_symbol || "XLM"}`}
-              >
+              <Link href={duplicateHref}>
                 <CopyPlus className="h-4 w-4" />
                 Start New Cycle / Duplicate Pool
               </Link>
