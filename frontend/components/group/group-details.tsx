@@ -388,6 +388,27 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
   const hasLowMemberCount =
     group.type === "rotational" && (group.members_count ?? 0) <= LOW_MEMBER_THRESHOLD
 
+  const duplicateMemberAddresses =
+    group.pool_members?.map((m) => m.member_address) ?? group.members ?? []
+  let duplicateTypeParams = ""
+  if (group.type === "rotational") {
+    duplicateTypeParams = `&amount=${group.contribution_amount || ""}&frequency=${encodeURIComponent(group.frequency || "weekly")}`
+  } else if (group.type === "target") {
+    duplicateTypeParams = `&targetAmount=${group.target_amount || ""}`
+  } else {
+    duplicateTypeParams = `&minimumDeposit=${group.minimum_deposit ?? group.contribution_amount ?? ""}`
+  }
+  const duplicateHref =
+    `/dashboard/create/${group.type}?duplicate=1` +
+    `&name=${encodeURIComponent(group.name)}` +
+    `&description=${encodeURIComponent(group.description || "")}` +
+    `&members=${encodeURIComponent(JSON.stringify(duplicateMemberAddresses))}` +
+    `&token=${encodeURIComponent(group.token_symbol || "XLM")}` +
+    duplicateTypeParams
+
+  const showDuplicateButton =
+    !isPending(group.contract_address) && group.status !== "pending" && isAdmin
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -515,36 +536,23 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
           </div>
         )}
 
-        {!isPending(group.contract_address) && group.status !== "pending" && isAdmin && (() => {
-          const memberAddresses = group.pool_members?.map((m) => m.member_address) ?? group.members ?? []
-          const base = `/dashboard/create/${group.type}?duplicate=1`
-            + `&name=${encodeURIComponent(group.name)}`
-            + `&description=${encodeURIComponent(group.description || "")}`
-            + `&members=${encodeURIComponent(JSON.stringify(memberAddresses))}`
-            + `&token=${encodeURIComponent(group.token_symbol || "XLM")}`
-          const typeParams =
-            group.type === "rotational"
-              ? `&amount=${group.contribution_amount || ""}&frequency=${encodeURIComponent(group.frequency || "weekly")}`
-              : group.type === "target"
-              ? `&targetAmount=${group.target_amount || ""}`
-              : `&minimumDeposit=${group.minimum_deposit ?? group.contribution_amount ?? ""}`
-          return (
-            <div className="mb-4 space-y-2">
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground">
-                <CopyPlus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                <span>
-                  Starting a new cycle deploys a <strong>fresh, independent contract</strong> — the original pool is unaffected.
-                </span>
-              </div>
-              <Button variant="outline" size="sm" className="w-full gap-2" asChild>
-                <Link href={base + typeParams}>
-                  <CopyPlus className="h-4 w-4" />
-                  Start New Cycle / Duplicate Pool
-                </Link>
-              </Button>
+        {showDuplicateButton && (
+          <div className="mb-4 space-y-2">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground">
+              <CopyPlus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+              <span>
+                Starting a new cycle deploys a <strong>fresh, independent contract</strong> — the
+                original pool is unaffected.
+              </span>
             </div>
-          )
-        })()}
+            <Button variant="outline" size="sm" className="w-full gap-2" asChild>
+              <Link href={duplicateHref}>
+                <CopyPlus className="h-4 w-4" />
+                Start New Cycle / Duplicate Pool
+              </Link>
+            </Button>
+          </div>
+        )}
 
         {/* Per-pool notification mute (email only) */}
         <div className="mb-4">
