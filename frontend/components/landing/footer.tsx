@@ -79,7 +79,7 @@ export function Footer() {
                   Discord (Coming soon)
                 </span>
               </li>
-             <li>
+              <li>
                 <a
                   href="https://github.com/JointSave-org/Joint_Save"
                   target="_blank"
