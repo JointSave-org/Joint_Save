@@ -100,7 +100,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <GroupDetails groupId={id} contractAddress={cacheKey} />
+            <GroupDetails groupId={id} contractAddress={cacheKey} poolAdmin={poolAdmin} />
             <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
             {/* Admin audit log with CSV export — only shown to the pool creator */}
             <AdminAuditLog groupId={id} creatorAddress={pool.creator_address} />

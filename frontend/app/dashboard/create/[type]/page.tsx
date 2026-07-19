@@ -17,7 +17,12 @@ const validTypes = ["rotational", "target", "flexible"]
 export interface DuplicatePrefill {
   name: string
   description: string
+  /** Rotational: per-round contribution amount */
   amount: string
+  /** Target pool: total savings goal */
+  targetAmount: string
+  /** Flexible pool: minimum deposit per transaction */
+  minimumDeposit: string
   frequency: string
   members: string[]
   token: string
@@ -40,6 +45,8 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
         name: decodeURIComponent(searchParams.get("name") || ""),
         description: decodeURIComponent(searchParams.get("description") || ""),
         amount: searchParams.get("amount") || "",
+        targetAmount: searchParams.get("targetAmount") || "",
+        minimumDeposit: searchParams.get("minimumDeposit") || "",
         frequency: searchParams.get("frequency") || "",
         members,
         token: searchParams.get("token") || "XLM",

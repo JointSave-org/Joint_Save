@@ -106,7 +106,7 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* ── Left column: details + timeline + activity ──────────────── */}
           <div className="lg:col-span-2 space-y-6">
-            <GroupDetails groupId={id} contractAddress={cacheKey} />
+            <GroupDetails groupId={id} contractAddress={cacheKey} poolAdmin={poolAdmin} />
             {pool.type === "rotational" && (
               <RotationalTimelineContainer groupId={id} contractAddress={cacheKey} />
             )}
