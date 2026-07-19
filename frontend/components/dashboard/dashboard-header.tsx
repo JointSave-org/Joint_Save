@@ -165,7 +165,7 @@ export function DashboardHeader() {
               </DropdownMenu>
             )}
 
-            {address && recentPools.length > 0 && (
+            {address && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-1.5">
@@ -176,24 +176,33 @@ export function DashboardHeader() {
                 <DropdownMenuContent align="end" className="w-64">
                   <DropdownMenuLabel>Recent Pools</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {recentPools.map((pool) => (
-                    <DropdownMenuItem key={pool.contract_address || pool.id} asChild>
-                      <Link
-                        href={`/dashboard/group/${pool.id}`}
-                        className="flex w-full cursor-pointer items-center justify-between gap-2"
-                      >
-                        <span className="flex-1 truncate text-sm">{pool.name}</span>
-                        <span className="flex items-center gap-1.5">
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 capitalize">
-                            {pool.type}
-                          </Badge>
-                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                            {formatRelativeTime(new Date(pool.visitedAt))}
+                  {recentPools.length === 0 ? (
+                    <div className="px-2 py-3 text-center text-sm text-muted-foreground">
+                      No recent pools yet
+                    </div>
+                  ) : (
+                    recentPools.map((pool) => (
+                      <DropdownMenuItem key={pool.contract_address || pool.id} asChild>
+                        <Link
+                          href={`/dashboard/group/${pool.id}`}
+                          className="flex w-full cursor-pointer items-center justify-between gap-2"
+                        >
+                          <span className="flex-1 truncate text-sm">{pool.name}</span>
+                          <span className="flex items-center gap-1.5">
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] px-1.5 py-0 capitalize"
+                            >
+                              {pool.type}
+                            </Badge>
+                            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                              {formatRelativeTime(new Date(pool.visitedAt))}
+                            </span>
                           </span>
-                        </span>
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
