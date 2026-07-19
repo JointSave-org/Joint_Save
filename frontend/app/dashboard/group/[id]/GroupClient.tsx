@@ -6,6 +6,7 @@ import { GroupDetails } from "@/components/group/group-details"
 import { GroupMembers } from "@/components/group/group-members"
 import { GroupActivity } from "@/components/group/group-activity"
 import { GroupActions } from "@/components/group/group-actions"
+import { RotationalTimelineContainer } from "@/components/group/rotational-timeline-container"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -103,9 +104,12 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
         </Button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ── Left column: details + activity ──────────────────────────── */}
+          {/* ── Left column: details + timeline + activity ──────────────── */}
           <div className="lg:col-span-2 space-y-6">
             <GroupDetails groupId={id} contractAddress={cacheKey} />
+            {pool.type === "rotational" && (
+              <RotationalTimelineContainer groupId={id} contractAddress={cacheKey} />
+            )}
             <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
           </div>
 
