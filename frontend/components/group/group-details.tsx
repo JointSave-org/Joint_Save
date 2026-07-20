@@ -17,6 +17,7 @@ import {
   Copy,
   Check,
   CopyPlus,
+  Share2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
@@ -57,6 +58,7 @@ interface GroupData {
   token_decimals?: number
   members?: string[]
   pool_members?: { member_address: string }[]
+  creator_address?: string
 }
 
 interface GroupDetailsProps {
@@ -69,6 +71,7 @@ interface GroupDetailsProps {
 
 export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetailsProps) {
   const [copied, setCopied] = useState(false)
+  const [copiedInvite, setCopiedInvite] = useState(false)
   const [currentLedger, setCurrentLedger] = useState<number | null>(null)
   const { toast } = useToast()
   const { address } = useStellar()
@@ -86,6 +89,10 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
   )
 
   const group = (data?.db ?? null) as GroupData | null
+  const isCreator =
+    !!address &&
+    !!group?.creator_address &&
+    address.toLowerCase() === group.creator_address.toLowerCase()
 
   useEffect(() => {
     getRpc()
@@ -141,6 +148,29 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
       toast({
         title: "Failed to copy",
         description: "Please copy the address manually.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleShareInvite = async () => {
+    if (!group) return
+    try {
+      const inviteUrl = `${window.location.origin}/join/${group.contract_address}`
+      await navigator.clipboard.writeText(inviteUrl)
+      setCopiedInvite(true)
+      const { dismiss } = toast({
+        title: "Link copied!",
+        description: "Invite link copied to clipboard.",
+      })
+      setTimeout(() => {
+        setCopiedInvite(false)
+        dismiss()
+      }, 2000)
+    } catch {
+      toast({
+        title: "Failed to copy",
+        description: "Please copy the invite link manually.",
         variant: "destructive",
       })
     }
@@ -552,6 +582,22 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
               </Link>
             </Button>
           </div>
+        )}
+
+        {isCreator && group.contract_address && !isPending(group.contract_address) && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2 mb-4"
+            onClick={handleShareInvite}
+          >
+            {copiedInvite ? (
+              <Check className="h-4 w-4 text-green-500" />
+            ) : (
+              <Share2 className="h-4 w-4" />
+            )}
+            {copiedInvite ? "Link copied!" : "Share Invite Link"}
+          </Button>
         )}
 
         {/* Per-pool notification mute (email only) */}
