@@ -4,7 +4,14 @@ import { use, useEffect, useState } from "react"
 import { useStellar } from "@/components/web3-provider"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -20,7 +27,7 @@ import {
   Copy,
   Check,
   TrendingUp,
-  Sparkles
+  Sparkles,
 } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -51,7 +58,7 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
   const { contractId } = use(params)
   const { address, connect, isConnected } = useStellar()
   const { toast } = useToast()
-  
+
   const { data, isLoading, error } = usePoolData(contractId)
   const group = (data?.db ?? null) as GroupData | null
 
@@ -135,9 +142,7 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
   const isAlreadyMember =
     !!address &&
     !!group &&
-    group.pool_members?.some(
-      (m) => m.member_address.toLowerCase() === address.toLowerCase()
-    )
+    group.pool_members?.some((m) => m.member_address.toLowerCase() === address.toLowerCase())
 
   // Loading state skeleton
   if (isLoading) {
@@ -175,13 +180,16 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
             <Card className="border-destructive/30 bg-destructive/5 text-center p-6 shadow-xl">
               <CardHeader className="flex flex-col items-center pb-2">
                 <AlertCircle className="h-12 w-12 text-destructive mb-2" />
-                <CardTitle className="text-2xl font-bold text-destructive">Pool Not Found</CardTitle>
+                <CardTitle className="text-2xl font-bold text-destructive">
+                  Pool Not Found
+                </CardTitle>
                 <CardDescription className="text-muted-foreground mt-2">
                   {error || "We couldn't find a savings pool matching this address or ID."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="py-4 text-sm text-muted-foreground">
-                Please check the invite link and try again. The pool might be deactivated, or you may have entered an incorrect contract address.
+                Please check the invite link and try again. The pool might be deactivated, or you
+                may have entered an incorrect contract address.
               </CardContent>
               <CardFooter className="flex flex-col sm:flex-row gap-2 justify-center pt-4">
                 <Button variant="outline" asChild className="w-full sm:w-auto">
@@ -249,7 +257,9 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground font-medium">Deposit Requirement</p>
             <p className="text-2xl font-bold text-foreground">
-              {group.minimum_deposit ? `${group.minimum_deposit.toFixed(2)} ${tokenSymbol} min` : "Flexible (No minimum)"}
+              {group.minimum_deposit
+                ? `${group.minimum_deposit.toFixed(2)} ${tokenSymbol} min`
+                : "Flexible (No minimum)"}
             </p>
             <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
               <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
@@ -266,9 +276,9 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
   const renderCTA = () => {
     if (!isConnected) {
       return (
-        <Button 
-          size="lg" 
-          onClick={connect} 
+        <Button
+          size="lg"
+          onClick={connect}
           className="w-full font-semibold transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
         >
           <Wallet className="h-5 w-5" />
@@ -285,9 +295,7 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
             <span>You are already a member of this pool</span>
           </div>
           <Button variant="outline" size="lg" asChild className="w-full font-semibold">
-            <Link href={`/dashboard/group/${group.id}`}>
-              Go to Pool Details
-            </Link>
+            <Link href={`/dashboard/group/${group.id}`}>Go to Pool Details</Link>
           </Button>
         </div>
       )
@@ -304,7 +312,12 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
 
     if (requestStatus === "pending") {
       return (
-        <Button disabled variant="secondary" size="lg" className="w-full flex items-center justify-center gap-2">
+        <Button
+          disabled
+          variant="secondary"
+          size="lg"
+          className="w-full flex items-center justify-center gap-2"
+        >
           <CheckCircle2 className="h-5 w-5 text-amber-500" />
           Request Pending Approval
         </Button>
@@ -312,9 +325,9 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
     }
 
     return (
-      <Button 
-        size="lg" 
-        onClick={handleRequestJoin} 
+      <Button
+        size="lg"
+        onClick={handleRequestJoin}
         disabled={submitting}
         className="w-full font-semibold transition-all hover:scale-[1.01]"
       >
@@ -342,7 +355,7 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
         >
           <Card className="border border-border/60 shadow-2xl overflow-hidden bg-card/65 backdrop-blur-md">
             <div className="h-2 bg-gradient-to-r from-primary via-purple-500 to-indigo-500" />
-            
+
             <CardHeader className="space-y-4">
               <div className="flex items-center justify-between">
                 <Badge className="bg-primary/10 text-primary border-primary/25 capitalize px-3 py-1 font-medium">
@@ -350,10 +363,11 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
                 </Badge>
                 <div className="flex items-center text-xs text-muted-foreground gap-1.5">
                   <Users className="h-4 w-4" />
-                  <span className="font-semibold text-foreground">{group.members_count}</span> members
+                  <span className="font-semibold text-foreground">{group.members_count}</span>{" "}
+                  members
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <CardTitle className="text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
                   {group.name}
@@ -409,8 +423,8 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
             <CardFooter className="pt-2 flex flex-col gap-3">
               {renderCTA()}
               <div className="w-full text-center">
-                <Link 
-                  href="/explore" 
+                <Link
+                  href="/explore"
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
                 >
                   <ArrowLeft className="h-3 w-3" />
