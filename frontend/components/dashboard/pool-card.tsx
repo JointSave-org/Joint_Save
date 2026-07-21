@@ -16,6 +16,7 @@ import {
 } from "@/hooks/useJointSaveContracts"
 import { usePoolHealth } from "@/hooks/usePoolHealth"
 import { PoolHealthBadge } from "@/components/dashboard/pool-health-badge"
+import { PoolSparkline } from "@/components/dashboard/pool-sparkline"
 
 export interface Pool {
   id: string
@@ -176,12 +177,13 @@ export function PoolCard({ pool }: { pool: Pool }) {
               <TrendingUp className="h-4 w-4" />
               Total Saved
             </span>
-            <span className="font-medium">
+            <span className="font-medium flex items-center gap-2">
               {isLoading && !data?.onchain ? (
                 <Skeleton className="h-4 w-16 inline-block" />
               ) : (
                 formatXlm(totalSaved)
               )}
+              <PoolSparkline poolId={pool.id} />
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
