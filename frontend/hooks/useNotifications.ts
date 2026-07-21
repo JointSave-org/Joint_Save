@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js"
+import { NOTIFICATION_BADGE_MAX } from "@/lib/constants"
 
 const IS_E2E = process.env.NEXT_PUBLIC_E2E === "true"
 
@@ -59,7 +60,7 @@ export function useNotifications(walletAddress: string | null) {
           filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
         },
         (payload: RealtimePostgresInsertPayload<AppNotification>) => {
-          setNotifications((prev) => [payload.new as AppNotification, ...prev].slice(0, 10))
+          setNotifications((prev) => [payload.new as AppNotification, ...prev].slice(0, NOTIFICATION_BADGE_MAX))
         }
       )
       .subscribe()

@@ -34,7 +34,7 @@ import {
   findDuplicateAddresses,
 } from "@/lib/form-validation"
 import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
-import { MAX_POOL_MEMBERS } from "@/lib/constants"
+import { MAX_POOL_MEMBERS, DEFAULT_TREASURY_FEE_BPS, DEFAULT_RELAYER_FEE_BPS } from "@/lib/constants"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -169,8 +169,8 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
         members: validMembers,
         depositAmount: formData.contributionAmount,
         roundDuration: FREQUENCY_SECONDS[formData.frequency],
-        treasuryFeeBps: 100,
-        relayerFeeBps: 50,
+        treasuryFeeBps: DEFAULT_TREASURY_FEE_BPS,
+        relayerFeeBps: DEFAULT_RELAYER_FEE_BPS,
         treasury: TREASURY,
       })
 
