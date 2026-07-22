@@ -58,6 +58,7 @@ interface GroupData {
   token_decimals?: number
   members?: string[]
   pool_members?: { member_address: string }[]
+  pool_activity?: { activity_type: string; description: string | null }[]
   creator_address?: string
 }
 
@@ -93,6 +94,13 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
     !!address &&
     !!group?.creator_address &&
     address.toLowerCase() === group.creator_address.toLowerCase()
+
+  // The auto-trigger-payouts cron marks its activity rows with this marker
+  // (see supabase/functions/cron/auto-trigger-payouts) — its presence means
+  // the cron has successfully run for this pool at least once.
+  const hasAutoTrigger =
+    group?.type === "rotational" &&
+    (group?.pool_activity ?? []).some((a) => a.description?.includes("auto_trigger_payout"))
 
   useEffect(() => {
     getRpc()
@@ -457,6 +465,11 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
               {onchainState && (
                 <Badge variant="outline" className="text-xs">
                   Live onchain
+                </Badge>
+              )}
+              {hasAutoTrigger && (
+                <Badge variant="outline" className="text-xs text-blue-600 border-blue-400">
+                  🤖 Auto-trigger enabled
                 </Badge>
               )}
               {ttlDays !== null && (
