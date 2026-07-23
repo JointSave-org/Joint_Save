@@ -17,6 +17,7 @@ export default function DashboardPage() {
   useKeyboardShortcuts({
     onCreatePool: () => setActiveTab("create"),
     onGoToGroups: () => setActiveTab("groups"),
+    onGoToPortfolio: () => setActiveTab("portfolio"),
     onGoToTransactions: () => setActiveTab("transactions"),
     onGoToProfile: () => setActiveTab("profile"),
     onOpenHelp: () => setShowHelp(true),
