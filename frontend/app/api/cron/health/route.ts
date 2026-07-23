@@ -49,11 +49,11 @@ export async function GET(req: NextRequest) {
   }
 
   const lastSuccessfulRun = lastSuccess?.created_at ?? null
-  const isDegraded =
-    !lastSuccessfulRun || now - new Date(lastSuccessfulRun).getTime() > DEGRADED_AFTER_MS
+  const neverRun = !lastSuccessfulRun
+  const isDegraded = !neverRun && now - new Date(lastSuccessfulRun!).getTime() > DEGRADED_AFTER_MS
 
   return NextResponse.json({
-    status: isDegraded ? "degraded" : "healthy",
+    status: neverRun ? "pending" : isDegraded ? "degraded" : "healthy",
     lastSuccessfulRun,
     failuresLast24h: failures?.length ?? 0,
     failures: failures ?? [],

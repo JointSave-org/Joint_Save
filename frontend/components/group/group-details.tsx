@@ -58,6 +58,9 @@ interface GroupData {
   token_decimals?: number
   members?: string[]
   pool_members?: { member_address: string }[]
+  // Intentionally narrowed to only the fields this component uses.
+  // The /api/pools response includes additional columns (id, user_address,
+  // amount, created_at, tx_hash) that are not needed here.
   pool_activity?: { activity_type: string; description: string | null }[]
   creator_address?: string
 }

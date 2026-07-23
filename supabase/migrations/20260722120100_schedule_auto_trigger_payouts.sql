@@ -31,7 +31,7 @@ select
           'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key')
         ),
         body := '{}'::jsonb,
-        timeout_milliseconds := 60000
+        timeout_milliseconds := 300000
       ) as request_id;
     $$
   );

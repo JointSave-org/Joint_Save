@@ -7,7 +7,7 @@
 CREATE TABLE IF NOT EXISTS public.cron_job_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   job_name TEXT NOT NULL,
-  pool_id UUID REFERENCES public.pools(id) ON DELETE CASCADE,
+  pool_id UUID REFERENCES public.pools(id) ON DELETE SET NULL,
   status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'retry', 'warning')),
   error_message TEXT,
   tx_hash TEXT,
