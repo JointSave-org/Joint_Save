@@ -26,7 +26,7 @@ import {
   validatePositiveAmount,
   findDuplicateAddresses,
 } from "@/lib/form-validation"
-import { MAX_POOL_MEMBERS } from "@/lib/constants"
+import { MAX_POOL_MEMBERS, MAX_DEADLINE_DAYS } from "@/lib/constants"
 import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
 import { toastManager } from "@/lib/toast"
 
@@ -104,7 +104,8 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       const d = parseInt(value)
       if (!value) message = "Deadline is required"
       else if (isNaN(d) || d < 1) message = "Deadline must be at least 1 day"
-      else if (d > 3650) message = "Deadline cannot exceed 10 years"
+      else if (d > MAX_DEADLINE_DAYS)
+        message = `Deadline cannot exceed ${MAX_DEADLINE_DAYS / 365} years`
     }
     setFieldErrors((prev) => ({ ...prev, [name]: message }))
   }, [])
@@ -136,14 +137,17 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
     const amountResult = validatePositiveAmount(formData.targetAmount, "Target amount")
     const deadlineDays = parseInt(formData.deadlineDays)
     const deadlineDaysValid =
-      formData.deadlineDays && !isNaN(deadlineDays) && deadlineDays >= 1 && deadlineDays <= 3650
+      formData.deadlineDays &&
+      !isNaN(deadlineDays) &&
+      deadlineDays >= 1 &&
+      deadlineDays <= MAX_DEADLINE_DAYS
     setFieldErrors({
       name: nameResult.message,
       targetAmount: amountResult.message,
       deadlineDays: deadlineDaysValid
         ? ""
         : formData.deadlineDays
-          ? "Deadline must be between 1 and 3650 days"
+          ? `Deadline must be between 1 and ${MAX_DEADLINE_DAYS} days`
           : "Deadline is required",
     })
 
@@ -237,7 +241,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       label: "Target amount",
       valid: validatePositiveAmount(formData.targetAmount, "Amount").valid,
     },
-    { label: "Deadline (days)", valid: days >= 1 && days <= 3650 },
+    { label: "Deadline (days)", valid: days >= 1 && days <= MAX_DEADLINE_DAYS },
     { label: "Members (2+)", valid: validMembers.length >= 2 },
   ]
 
@@ -352,7 +356,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
             id="deadlineDays"
             type="number"
             min="1"
-            max="3650"
+            max={String(MAX_DEADLINE_DAYS)}
             step="1"
             placeholder="30"
             value={formData.deadlineDays}

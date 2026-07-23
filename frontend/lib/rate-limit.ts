@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { RATE_LIMIT_WINDOW_MS, READ_RATE_LIMIT, WRITE_RATE_LIMIT } from "@/lib/constants"
 
 interface WindowEntry {
   timestamps: number[]
@@ -92,7 +93,7 @@ function applyLimit(
   return null
 }
 
-const WINDOW_MS = 60_000 // 1 minute
+const WINDOW_MS = RATE_LIMIT_WINDOW_MS
 
 /**
  * Read limiter — 30 requests per minute per key.
@@ -103,7 +104,7 @@ const WINDOW_MS = 60_000 // 1 minute
  * browsing (roughly one request every 2 seconds) while blocking scrapers.
  */
 export function readLimiter(req: NextRequest): NextResponse | null {
-  return applyLimit(req, "read", 30, WINDOW_MS)
+  return applyLimit(req, "read", READ_RATE_LIMIT, WINDOW_MS)
 }
 
 /**
@@ -115,5 +116,5 @@ export function readLimiter(req: NextRequest): NextResponse | null {
  * attacks or accidental double-submits from a buggy client.
  */
 export function writeLimiter(req: NextRequest): NextResponse | null {
-  return applyLimit(req, "write", 10, WINDOW_MS)
+  return applyLimit(req, "write", WRITE_RATE_LIMIT, WINDOW_MS)
 }

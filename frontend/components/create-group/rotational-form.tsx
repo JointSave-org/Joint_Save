@@ -163,8 +163,8 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
         members: validMembers,
         depositAmount: formData.contributionAmount,
         roundDuration: FREQUENCY_SECONDS[formData.frequency],
-        treasuryFeeBps: 100,
-        relayerFeeBps: 50,
+        treasuryFeeBps: DEFAULT_TREASURY_FEE_BPS,
+        relayerFeeBps: DEFAULT_RELAYER_FEE_BPS,
         treasury: TREASURY,
       })
 
