@@ -15,6 +15,7 @@
 
 import type { StellarWalletsKit } from "@creit.tech/stellar-wallets-kit"
 import { toastManager } from "@/lib/toast"
+import { SIGN_TIMEOUT_MS } from "@/lib/constants"
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ interface QueueEntry {
 /** If a queued signing request sits unconfirmed this long, we assume the
  * user closed the wallet popup without responding, and free the queue for
  * the next request rather than blocking it forever. */
-const SIGN_TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
+// SIGN_TIMEOUT_MS is imported from @/lib/constants (2 minutes)
 
 // ── Queue state ──────────────────────────────────────────────────────────
 

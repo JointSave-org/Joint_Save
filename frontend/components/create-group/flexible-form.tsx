@@ -26,7 +26,7 @@ import {
   validateWithdrawalFee,
   findDuplicateAddresses,
 } from "@/lib/form-validation"
-import { MAX_POOL_MEMBERS } from "@/lib/constants"
+import { MAX_POOL_MEMBERS, DEFAULT_TREASURY_FEE_BPS } from "@/lib/constants"
 import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
 
 function isValidStellarAddress(addr: string) {
@@ -155,7 +155,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
         withdrawalFeeBps,
         yieldEnabled: formData.enableYield,
         treasury: TREASURY,
-        treasuryFeeBps: 100, // 1%
+        treasuryFeeBps: DEFAULT_TREASURY_FEE_BPS, // 1%
       })
 
       // Register with factory (best-effort — factory must be initialized by admin)

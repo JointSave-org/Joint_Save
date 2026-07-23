@@ -1,5 +1,7 @@
 "use client"
 
+import { RECENT_DUPLICATE_WINDOW_MS, DROPPED_TX_WINDOW_MS } from "@/lib/constants"
+
 export type PendingTransactionType = "deposit" | "withdraw" | "trigger_payout"
 
 export interface PendingTransactionRecord {
@@ -31,8 +33,7 @@ export interface RecoveryOutcome {
 }
 
 export const PENDING_TX_PREFIX = "jointsave:pending-tx:"
-export const RECENT_DUPLICATE_WINDOW_MS = 2 * 60 * 1000
-export const DROPPED_TX_WINDOW_MS = 5 * 60 * 1000
+export { RECENT_DUPLICATE_WINDOW_MS, DROPPED_TX_WINDOW_MS }
 
 function getStorage(storage?: StorageLike): StorageLike | null {
   if (storage) return storage
