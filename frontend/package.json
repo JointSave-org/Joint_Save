@@ -10,7 +10,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "start": "next start",
-    "test:unit": "tsx --test lib/csv-export.test.ts lib/analytics.test.ts lib/pool-health.test.ts lib/form-validation.test.ts lib/member-filters.test.ts hooks/use-keyboard-shortcuts.test.ts app/api/admin/audit-log/route.test.ts app/api/admin/actions/route.test.ts",
+    "test:unit": "tsx --test lib/csv-export.test.ts lib/analytics.test.ts lib/pool-health.test.ts lib/form-validation.test.ts lib/member-filters.test.ts hooks/use-keyboard-shortcuts.test.ts app/api/admin/audit-log/route.test.ts app/api/admin/actions/route.test.ts app/api/notifications/route.test.ts app/api/user-profile/route.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report"
