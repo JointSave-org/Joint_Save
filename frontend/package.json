@@ -60,6 +60,7 @@
     "embla-carousel-react": "8.5.1",
     "framer-motion": "latest",
     "geist": "latest",
+    "ical-generator": "^11.0.0",
     "input-otp": "1.4.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
