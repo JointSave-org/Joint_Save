@@ -10,8 +10,6 @@ import {
   Loader2,
   ArrowUpRight,
   ArrowDownLeft,
-  AlertCircle,
-  CheckCircle2,
   ShieldOff,
   ShieldCheck,
   Clock,
@@ -142,8 +140,6 @@ export function GroupActions({
   const isAdmin = !!address && !!poolAdmin && address.toUpperCase() === poolAdmin.toUpperCase()
   const [depositAmount, setDepositAmount] = useState("")
   const [withdrawAmount, setWithdrawAmount] = useState("")
-  const [error, setError] = useState("")
-  const [successMsg, setSuccessMsg] = useState("")
 
   // Pool metadata from Supabase
   const [poolData, setPoolData] = useState<Record<string, unknown> | null>(null)
@@ -208,8 +204,11 @@ export function GroupActions({
     if (!pendingTx) return
 
     if (pendingTx.status === "confirmed") {
+      const txHash = pendingTx.txHash
       toastManager.success(
-        `${pendingTx.type.charAt(0).toUpperCase() + pendingTx.type.slice(1)} confirmed ✓`
+        `${pendingTx.type.charAt(0).toUpperCase() + pendingTx.type.slice(1)} confirmed ✓`,
+        undefined,
+        txHash
       )
       setDepositAmount("")
       setWithdrawAmount("")
@@ -219,11 +218,9 @@ export function GroupActions({
   }, [optimisticState])
 
   const handleDeposit = async () => {
-    setError("")
-    setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
-    if (isPaused) return setError("Pool is paused. Deposits are disabled.")
+    if (!address) return toastManager.error("Please connect your wallet first")
+    if (isPending) return toastManager.error("Contract not yet deployed.")
+    if (isPaused) return toastManager.error("Pool is paused. Deposits are disabled.")
     if (!confirmRecentPendingTransaction(address, poolAddress, "deposit")) return
     try {
       const amount = poolType !== "rotational" ? toBaseUnits(parseFloat(depositAmount)) : undefined
@@ -237,21 +234,19 @@ export function GroupActions({
       if (txHash) {
         updateTxHash(txHash)
         await logActivity(groupId, "deposit", address, depositAmount || null, txHash)
-        setSuccessMsg("Deposit submitted (confirming on-chain)…")
+        toastManager.info("Deposit submitted (confirming on-chain)…")
       }
     } catch (e: unknown) {
       const msg = (e as Error).message || "Transaction failed"
-      setError(msg)
+      toastManager.error(msg)
       markFailed(msg)
     }
   }
 
   const handleWithdrawClick = async () => {
-    setError("")
-    setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
-    if (isPaused) return setError("Pool is paused. Withdrawals are disabled.")
+    if (!address) return toastManager.error("Please connect your wallet first")
+    if (isPending) return toastManager.error("Contract not yet deployed.")
+    if (isPaused) return toastManager.error("Pool is paused. Withdrawals are disabled.")
 
     if (poolType === "target") {
       // Direct withdrawal since target pool exit has no fee parameters stored/previewed
@@ -262,17 +257,17 @@ export function GroupActions({
         if (txHash) {
           updateTxHash(txHash)
           await logActivity(groupId, "withdraw", address, null, txHash)
-          setSuccessMsg("Withdrawal submitted (confirming on-chain)…")
+          toastManager.info("Withdrawal submitted (confirming on-chain)…")
         }
       } catch (e: unknown) {
         const msg = (e as Error).message || "Transaction failed"
-        setError(msg)
+        toastManager.error(msg)
         markFailed(msg)
       }
     } else {
       // Flexible withdrawal preview
       const amount = parseFloat(withdrawAmount)
-      if (isNaN(amount) || amount <= 0) return setError("Please enter a valid withdrawal amount")
+      if (isNaN(amount) || amount <= 0) return toastManager.error("Please enter a valid withdrawal amount")
 
       const feePercent = (poolData?.withdrawal_fee as number) ?? 0
       const feeAmount = amount * (feePercent / 100)
@@ -298,7 +293,7 @@ export function GroupActions({
           if (txHash) {
             updateTxHash(txHash)
             await logActivity(groupId, "withdraw", address, withdrawAmount || null, txHash)
-            setSuccessMsg("Withdrawal submitted (confirming on-chain)…")
+            toastManager.info("Withdrawal submitted (confirming on-chain)…")
             setWithdrawAmount("")
           }
         },
@@ -308,11 +303,9 @@ export function GroupActions({
   }
 
   const handleTriggerPayoutClick = async () => {
-    setError("")
-    setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
-    if (isPaused) return setError("Pool is paused. Payouts are disabled.")
+    if (!address) return toastManager.error("Please connect your wallet first")
+    if (isPending) return toastManager.error("Contract not yet deployed.")
+    if (isPaused) return toastManager.error("Pool is paused. Payouts are disabled.")
 
     setPreviewLoading(true)
     try {
@@ -375,24 +368,22 @@ export function GroupActions({
           if (txHash) {
             updateTxHash(txHash)
             await logActivity(groupId, "payout", address, null, txHash)
-            setSuccessMsg("Payout trigger submitted (confirming on-chain)…")
+            toastManager.info("Payout trigger submitted (confirming on-chain)…")
           }
         },
       })
       setIsPreviewOpen(true)
     } catch (e: unknown) {
       const msg = (e as Error).message || "Failed to load payout details"
-      setError(msg)
+      toastManager.error(msg)
     } finally {
       setPreviewLoading(false)
     }
   }
 
   const handleRefund = async () => {
-    setError("")
-    setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
+    if (!address) return toastManager.error("Please connect your wallet first")
+    if (isPending) return toastManager.error("Contract not yet deployed.")
     if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
     try {
       registerOptimistic("withdraw", address)
@@ -400,58 +391,52 @@ export function GroupActions({
       if (txHash) {
         updateTxHash(txHash)
         await logActivity(groupId, "refund", address, null, txHash)
-        setSuccessMsg("Refund submitted (confirming on-chain)â€¦")
+        toastManager.info("Refund submitted (confirming on-chain)…")
       }
     } catch (e: unknown) {
       const msg = (e as Error).message || "Transaction failed"
-      setError(msg)
+      toastManager.error(msg)
       markFailed(msg)
     }
   }
 
   const handlePause = async () => {
-    setError("")
-    setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
+    if (!address) return toastManager.error("Please connect your wallet first")
+    if (isPending) return toastManager.error("Contract not yet deployed.")
     try {
       const txHash = await pausePool.pause()
       if (txHash) {
         await logAdminAction(groupId, address, "pause", null, txHash)
+        toastManager.success("Pool paused successfully", undefined, txHash)
       }
-      setSuccessMsg("Pool paused successfully.")
       onPauseChange?.()
     } catch (e: unknown) {
-      setError((e as Error).message || "Transaction failed")
+      toastManager.error((e as Error).message || "Transaction failed")
     }
   }
 
   const handleUnpause = async () => {
-    setError("")
-    setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (isPending) return setError("Contract not yet deployed.")
+    if (!address) return toastManager.error("Please connect your wallet first")
+    if (isPending) return toastManager.error("Contract not yet deployed.")
     try {
       const txHash = await unpausePool.unpause()
       if (txHash) {
         await logAdminAction(groupId, address, "unpause", null, txHash)
+        toastManager.success("Pool unpaused successfully", undefined, txHash)
       }
-      setSuccessMsg("Pool unpaused successfully.")
       onPauseChange?.()
     } catch (e: unknown) {
-      setError((e as Error).message || "Transaction failed")
+      toastManager.error((e as Error).message || "Transaction failed")
     }
   }
 
   const handleAddMember = async () => {
-    setError("")
-    setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (!isAdmin) return setError("Only the pool admin can manage members.")
-    if (isPending) return setError("Contract not yet deployed.")
+    if (!address) return toastManager.error("Please connect your wallet first")
+    if (!isAdmin) return toastManager.error("Only the pool admin can manage members.")
+    if (isPending) return toastManager.error("Contract not yet deployed.")
 
     const validation = validateStellarAddress(newMember.trim().toUpperCase())
-    if (!validation.valid) return setError(validation.message)
+    if (!validation.valid) return toastManager.error(validation.message)
 
     try {
       const txHash = await addPoolMember.addMember(newMember.trim().toUpperCase())
@@ -465,21 +450,19 @@ export function GroupActions({
           newMember.trim().toUpperCase()
         )
         await logAdminAction(groupId, address, "add_member", newMember.trim().toUpperCase(), txHash)
-        setSuccessMsg("Member added successfully.")
+        toastManager.success("Member added successfully", undefined, txHash)
         setNewMember("")
         await refreshMembers()
       }
     } catch (e: unknown) {
-      setError((e as Error).message || "Transaction failed")
+      toastManager.error((e as Error).message || "Transaction failed")
     }
   }
 
   const handleRemoveMember = async () => {
-    setError("")
-    setSuccessMsg("")
-    if (!address) return setError("Please connect your wallet first")
-    if (!isAdmin) return setError("Only the pool admin can manage members.")
-    if (isPending) return setError("Contract not yet deployed.")
+    if (!address) return toastManager.error("Please connect your wallet first")
+    if (!isAdmin) return toastManager.error("Only the pool admin can manage members.")
+    if (isPending) return toastManager.error("Contract not yet deployed.")
     if (!memberToRemove) return
 
     try {
@@ -487,12 +470,12 @@ export function GroupActions({
       if (txHash) {
         await logActivity(groupId, "member_removed", address, null, txHash, memberToRemove)
         await logAdminAction(groupId, address, "remove_member", memberToRemove, txHash)
-        setSuccessMsg("Member removed successfully.")
+        toastManager.success("Member removed successfully", undefined, txHash)
         setMemberToRemove(null)
         await refreshMembers()
       }
     } catch (e: unknown) {
-      setError((e as Error).message || "Transaction failed")
+      toastManager.error((e as Error).message || "Transaction failed")
     }
   }
 
@@ -575,20 +558,6 @@ export function GroupActions({
                 <Skeleton className="h-9 flex-1 rounded-md" />
               </div>
             </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive mb-4">
-            <AlertCircle className="h-5 w-5 flex-shrink-0" />
-            <p className="text-sm">{error}</p>
-          </div>
-        )}
-
-        {successMsg && (
-          <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary mb-4">
-            <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-            <p className="text-sm">{successMsg}</p>
           </div>
         )}
 
