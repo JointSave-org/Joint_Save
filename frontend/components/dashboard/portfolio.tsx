@@ -107,13 +107,7 @@ export function Portfolio() {
     })
   }, [data?.pools, sortField, sortDir])
 
-  const SortHeader = ({
-    field,
-    label,
-  }: {
-    field: SortField
-    label: string
-  }) => (
+  const SortHeader = ({ field, label }: { field: SortField; label: string }) => (
     <button
       onClick={() => toggleSort(field)}
       className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
@@ -203,9 +197,7 @@ export function Portfolio() {
   const scoredPools = data.pools.filter((p) => p.health_score !== null)
   const avgHealth =
     scoredPools.length > 0
-      ? Math.round(
-          scoredPools.reduce((s, p) => s + (p.health_score ?? 0), 0) / scoredPools.length
-        )
+      ? Math.round(scoredPools.reduce((s, p) => s + (p.health_score ?? 0), 0) / scoredPools.length)
       : null
 
   return (
@@ -222,9 +214,7 @@ export function Portfolio() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Saved
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Saved</CardTitle>
             <Wallet className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
@@ -259,21 +249,15 @@ export function Portfolio() {
               {data.total_pools.rotational > 0 && (
                 <span>{data.total_pools.rotational} rotational</span>
               )}
-              {data.total_pools.target > 0 && (
-                <span>{data.total_pools.target} target</span>
-              )}
-              {data.total_pools.flexible > 0 && (
-                <span>{data.total_pools.flexible} flexible</span>
-              )}
+              {data.total_pools.target > 0 && <span>{data.total_pools.target} target</span>}
+              {data.total_pools.flexible > 0 && <span>{data.total_pools.flexible} flexible</span>}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Reputation
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Reputation</CardTitle>
             <Award className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
@@ -328,7 +312,10 @@ export function Portfolio() {
                     <div className="pb-6 flex-1">
                       <div className="flex items-center justify-between">
                         <p className="font-medium text-sm">{c.pool_name}</p>
-                        <Badge variant={isDeadlineSoon(c.deadline) ? "destructive" : "secondary"} className="text-xs">
+                        <Badge
+                          variant={isDeadlineSoon(c.deadline) ? "destructive" : "secondary"}
+                          className="text-xs"
+                        >
                           {formatRelativeTime(c.deadline)}
                         </Badge>
                       </div>
@@ -393,7 +380,9 @@ export function Portfolio() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-muted/40 rounded-lg p-3 text-center">
                 <p className="text-xs text-muted-foreground">Total Deposits</p>
-                <p className="text-lg font-bold">{data.reputation_summary.total_deposits.toFixed(2)} XLM</p>
+                <p className="text-lg font-bold">
+                  {data.reputation_summary.total_deposits.toFixed(2)} XLM
+                </p>
               </div>
               <div className="bg-muted/40 rounded-lg p-3 text-center">
                 <p className="text-xs text-muted-foreground">Pools Completed</p>
@@ -421,9 +410,7 @@ export function Portfolio() {
             <ListOrdered className="h-5 w-5 text-primary" />
             Pool Comparison
           </CardTitle>
-          <CardDescription>
-            Sort by any column to compare your pools side by side
-          </CardDescription>
+          <CardDescription>Sort by any column to compare your pools side by side</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -463,19 +450,12 @@ export function Portfolio() {
                     <td className="py-3 px-3 text-right font-semibold">
                       {pool.contribution.toFixed(2)} XLM
                     </td>
-                    <td className="py-3 px-3 text-right">
-                      {pool.total_balance.toFixed(2)} XLM
-                    </td>
+                    <td className="py-3 px-3 text-right">{pool.total_balance.toFixed(2)} XLM</td>
                     <td className="py-3 px-3 text-center">
                       {pool.health_score !== null ? (
                         <div className="flex items-center justify-center gap-2">
-                          <Progress
-                            value={pool.health_score}
-                            className="h-1.5 w-12"
-                          />
-                          <span className="text-xs font-semibold w-8">
-                            {pool.health_score}%
-                          </span>
+                          <Progress value={pool.health_score} className="h-1.5 w-12" />
+                          <span className="text-xs font-semibold w-8">{pool.health_score}%</span>
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>

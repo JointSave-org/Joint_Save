@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
 
     if (memError) throw memError
 
-    const userPools = (memberships || []).map((m: { pools: unknown }) => m.pools).filter(Boolean) as Array<{
+    const userPools = (memberships || [])
+      .map((m: { pools: unknown }) => m.pools)
+      .filter(Boolean) as Array<{
       id: string
       name: string
       type: "rotational" | "target" | "flexible"
@@ -61,9 +63,7 @@ export async function GET(req: NextRequest) {
       created_at: string
     }>
 
-    const userActivities = activities.filter(
-      (a) => a.user_address?.toLowerCase() === lower
-    )
+    const userActivities = activities.filter((a) => a.user_address?.toLowerCase() === lower)
 
     const { data: healthScores } = await supabase
       .from("pool_health_scores")
@@ -86,10 +86,7 @@ export async function GET(req: NextRequest) {
     })
 
     const total_yield_earned = userActivities
-      .filter(
-        (a) =>
-          a.activity_type === "yield_distribution" || a.activity_type === "yield"
-      )
+      .filter((a) => a.activity_type === "yield_distribution" || a.activity_type === "yield")
       .reduce((s, a) => s + (a.amount || 0), 0)
 
     const upcoming_commitments = userPools
@@ -101,9 +98,7 @@ export async function GET(req: NextRequest) {
         deadline: p.next_payout as string,
         type: p.type,
       }))
-      .sort(
-        (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
-      )
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
 
     function formatNextAction(p: {
       type: string
@@ -134,9 +129,7 @@ export async function GET(req: NextRequest) {
         )
         .reduce((s, a) => s + (a.amount || 0), 0)
 
-      const health = healthScores?.find(
-        (h: { pool_id: string }) => h.pool_id === p.id
-      )
+      const health = healthScores?.find((h: { pool_id: string }) => h.pool_id === p.id)
 
       return {
         id: p.id,
