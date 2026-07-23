@@ -34,7 +34,11 @@ import {
   findDuplicateAddresses,
 } from "@/lib/form-validation"
 import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
-import { MAX_POOL_MEMBERS, DEFAULT_TREASURY_FEE_BPS, DEFAULT_RELAYER_FEE_BPS } from "@/lib/constants"
+import {
+  MAX_POOL_MEMBERS,
+  DEFAULT_TREASURY_FEE_BPS,
+  DEFAULT_RELAYER_FEE_BPS,
+} from "@/lib/constants"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)

@@ -59,21 +59,21 @@ export const STALE_TIME_MS = 15_000 as const
  * automatically rejected and the queue moves on.
  * Unit: **milliseconds** (2 minutes).
  */
-export const SIGN_TIMEOUT_MS = 2 * 60 * 1000 as const
+export const SIGN_TIMEOUT_MS = (2 * 60 * 1000) as const
 
 /**
  * Window within which a pending transaction with the same pool + type is
  * considered a duplicate and will not be re-submitted.
  * Unit: **milliseconds** (2 minutes).
  */
-export const RECENT_DUPLICATE_WINDOW_MS = 2 * 60 * 1000 as const
+export const RECENT_DUPLICATE_WINDOW_MS = (2 * 60 * 1000) as const
 
 /**
  * How old a `NOT_FOUND` pending transaction must be before it is considered
  * dropped by the network and removed from local storage.
  * Unit: **milliseconds** (5 minutes).
  */
-export const DROPPED_TX_WINDOW_MS = 5 * 60 * 1000 as const
+export const DROPPED_TX_WINDOW_MS = (5 * 60 * 1000) as const
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 

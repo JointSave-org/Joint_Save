@@ -109,7 +109,8 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       const d = parseInt(value)
       if (!value) message = "Deadline is required"
       else if (isNaN(d) || d < 1) message = "Deadline must be at least 1 day"
-      else if (d > MAX_DEADLINE_DAYS) message = `Deadline cannot exceed ${MAX_DEADLINE_DAYS / 365} years`
+      else if (d > MAX_DEADLINE_DAYS)
+        message = `Deadline cannot exceed ${MAX_DEADLINE_DAYS / 365} years`
     }
     setFieldErrors((prev) => ({ ...prev, [name]: message }))
   }, [])
@@ -142,7 +143,10 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
     const amountResult = validatePositiveAmount(formData.targetAmount, "Target amount")
     const deadlineDays = parseInt(formData.deadlineDays)
     const deadlineDaysValid =
-      formData.deadlineDays && !isNaN(deadlineDays) && deadlineDays >= 1 && deadlineDays <= MAX_DEADLINE_DAYS
+      formData.deadlineDays &&
+      !isNaN(deadlineDays) &&
+      deadlineDays >= 1 &&
+      deadlineDays <= MAX_DEADLINE_DAYS
     setFieldErrors({
       name: nameResult.message,
       targetAmount: amountResult.message,

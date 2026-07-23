@@ -60,7 +60,9 @@ export function useNotifications(walletAddress: string | null) {
           filter: `wallet_address=eq.${walletAddress.toLowerCase()}`,
         },
         (payload: RealtimePostgresInsertPayload<AppNotification>) => {
-          setNotifications((prev) => [payload.new as AppNotification, ...prev].slice(0, NOTIFICATION_BADGE_MAX))
+          setNotifications((prev) =>
+            [payload.new as AppNotification, ...prev].slice(0, NOTIFICATION_BADGE_MAX)
+          )
         }
       )
       .subscribe()
