@@ -1,11 +1,11 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, X, Loader2, AlertCircle, CopyPlus } from "lucide-react"
+import { Plus, X, Loader2, CopyPlus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useStellar } from "@/components/web3-provider"
 import {
@@ -28,6 +28,7 @@ import {
 } from "@/lib/form-validation"
 import { MAX_POOL_MEMBERS, DEFAULT_TREASURY_FEE_BPS } from "@/lib/constants"
 import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
+import { toastManager } from "@/lib/toast"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -50,7 +51,6 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const [members, setMembers] = useState<string[]>(
     initialMembers.length > 0 ? initialMembers : [""]
   )
-  const [error, setError] = useState("")
   const [step, setStep] = useState<
     "idle" | "deploying" | "initializing" | "registering" | "saving"
   >("idle")
@@ -63,11 +63,6 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
   })
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Touched>({})
-  const errorRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-  }, [error])
 
   const { deploy } = useDeployPool()
   const { initFlexible } = useInitializePool()
@@ -118,7 +113,6 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
 
     setTouched({ name: true, minimumDeposit: true, withdrawalFee: true })
     const nameResult = validateGroupName(formData.name)
@@ -130,13 +124,13 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
       withdrawalFee: feeResult.message,
     })
 
-    if (!address) return setError("Please connect your wallet first")
+    if (!address) return toastManager.error("Please connect your wallet first")
     if (duplicateIndices.size > 0)
-      return setError(
+      return toastManager.error(
         "Duplicate member addresses found — please remove duplicates before continuing"
       )
     if (validMembers.length < 2)
-      return setError("Need at least 2 valid Stellar addresses (you + 1 other)")
+      return toastManager.error("Need at least 2 valid Stellar addresses (you + 1 other)")
     if (!nameResult.valid || !depositResult.valid || !feeResult.valid) return
 
     try {
@@ -163,6 +157,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
       try {
         await register(address, contractId)
       } catch (regErr: unknown) {
+        // eslint-disable-next-line no-console
         console.warn("Factory registration skipped:", (regErr as Error).message)
       }
 
@@ -189,7 +184,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
       const pool = await res.json()
       router.push(`/dashboard/group/${pool.id}`)
     } catch (err: unknown) {
-      setError((err as Error).message || "Failed to create group")
+      toastManager.error((err as Error).message || "Failed to create group")
       setStep("idle")
     }
   }
@@ -214,15 +209,6 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
-        <div
-          ref={errorRef}
-          className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive"
-        >
-          <AlertCircle className="h-5 w-5 shrink-0" />
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
       {isCreating && (
         <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary">
           <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
