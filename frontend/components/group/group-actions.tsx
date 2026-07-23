@@ -267,7 +267,8 @@ export function GroupActions({
     } else {
       // Flexible withdrawal preview
       const amount = parseFloat(withdrawAmount)
-      if (isNaN(amount) || amount <= 0) return toastManager.error("Please enter a valid withdrawal amount")
+      if (isNaN(amount) || amount <= 0)
+        return toastManager.error("Please enter a valid withdrawal amount")
 
       const feePercent = (poolData?.withdrawal_fee as number) ?? 0
       const feeAmount = amount * (feePercent / 100)

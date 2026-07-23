@@ -32,8 +32,7 @@ const toastVariants = cva(
         default: "border bg-background text-foreground",
         success:
           "border-green-500 bg-green-50 text-green-900 dark:border-green-700 dark:bg-green-950 dark:text-green-100",
-        error:
-          "destructive group border-destructive bg-destructive text-destructive-foreground",
+        error: "destructive group border-destructive bg-destructive text-destructive-foreground",
         info: "border-blue-500 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-100",
         warning:
           "border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100",
