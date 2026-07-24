@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { useStellar } from "@/components/web3-provider"
 import {
+  getAdminQuorum,
   useRotationalDeposit,
   useTriggerPayout,
   useTargetContribute,
@@ -147,6 +148,7 @@ export function GroupActions({
   const [newMember, setNewMember] = useState("")
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
+  const [adminQuorum, setAdminQuorum] = useState<string[]>([])
   const isPending = !poolAddress || poolAddress === "pending_deployment"
   // Token display metadata (persisted on the pool row; defaults to native XLM)
   const tokenSymbol: string = (poolData?.token_symbol as string) ?? "XLM"
@@ -181,6 +183,13 @@ export function GroupActions({
   useEffect(() => {
     void refreshMembers()
   }, [refreshMembers])
+
+  useEffect(() => {
+    if (isPending || !poolAddress) return
+    getAdminQuorum(poolAddress)
+      .then(setAdminQuorum)
+      .catch(() => {})
+  }, [isPending, poolAddress])
 
   const rotationalDeposit = useRotationalDeposit(poolAddress)
   const triggerPayout = useTriggerPayout(poolAddress)
@@ -404,6 +413,9 @@ export function GroupActions({
   const handlePause = async () => {
     if (!address) return toastManager.error("Please connect your wallet first")
     if (isPending) return toastManager.error("Contract not yet deployed.")
+    if (adminQuorum.length > 0) {
+      return toastManager.info("This action requires multi-sig approval. Please use the Admin Quorum Management section.")
+    }
     try {
       const txHash = await pausePool.pause()
       if (txHash) {
@@ -419,6 +431,9 @@ export function GroupActions({
   const handleUnpause = async () => {
     if (!address) return toastManager.error("Please connect your wallet first")
     if (isPending) return toastManager.error("Contract not yet deployed.")
+    if (adminQuorum.length > 0) {
+      return toastManager.info("This action requires multi-sig approval. Please use the Admin Quorum Management section.")
+    }
     try {
       const txHash = await unpausePool.unpause()
       if (txHash) {
@@ -465,6 +480,9 @@ export function GroupActions({
     if (!isAdmin) return toastManager.error("Only the pool admin can manage members.")
     if (isPending) return toastManager.error("Contract not yet deployed.")
     if (!memberToRemove) return
+    if (adminQuorum.length > 0) {
+      return toastManager.info("This action requires multi-sig approval. Please use the Admin Quorum Management section.")
+    }
 
     try {
       const txHash = await removePoolMember.removeMember(memberToRemove)

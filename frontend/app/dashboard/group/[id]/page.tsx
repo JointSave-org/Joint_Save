@@ -5,6 +5,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { GroupDetails } from "@/components/group/group-details"
 import { GroupMembers } from "@/components/group/group-members"
 import { GroupActivity } from "@/components/group/group-activity"
+import { AdminQuorumManager } from "@/components/group/admin-quorum-manager"
 import { GroupActions } from "@/components/group/group-actions"
 import { YieldDashboard } from "@/components/group/yield-dashboard"
 import { AdminAuditLog } from "@/components/group/admin-audit-log"
@@ -119,6 +120,7 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
               poolAdmin={poolAdmin}
               onPauseChange={refreshPoolState}
             />
+            <AdminQuorumManager poolAddress={pool.contract_address} poolAdmin={poolAdmin} />
             {pool.type === "flexible" && <YieldDashboard poolAddress={pool.contract_address} />}
             <GroupMembers groupId={id} contractAddress={cacheKey} poolType={pool.type} />
           </div>
