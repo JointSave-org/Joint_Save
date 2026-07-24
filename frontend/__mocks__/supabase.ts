@@ -22,7 +22,7 @@ export const mockSupabaseData = [
 ]
 
 export const supabase = {
-  from: vi.fn().mockImplementation((table: string) => ({
+  from: vi.fn().mockImplementation((_table: string) => ({
     select: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockResolvedValue({ data: mockSupabaseData, error: null }),

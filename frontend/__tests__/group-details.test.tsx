@@ -13,7 +13,7 @@ describe("GroupDetails Component", () => {
   it("renders loading state initially", () => {
     global.fetch = vi.fn().mockImplementation(() => new Promise(() => {}))
     render(<GroupDetails groupId="pool-1" />)
-    expect(document.querySelector(".animate-spin")).toBeInTheDocument()
+    expect(screen.getByLabelText("Loading group details")).toBeInTheDocument()
   })
 
   it("renders error state when fetch fails", async () => {
@@ -23,7 +23,7 @@ describe("GroupDetails Component", () => {
     })
     render(<GroupDetails groupId="invalid-id" />)
     await waitFor(() => {
-      expect(screen.getByText(/Failed to fetch group/i)).toBeInTheDocument()
+      expect(screen.getByText(/Failed to load pool from database/i)).toBeInTheDocument()
     })
   })
 

@@ -1,7 +1,7 @@
 import React from "react"
 import { render, screen, act } from "@/test-utils"
 import { useStellar, STELLAR_NETWORK } from "@/components/web3-provider"
-import { vi, describe, it, expect, beforeEach } from "vitest"
+import { describe, it, expect, beforeEach } from "vitest"
 
 function TestConsumer() {
   const { address, isConnected, connect, disconnect } = useStellar()

@@ -106,8 +106,10 @@ export function Transactions() {
         if (dateFrom && new Date(a.created_at) < new Date(dateFrom)) return false
         if (dateTo && new Date(a.created_at) > new Date(dateTo + "T23:59:59")) return false
         if (poolFilter !== "all" && a.pool_id !== poolFilter) return false
-        if (typeFilter !== "all" && a.activity_type.toLowerCase() !== typeFilter.toLowerCase()) return false
-        if (filterType !== "all" && a.activity_type.toLowerCase() !== filterType.toLowerCase()) return false
+        if (typeFilter !== "all" && a.activity_type.toLowerCase() !== typeFilter.toLowerCase())
+          return false
+        if (filterType !== "all" && a.activity_type.toLowerCase() !== filterType.toLowerCase())
+          return false
         return true
       })
       .sort((a, b) => {

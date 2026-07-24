@@ -32,9 +32,29 @@ if (!global.PointerEvent) {
     shiftKey = false
     altKey = false
   }
-  // @ts-ignore
+  // @ts-expect-error PointerEvent polyfill for jsdom
   global.PointerEvent = PointerEvent
 }
+
+// Mock URL.createObjectURL and URL.revokeObjectURL for CSV exports in jsdom
+if (typeof URL.createObjectURL !== "function") {
+  URL.createObjectURL = vi.fn().mockReturnValue("blob:mock-url")
+  URL.revokeObjectURL = vi.fn()
+}
+
+// Mock next/navigation
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+  }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+  useParams: () => ({}),
+}))
 
 // Mock @creit.tech/stellar-wallets-kit to prevent CommonJS import error with @stellar/freighter-api
 vi.mock("@creit.tech/stellar-wallets-kit", () => {
@@ -44,6 +64,7 @@ vi.mock("@creit.tech/stellar-wallets-kit", () => {
       setWallet: vi.fn(),
       getAddress: vi.fn().mockResolvedValue({ address: "GBX1234567890TESTADDRESS" }),
       signTransaction: vi.fn().mockResolvedValue({ signedTxXdr: "mock_signed_xdr" }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
     })),
     WalletNetwork: {
       TESTNET: "TESTNET",

@@ -184,8 +184,8 @@ export function PoolDataProvider({
       const data = await res.json()
       setPools(data)
       setError(null)
-    } catch (err: any) {
-      setError(err.message || "An error occurred while fetching pools")
+    } catch (err: unknown) {
+      setError((err as Error)?.message || "An error occurred while fetching pools")
     } finally {
       if (!isBackground) setLoading(false)
     }
@@ -247,7 +247,7 @@ export function PoolDataProvider({
           const fetchTime = Date.now()
           cacheRef.current[contractId] = {
             db: dbData,
-            onchain: onchainState as any,
+            onchain: onchainState as Record<string, unknown>,
             isPaused,
             poolAdmin,
             ttlDays,

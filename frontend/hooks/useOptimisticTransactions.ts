@@ -158,9 +158,7 @@ export function useOptimisticTransactions(poolAddress?: string) {
 
   const markError = useCallback((id: string, errorMessage: string) => {
     setTransactions((prev) =>
-      prev.map((tx) =>
-        tx.id === id ? { ...tx, status: "failed", error: errorMessage } : tx
-      )
+      prev.map((tx) => (tx.id === id ? { ...tx, status: "failed", error: errorMessage } : tx))
     )
   }, [])
 

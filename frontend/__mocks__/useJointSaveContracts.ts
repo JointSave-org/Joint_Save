@@ -1,8 +1,24 @@
 import { vi } from "vitest"
 
-export const getRpc = vi.fn().mockReturnValue({})
+export const NATIVE_SAC_ID = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+export const NATIVE_TOKEN_METADATA = {
+  symbol: "XLM",
+  name: "Stellar Lumens",
+  decimals: 7,
+}
 
+export const resolveTokenAddress = (tokenId: string) => tokenId || NATIVE_SAC_ID
+export const getRpc = vi.fn().mockReturnValue({
+  getLatestLedger: vi.fn().mockResolvedValue({ sequence: 1000 }),
+  getTransaction: vi.fn().mockResolvedValue({ status: "SUCCESS" }),
+})
+
+export const formatTokenAmount = (amount: bigint, decimals = 7): number =>
+  Number(amount) / Math.pow(10, decimals)
 export const stroopsToXlm = (stroops: bigint): number => Number(stroops) / 10_000_000
+export const ledgerToEstimatedDate = (_ledger: number) => new Date()
+
+export const fetchTokenMetadata = vi.fn().mockResolvedValue(NATIVE_TOKEN_METADATA)
 
 export const fetchRotationalState = vi.fn().mockResolvedValue({
   currentRound: 0,
@@ -30,6 +46,16 @@ export const fetchFlexibleState = vi.fn().mockResolvedValue({
   isActive: true,
 })
 
+export const fetchContractEvents = vi.fn().mockResolvedValue([])
+export const fetchPoolMembers = vi.fn().mockResolvedValue(["GBX1234567890TESTADDRESS"])
+export const fetchIsPaused = vi.fn().mockResolvedValue(false)
+export const fetchFactoryPools = vi
+  .fn()
+  .mockResolvedValue({ rotational: [], target: [], flexible: [] })
+export const fetchPoolAdmin = vi.fn().mockResolvedValue("GBX1234567890TESTADDRESS")
+export const fetchReputation = vi.fn().mockResolvedValue({ score: 100, label: "Trusted" })
+export const fetchPoolTtl = vi.fn().mockResolvedValue(30)
+
 export const useDeployPool = vi.fn().mockReturnValue({
   deploy: vi.fn().mockResolvedValue("C_MOCK_CONTRACT_ADDRESS"),
   isLoading: false,
@@ -46,6 +72,12 @@ export const useInitializePool = vi.fn().mockReturnValue({
 
 export const useRegisterPool = vi.fn().mockReturnValue({
   register: vi.fn().mockResolvedValue("tx_hash_register"),
+  isLoading: false,
+  error: null,
+})
+
+export const useSetReputationTracker = vi.fn().mockReturnValue({
+  setTracker: vi.fn().mockResolvedValue("tx_hash_set_tracker"),
   isLoading: false,
   error: null,
 })
@@ -88,6 +120,42 @@ export const useFlexibleDeposit = vi.fn().mockReturnValue({
 
 export const useFlexibleWithdraw = vi.fn().mockReturnValue({
   withdraw: vi.fn().mockResolvedValue("tx_hash_flexible_withdraw"),
+  isLoading: false,
+  error: null,
+})
+
+export const useAddPoolMember = vi.fn().mockReturnValue({
+  addMember: vi.fn().mockResolvedValue("tx_hash_add_member"),
+  isLoading: false,
+  error: null,
+})
+
+export const useRemovePoolMember = vi.fn().mockReturnValue({
+  removeMember: vi.fn().mockResolvedValue("tx_hash_remove_member"),
+  isLoading: false,
+  error: null,
+})
+
+export const useLeavePool = vi.fn().mockReturnValue({
+  leave: vi.fn().mockResolvedValue("tx_hash_leave_pool"),
+  isLoading: false,
+  error: null,
+})
+
+export const usePausePool = vi.fn().mockReturnValue({
+  pause: vi.fn().mockResolvedValue("tx_hash_pause"),
+  isLoading: false,
+  error: null,
+})
+
+export const useUnpausePool = vi.fn().mockReturnValue({
+  unpause: vi.fn().mockResolvedValue("tx_hash_unpause"),
+  isLoading: false,
+  error: null,
+})
+
+export const useBumpPoolState = vi.fn().mockReturnValue({
+  bumpPoolState: vi.fn().mockResolvedValue("tx_hash_bump"),
   isLoading: false,
   error: null,
 })

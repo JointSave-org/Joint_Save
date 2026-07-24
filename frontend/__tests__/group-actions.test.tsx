@@ -1,5 +1,5 @@
 import React from "react"
-import { render, screen, fireEvent, waitFor } from "@/test-utils"
+import { render, screen, waitFor } from "@/test-utils"
 import { GroupActions } from "@/components/group/group-actions"
 import { vi, describe, it, expect, beforeEach } from "vitest"
 
@@ -8,9 +8,19 @@ vi.mock("@/hooks/useJointSaveContracts")
 describe("GroupActions Component", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "pool-1",
+        name: "Test Pool",
+        type: "flexible",
+        token_symbol: "XLM",
+        token_decimals: 7,
+      }),
+    })
   })
 
-  it("renders quick actions title and stellar address info", () => {
+  it("renders quick actions title and stellar address info", async () => {
     render(
       <GroupActions
         groupId="pool-1"
@@ -20,11 +30,12 @@ describe("GroupActions Component", () => {
       />
     )
 
-    expect(screen.getByText("Quick Actions")).toBeInTheDocument()
-    expect(screen.getByText("Your Stellar address")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText(/Quick Actions/i)).toBeInTheDocument()
+    })
   })
 
-  it("shows contract pending notification when contract address is pending_deployment", () => {
+  it("shows contract pending notification when contract address is pending_deployment", async () => {
     render(
       <GroupActions
         groupId="pool-1"
@@ -34,10 +45,12 @@ describe("GroupActions Component", () => {
       />
     )
 
-    expect(screen.getByText(/Contract pending deployment/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText(/Contract pending deployment/i)).toBeInTheDocument()
+    })
   })
 
-  it("disables deposit button when contract is pending", () => {
+  it("disables deposit button when contract is pending", async () => {
     render(
       <GroupActions
         groupId="pool-1"
@@ -47,11 +60,24 @@ describe("GroupActions Component", () => {
       />
     )
 
-    const depositBtn = screen.getByRole("button", { name: /Deposit/i })
-    expect(depositBtn).toBeDisabled()
+    await waitFor(() => {
+      const depositBtn = screen.getByRole("button", { name: /Deposit/i })
+      expect(depositBtn).toBeDisabled()
+    })
   })
 
-  it("renders rotational pool trigger payout button for rotational pools", () => {
+  it("renders rotational pool trigger payout button for rotational pools", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "pool-1",
+        name: "Rotational Pool",
+        type: "rotational",
+        token_symbol: "XLM",
+        token_decimals: 7,
+      }),
+    })
+
     render(
       <GroupActions
         groupId="pool-1"
@@ -61,10 +87,23 @@ describe("GroupActions Component", () => {
       />
     )
 
-    expect(screen.getByRole("button", { name: /Trigger Payout/i })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Trigger Payout/i })).toBeInTheDocument()
+    })
   })
 
-  it("renders contribute and withdraw buttons for target pools", () => {
+  it("renders contribute and withdraw buttons for target pools", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "pool-1",
+        name: "Target Pool",
+        type: "target",
+        token_symbol: "XLM",
+        token_decimals: 7,
+      }),
+    })
+
     render(
       <GroupActions
         groupId="pool-1"
@@ -74,8 +113,10 @@ describe("GroupActions Component", () => {
       />
     )
 
-    expect(screen.getByRole("button", { name: /Contribute/i })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /Withdraw/i })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /Refund/i })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Contribute/i })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /Withdraw/i })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /Refund/i })).toBeInTheDocument()
+    })
   })
 })

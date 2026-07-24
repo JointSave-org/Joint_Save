@@ -10,7 +10,7 @@ describe("GroupPage Component", () => {
     vi.clearAllMocks()
   })
 
-  it("renders loading skeleton state initially", () => {
+  it("renders loading state initially", () => {
     global.fetch = vi.fn().mockImplementation(() => new Promise(() => {}))
     render(<GroupPage params={{ id: "pool-123" }} />)
     expect(screen.getByText("Loading...")).toBeInTheDocument()
@@ -36,11 +36,14 @@ describe("GroupPage Component", () => {
       type: "flexible",
       contract_address: "CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI",
       token_address: "native",
+      creator_address: "GBX1234567890TESTADDRESS",
     }
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => mockPool,
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (typeof url === "string" && (url.includes("/admin/") || url.includes("activity"))) {
+        return { ok: true, json: async () => [] }
+      }
+      return { ok: true, json: async () => mockPool }
     })
 
     render(<GroupPage params={{ id: "pool-123" }} />)

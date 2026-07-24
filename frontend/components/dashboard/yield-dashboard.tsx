@@ -32,7 +32,7 @@ export function YieldDashboard({
         await onHarvest()
       }
       setMessage("Yield harvested successfully!")
-    } catch (err: any) {
+    } catch {
       setMessage("Failed to harvest yield.")
     } finally {
       setHarvesting(false)
@@ -44,7 +44,9 @@ export function YieldDashboard({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Yield Dashboard</h2>
-          <p className="text-sm text-muted-foreground">Automated DeFi Yield Generation on Stellar</p>
+          <p className="text-sm text-muted-foreground">
+            Automated DeFi Yield Generation on Stellar
+          </p>
         </div>
         <div className="flex items-center gap-2 text-primary font-semibold">
           <TrendingUp className="h-5 w-5" />
@@ -55,16 +57,22 @@ export function YieldDashboard({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-4 rounded-lg bg-muted/30">
           <p className="text-sm text-muted-foreground">Deployed Capital</p>
-          <p className="text-2xl font-bold" data-testid="deployed-amount">{deployedAmount.toFixed(2)} XLM</p>
+          <p className="text-2xl font-bold" data-testid="deployed-amount">
+            {deployedAmount.toFixed(2)} XLM
+          </p>
         </div>
         <div className="p-4 rounded-lg bg-muted/30">
           <p className="text-sm text-muted-foreground">Earned Yield</p>
-          <p className="text-2xl font-bold text-primary" data-testid="earned-yield">{earnedYield.toFixed(2)} XLM</p>
+          <p className="text-2xl font-bold text-primary" data-testid="earned-yield">
+            {earnedYield.toFixed(2)} XLM
+          </p>
         </div>
       </div>
 
       {message && (
-        <p className={`text-sm ${message.includes("success") ? "text-primary" : "text-destructive"}`}>
+        <p
+          className={`text-sm ${message.includes("success") ? "text-primary" : "text-destructive"}`}
+        >
           {message}
         </p>
       )}

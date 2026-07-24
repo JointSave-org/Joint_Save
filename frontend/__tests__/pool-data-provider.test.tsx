@@ -24,7 +24,14 @@ describe("PoolDataProvider", () => {
 
   it("fetches pool data on mount and updates state", async () => {
     const mockPools = [
-      { id: "pool-1", name: "Pool One", type: "flexible", total_saved: 100, status: "active", updated_at: "2026-01-01" },
+      {
+        id: "pool-1",
+        name: "Pool One",
+        type: "flexible",
+        total_saved: 100,
+        status: "active",
+        updated_at: "2026-01-01",
+      },
     ]
 
     global.fetch = vi.fn().mockResolvedValue({
