@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       job_name: "client_error",
       status: "failed",
       error_message: errorDetail.slice(0, 4096), // cap to prevent oversized payloads
-    } as any)
+    } as never)
 
     if (dbError) {
       console.error("[POST /api/errors] Supabase insert failed:", dbError)

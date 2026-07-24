@@ -14,12 +14,10 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "mock-key"
 let fetchCalls: Array<{ url: string; init: RequestInit }> = []
 let shouldInsertFail = false
 
-let originalFetch: typeof globalThis.fetch
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let POST: any
 
 before(async () => {
-  originalFetch = globalThis.fetch
-  
   // Import the route handler AFTER setting env vars
   const route = await import("./route")
   POST = route.POST
