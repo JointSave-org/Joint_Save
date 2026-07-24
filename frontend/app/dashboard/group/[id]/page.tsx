@@ -15,6 +15,7 @@ import Link from "next/link"
 import { fetchIsPaused, fetchPoolAdmin } from "@/hooks/useJointSaveContracts"
 import { useStellar } from "@/components/web3-provider"
 import { useRecentPools } from "@/hooks/useRecentPools"
+import { ErrorBoundary, SectionErrorBoundary } from "@/components/error-boundary"
 
 interface Pool {
   id: string
@@ -88,42 +89,61 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
       : pool.id
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader />
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Button variant="ghost" className="mb-6" asChild>
-          <Link href="/dashboard">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
-          </Link>
-        </Button>
+    <ErrorBoundary sectionName="Group Detail" walletAddress={address}>
+      <div className="min-h-screen bg-background">
+        <DashboardHeader />
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Button variant="ghost" className="mb-6" asChild>
+            <Link href="/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Dashboard
+            </Link>
+          </Button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <GroupDetails groupId={id} contractAddress={cacheKey} poolAdmin={poolAdmin} />
-            <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
-            {/* Admin audit log with CSV export — only shown to the pool creator */}
-            <AdminAuditLog groupId={id} creatorAddress={pool.creator_address} />
-            {/* Admin actions log — visible to all pool members */}
-            <AdminActionsLog groupId={id} />
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <SectionErrorBoundary sectionName="Pool Details" walletAddress={address}>
+                <GroupDetails groupId={id} contractAddress={cacheKey} poolAdmin={poolAdmin} />
+              </SectionErrorBoundary>
+              <SectionErrorBoundary sectionName="Activity Feed" walletAddress={address}>
+                <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
+              </SectionErrorBoundary>
+              {/* Admin audit log with CSV export — only shown to the pool creator */}
+              <SectionErrorBoundary sectionName="Audit Log" walletAddress={address}>
+                <AdminAuditLog groupId={id} creatorAddress={pool.creator_address} />
+              </SectionErrorBoundary>
+              {/* Admin actions log — visible to all pool members */}
+              <SectionErrorBoundary sectionName="Admin Actions" walletAddress={address}>
+                <AdminActionsLog groupId={id} />
+              </SectionErrorBoundary>
+            </div>
 
-          <div className="space-y-6">
-            <GroupActions
-              groupId={id}
-              poolAddress={pool.contract_address}
-              poolType={pool.type}
-              tokenAddress={pool.token_address}
-              creatorAddress={pool.creator_address}
-              isPaused={isPaused}
-              poolAdmin={poolAdmin}
-              onPauseChange={refreshPoolState}
-            />
-            {pool.type === "flexible" && <YieldDashboard poolAddress={pool.contract_address} />}
-            <GroupMembers groupId={id} contractAddress={cacheKey} poolType={pool.type} />
+            <div className="space-y-6">
+              <SectionErrorBoundary sectionName="Group Actions" walletAddress={address}>
+                <GroupActions
+                  groupId={id}
+                  poolAddress={pool.contract_address}
+                  poolType={pool.type}
+                  tokenAddress={pool.token_address}
+                  creatorAddress={pool.creator_address}
+                  isPaused={isPaused}
+                  poolAdmin={poolAdmin}
+                  onPauseChange={refreshPoolState}
+                />
+              </SectionErrorBoundary>
+              {pool.type === "flexible" && (
+                <SectionErrorBoundary sectionName="Yield Dashboard" walletAddress={address}>
+                  <YieldDashboard poolAddress={pool.contract_address} />
+                </SectionErrorBoundary>
+              )}
+              <SectionErrorBoundary sectionName="Members List" walletAddress={address}>
+                <GroupMembers groupId={id} contractAddress={cacheKey} poolType={pool.type} />
+              </SectionErrorBoundary>
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </ErrorBoundary>
   )
 }
+

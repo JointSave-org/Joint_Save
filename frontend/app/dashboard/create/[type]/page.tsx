@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 const validTypes = ["rotational", "target", "flexible"]
 
@@ -63,7 +64,8 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <ErrorBoundary sectionName="Create Pool">
+      <div className="min-h-screen bg-background">
       <DashboardHeader />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="max-w-3xl mx-auto">
@@ -91,5 +93,6 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
         </div>
       </main>
     </div>
+    </ErrorBoundary>
   )
 }
