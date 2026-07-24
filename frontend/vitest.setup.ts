@@ -35,3 +35,24 @@ if (!global.PointerEvent) {
   // @ts-ignore
   global.PointerEvent = PointerEvent
 }
+
+// Mock @creit.tech/stellar-wallets-kit to prevent CommonJS import error with @stellar/freighter-api
+vi.mock("@creit.tech/stellar-wallets-kit", () => {
+  return {
+    StellarWalletsKit: vi.fn().mockImplementation(() => ({
+      openModal: vi.fn(),
+      setWallet: vi.fn(),
+      getAddress: vi.fn().mockResolvedValue({ address: "GBX1234567890TESTADDRESS" }),
+      signTransaction: vi.fn().mockResolvedValue({ signedTxXdr: "mock_signed_xdr" }),
+    })),
+    WalletNetwork: {
+      TESTNET: "TESTNET",
+      PUBLIC: "PUBLIC",
+    },
+    FREIGHTER_ID: "freighter",
+    FreighterModule: vi.fn(),
+    xBullModule: vi.fn(),
+    AlbedoModule: vi.fn(),
+    LobstrModule: vi.fn(),
+  }
+})

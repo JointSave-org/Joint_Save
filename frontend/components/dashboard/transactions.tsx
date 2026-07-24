@@ -11,14 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowUpRight, ArrowDownLeft, Loader2, Download } from "lucide-react"
+import { ArrowUpRight, ArrowDownLeft, Download, Loader2 } from "lucide-react"
 import { useState, useEffect, useMemo } from "react"
 import { supabase } from "@/lib/supabase"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { formatRelativeTime, formatExactDateTime } from "@/lib/utils"
 import { buildCsv, downloadCsv } from "@/lib/csv-export"
 
-interface Activity {
+export interface Activity {
   id: string
   activity_type: string
   user_address: string | null
@@ -35,6 +35,8 @@ interface Activity {
 export function Transactions() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
+  const [filterType, setFilterType] = useState<string>("all")
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc")
 
   // Filters
   const [dateFrom, setDateFrom] = useState("")
@@ -99,16 +101,24 @@ export function Transactions() {
   )
 
   const filtered = useMemo(() => {
-    return activities.filter((a) => {
-      if (dateFrom && new Date(a.created_at) < new Date(dateFrom)) return false
-      if (dateTo && new Date(a.created_at) > new Date(dateTo + "T23:59:59")) return false
-      if (poolFilter !== "all" && a.pool_id !== poolFilter) return false
-      if (typeFilter !== "all" && a.activity_type !== typeFilter) return false
-      return true
-    })
-  }, [activities, dateFrom, dateTo, poolFilter, typeFilter])
+    return activities
+      .filter((a) => {
+        if (dateFrom && new Date(a.created_at) < new Date(dateFrom)) return false
+        if (dateTo && new Date(a.created_at) > new Date(dateTo + "T23:59:59")) return false
+        if (poolFilter !== "all" && a.pool_id !== poolFilter) return false
+        if (typeFilter !== "all" && a.activity_type.toLowerCase() !== typeFilter.toLowerCase()) return false
+        if (filterType !== "all" && a.activity_type.toLowerCase() !== filterType.toLowerCase()) return false
+        return true
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.created_at).getTime()
+        const timeB = new Date(b.created_at).getTime()
+        return sortOrder === "desc" ? timeB - timeA : timeA - timeB
+      })
+  }, [activities, dateFrom, dateTo, poolFilter, typeFilter, filterType, sortOrder])
 
   const exportCSV = () => {
+    if (filtered.length === 0) return
     const headers = [
       "Date",
       "Pool Name",
@@ -140,15 +150,35 @@ export function Transactions() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold">Transaction History</h2>
           <p className="text-muted-foreground mt-1">View all deposits and payouts</p>
         </div>
-        <Button onClick={exportCSV} variant="outline" className="flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <select
+            aria-label="Filter transactions"
+            className="bg-background border border-input rounded-md px-3 py-1.5 text-sm"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+          >
+            <option value="all">All Types</option>
+            <option value="deposit">Deposits</option>
+            <option value="withdraw">Withdrawals</option>
+          </select>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+          >
+            Sort: {sortOrder.toUpperCase()}
+          </Button>
+
+          <Button variant="outline" size="sm" onClick={exportCSV} disabled={filtered.length === 0}>
+            <Download className="mr-2 h-4 w-4" /> Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -203,7 +233,7 @@ export function Transactions() {
 
       <Card className="divide-y divide-border">
         {filtered.length === 0 ? (
-          <div className="p-6 text-center text-muted-foreground">No transactions found</div>
+          <div className="p-6 text-center text-muted-foreground">No transactions yet</div>
         ) : (
           filtered.map((activity) => (
             <div key={activity.id} className="p-6 hover:bg-muted/30 transition-colors">
