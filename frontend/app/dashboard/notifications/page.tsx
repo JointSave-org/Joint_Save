@@ -17,6 +17,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { useStellar } from "@/components/web3-provider"
 import { ArrowLeft, Bell } from "lucide-react"
 import { formatRelativeTime } from "@/lib/utils"
+import { ErrorBoundary } from "@/components/error-boundary"
 import type { AppNotification } from "@/hooks/useNotifications"
 
 const PAGE_SIZE = 10
@@ -74,7 +75,7 @@ export default function NotificationsPage() {
   }, [page, loadNotifications])
 
   return (
-    <div className="min-h-screen bg-background">
+    <ErrorBoundary sectionName="Notifications" walletAddress={address}>
       <DashboardHeader />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-3xl">
         <Button variant="ghost" className="mb-6" asChild>
@@ -180,6 +181,6 @@ export default function NotificationsPage() {
           </>
         )}
       </main>
-    </div>
+    </ErrorBoundary>
   )
 }

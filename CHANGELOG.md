@@ -8,6 +8,7 @@ All notable changes to **JointSave** will be documented in this file.
 
 ### Added
 
+- **React Error Boundaries** with fallback UIs and error reporting across all dashboard routes to prevent full page crashes.
 - **Smart contract pause & recovery** capabilities to improve safety and operational resilience of deployed pool contracts.
 - **Multi-token support** (including support for the native token) for pool participation.
 - **Reputation tracking** to represent participant trust based on pool participation.
