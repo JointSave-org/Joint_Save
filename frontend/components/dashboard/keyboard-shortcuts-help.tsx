@@ -12,6 +12,7 @@ import { Kbd } from "@/components/ui/kbd"
 const shortcuts: { keys: string[]; description: string }[] = [
   { keys: ["c"], description: "Create a new pool" },
   { keys: ["g", "h"], description: "Go to My Groups" },
+  { keys: ["g", "f"], description: "Go to Portfolio" },
   { keys: ["g", "t"], description: "Go to Transactions" },
   { keys: ["g", "p"], description: "Go to Profile" },
   { keys: ["?"], description: "Open keyboard shortcuts" },

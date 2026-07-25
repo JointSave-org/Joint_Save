@@ -374,25 +374,6 @@ export type Database = {
           created_at?: string
         }
       }
-      pool_messages: {
-        Row: {
-          id: string
-          pool_id: string
-          sender_address: string
-          message: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          pool_id: string
-          sender_address: string
-          message: string
-          created_at?: string
-        }
-        Update: {
-          message?: string
-        }
-      }
     }
   }
 }

@@ -21,8 +21,7 @@ import {
   Transaction,
 } from "@stellar/stellar-sdk"
 import { getRpc } from "@/hooks/useJointSaveContracts"
-
-const TX_TIMEOUT = 300
+import { TX_TIMEOUT } from "@/lib/constants"
 
 function addressVal(addr: string): xdr.ScVal {
   return nativeToScVal(addr.toUpperCase(), { type: "address" })

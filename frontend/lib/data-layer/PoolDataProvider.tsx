@@ -21,6 +21,7 @@ import {
   type TargetPoolState,
   type FlexiblePoolState,
 } from "@/hooks/useJointSaveContracts"
+import { STALE_TIME_MS } from "@/lib/constants"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ interface PoolDataContextType {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const STALE_TIME_MS = 15_000 // 15 seconds
+// STALE_TIME_MS is imported from @/lib/constants (15 seconds)
 
 // ── Context ───────────────────────────────────────────────────────────────────
 

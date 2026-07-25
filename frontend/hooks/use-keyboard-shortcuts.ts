@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react"
 type ShortcutHandlers = {
   onCreatePool: () => void
   onGoToGroups: () => void
+  onGoToPortfolio: () => void
   onGoToTransactions: () => void
   onGoToProfile: () => void
   onOpenHelp: () => void
@@ -34,11 +35,14 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
         clearTimeout(gTimerRef.current)
         gTimerRef.current = null
         const lowerKey = key.toLowerCase()
-        if (lowerKey === "h" || lowerKey === "t" || lowerKey === "p") {
+        if (lowerKey === "h" || lowerKey === "f" || lowerKey === "t" || lowerKey === "p") {
           e.preventDefault()
           switch (lowerKey) {
             case "h":
               handlersRef.current.onGoToGroups()
+              break
+            case "f":
+              handlersRef.current.onGoToPortfolio()
               break
             case "t":
               handlersRef.current.onGoToTransactions()

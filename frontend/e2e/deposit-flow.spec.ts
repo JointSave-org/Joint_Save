@@ -50,7 +50,8 @@ test("deposits into a flexible pool and reflects it in the UI", async ({ page })
   await page.getByRole("button", { name: "Deposit" }).click()
 
   // The submit path completed (signed + sent via the stub) and was logged
-  await expect(page.getByText(/Deposit submitted/i)).toBeVisible()
+  // Use ToastDescription selector to avoid strict mode violation (toast has ARIA live region duplicate)
+  await expect(page.locator(".text-sm.opacity-90").getByText(/Deposit submitted/i)).toBeVisible()
 
   // Simulate the chain reflecting the deposit, then refresh from on-chain state
   await page.evaluate((xlm) => {

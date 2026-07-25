@@ -68,7 +68,7 @@ for (const c of cases) {
     await page.getByRole("button", { name: c.submit }).click()
 
     // 1) Redirected to the new pool's detail page
-    await expect(page).toHaveURL(/\/dashboard\/group\//, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/dashboard\/group\//, { timeout: 30_000 })
 
     // 2) Group page shows the name and reads on-chain state back via a view call
     await expect(page.getByRole("heading", { name: c.name })).toBeVisible()

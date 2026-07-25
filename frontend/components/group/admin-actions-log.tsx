@@ -14,6 +14,7 @@ import {
   Loader2,
   RefreshCw,
   ExternalLink,
+  Bot,
 } from "lucide-react"
 import { useStellar } from "@/components/web3-provider"
 import { formatRelativeTime, formatExactDateTime } from "@/lib/utils"
@@ -127,6 +128,14 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
           iconColor: "text-muted-foreground",
           bgColor: "bg-muted",
         }
+      case "auto_trigger_payout":
+        return {
+          title: "Auto Payout Triggered",
+          description: "The scheduled cron job automatically triggered this round's payout.",
+          icon: Bot,
+          iconColor: "text-blue-600",
+          bgColor: "bg-blue-600/10",
+        }
       default:
         return {
           title: action.action_type.replace("_", " "),
@@ -189,8 +198,17 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <p className="font-medium text-sm capitalize">{details.title}</p>
-                    <Badge variant="outline" className="text-xs">
-                      Admin: {formatAddress(action.admin_address)}
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${
+                        action.action_type === "auto_trigger_payout"
+                          ? "border-blue-400 text-blue-600"
+                          : ""
+                      }`}
+                    >
+                      {action.action_type === "auto_trigger_payout"
+                        ? "🤖 Auto (Cron)"
+                        : `Admin: ${formatAddress(action.admin_address)}`}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">{details.description}</p>

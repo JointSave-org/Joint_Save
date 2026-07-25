@@ -196,6 +196,45 @@ To prevent critical contract state expiry under Soroban's state archival rules, 
   - If a pool's storage lease is close to expiry (TTL < 7 days), the pool details view displays a warning alert banner with an "Extend Storage" button to allow users to trigger the manual `bump_state` sweep transaction.
 
 
+## Constants Module
+
+All platform-wide configuration values live in a single file:
+
+```
+frontend/lib/constants.ts
+```
+
+This is the single source of truth for every tunable number in the frontend. To change a platform setting — for example the signing timeout or the treasury fee default — edit only this file. Nothing else needs to be touched.
+
+### Domain Groups
+
+| Group | Constants |
+|---|---|
+| **Pool Configuration** | `MAX_POOL_MEMBERS`, `MIN_POOL_MEMBERS`, `DEFAULT_TREASURY_FEE_BPS`, `DEFAULT_RELAYER_FEE_BPS` |
+| **Timing** | `TX_TIMEOUT`, `STALE_TIME_MS`, `SIGN_TIMEOUT_MS`, `RECENT_DUPLICATE_WINDOW_MS`, `DROPPED_TX_WINDOW_MS` |
+| **Rate Limiting** | `RATE_LIMIT_WINDOW_MS`, `READ_RATE_LIMIT`, `WRITE_RATE_LIMIT` |
+| **UI** | `NOTIFICATION_BADGE_MAX` |
+| **Validation** | `MAX_CSV_ROWS`, `MAX_NAME_LENGTH`, `MAX_DESCRIPTION_LENGTH`, `MAX_DEADLINE_DAYS` |
+
+### Usage
+
+Always import with named imports:
+
+```typescript
+import { TX_TIMEOUT, STALE_TIME_MS, MAX_POOL_MEMBERS } from "@/lib/constants"
+```
+
+Every constant has a JSDoc comment that explains its purpose, units, and reasoning. Units are called out explicitly (seconds vs milliseconds, basis points vs percent) to prevent conversion mistakes.
+
+### Adding a New Constant
+
+1. Add the value to `frontend/lib/constants.ts` in the appropriate domain group.
+2. Give it a JSDoc comment explaining purpose and units.
+3. Use `as const` so TypeScript narrows the type to the literal value.
+4. Import it by name in the file that needs it — never re-declare it inline.
+
+---
+
 ## Frontend Architecture
 
 ### Application Structure

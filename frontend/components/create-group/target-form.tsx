@@ -1,11 +1,11 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, X, Loader2, AlertCircle, Info, CopyPlus } from "lucide-react"
+import { Plus, X, Loader2, Info, CopyPlus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useStellar } from "@/components/web3-provider"
 import {
@@ -26,8 +26,9 @@ import {
   validatePositiveAmount,
   findDuplicateAddresses,
 } from "@/lib/form-validation"
-import { MAX_POOL_MEMBERS } from "@/lib/constants"
+import { MAX_POOL_MEMBERS, MAX_DEADLINE_DAYS } from "@/lib/constants"
 import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
+import { toastManager } from "@/lib/toast"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -55,7 +56,6 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const [members, setMembers] = useState<string[]>(
     initialMembers.length > 0 ? initialMembers : [""]
   )
-  const [error, setError] = useState("")
   const [step, setStep] = useState<
     "idle" | "deploying" | "initializing" | "registering" | "saving"
   >("idle")
@@ -68,11 +68,6 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Touched>({})
   const [currentLedger, setCurrentLedger] = useState<number | null>(null)
-  const errorRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-  }, [error])
 
   useEffect(() => {
     getRpc()
@@ -109,7 +104,8 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       const d = parseInt(value)
       if (!value) message = "Deadline is required"
       else if (isNaN(d) || d < 1) message = "Deadline must be at least 1 day"
-      else if (d > 3650) message = "Deadline cannot exceed 10 years"
+      else if (d > MAX_DEADLINE_DAYS)
+        message = `Deadline cannot exceed ${MAX_DEADLINE_DAYS / 365} years`
     }
     setFieldErrors((prev) => ({ ...prev, [name]: message }))
   }, [])
@@ -135,31 +131,33 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
 
     setTouched({ name: true, targetAmount: true, deadlineDays: true })
     const nameResult = validateGroupName(formData.name)
     const amountResult = validatePositiveAmount(formData.targetAmount, "Target amount")
     const deadlineDays = parseInt(formData.deadlineDays)
     const deadlineDaysValid =
-      formData.deadlineDays && !isNaN(deadlineDays) && deadlineDays >= 1 && deadlineDays <= 3650
+      formData.deadlineDays &&
+      !isNaN(deadlineDays) &&
+      deadlineDays >= 1 &&
+      deadlineDays <= MAX_DEADLINE_DAYS
     setFieldErrors({
       name: nameResult.message,
       targetAmount: amountResult.message,
       deadlineDays: deadlineDaysValid
         ? ""
         : formData.deadlineDays
-          ? "Deadline must be between 1 and 3650 days"
+          ? `Deadline must be between 1 and ${MAX_DEADLINE_DAYS} days`
           : "Deadline is required",
     })
 
-    if (!address) return setError("Please connect your wallet first")
+    if (!address) return toastManager.error("Please connect your wallet first")
     if (duplicateIndices.size > 0)
-      return setError(
+      return toastManager.error(
         "Duplicate member addresses found — please remove duplicates before continuing"
       )
     if (validMembers.length < 2)
-      return setError("Need at least 2 valid Stellar addresses (you + 1 other)")
+      return toastManager.error("Need at least 2 valid Stellar addresses (you + 1 other)")
     if (!nameResult.valid || !amountResult.valid || !deadlineDaysValid) return
 
     try {
@@ -184,6 +182,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       try {
         await register(address, contractId)
       } catch (regErr: unknown) {
+        // eslint-disable-next-line no-console
         console.warn("Factory registration skipped:", (regErr as Error).message)
       }
 
@@ -214,7 +213,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       const pool = await res.json()
       router.push(`/dashboard/group/${pool.id}`)
     } catch (err: unknown) {
-      setError((err as Error).message || "Failed to create group")
+      toastManager.error((err as Error).message || "Failed to create group")
       setStep("idle")
     }
   }
@@ -242,21 +241,12 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       label: "Target amount",
       valid: validatePositiveAmount(formData.targetAmount, "Amount").valid,
     },
-    { label: "Deadline (days)", valid: days >= 1 && days <= 3650 },
+    { label: "Deadline (days)", valid: days >= 1 && days <= MAX_DEADLINE_DAYS },
     { label: "Members (2+)", valid: validMembers.length >= 2 },
   ]
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
-        <div
-          ref={errorRef}
-          className="flex gap-2 p-3 rounded-lg bg-destructive/10 text-destructive"
-        >
-          <AlertCircle className="h-5 w-5 shrink-0" />
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
       {isCreating && (
         <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary">
           <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
@@ -366,7 +356,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
             id="deadlineDays"
             type="number"
             min="1"
-            max="3650"
+            max={String(MAX_DEADLINE_DAYS)}
             step="1"
             placeholder="30"
             value={formData.deadlineDays}

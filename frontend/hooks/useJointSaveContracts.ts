@@ -21,6 +21,7 @@ import {
   removePendingTransactionRecord,
   type PendingTransactionType,
 } from "@/lib/pending-transactions"
+import { TX_TIMEOUT } from "@/lib/constants"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -28,8 +29,7 @@ const FACTORY_ID = process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID!
 // Optional — the reputation system is additive, so an unconfigured tracker
 // degrades to default scores instead of breaking pool creation/use.
 const REPUTATION_ID = process.env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID || ""
-// 5 minutes — enough time for the user to review and sign in their wallet
-const TX_TIMEOUT = 300
+// TX_TIMEOUT is imported from @/lib/constants (300 seconds = 5 minutes)
 
 const WASM_HASHES: Record<string, string> = {
   rotational: process.env.NEXT_PUBLIC_ROTATIONAL_WASM_HASH!,
