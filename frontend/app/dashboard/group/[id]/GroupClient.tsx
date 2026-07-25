@@ -7,6 +7,7 @@ import { GroupMembers } from "@/components/group/group-members"
 import { GroupActivity } from "@/components/group/group-activity"
 import { GroupActions } from "@/components/group/group-actions"
 import { RotationalTimelineContainer } from "@/components/group/rotational-timeline-container"
+import { PoolChat } from "@/components/group/pool-chat"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -20,6 +21,7 @@ interface Pool {
   type: "rotational" | "target" | "flexible"
   contract_address: string
   token_address: string
+  pool_members?: { member_address: string }[]
 }
 
 const isPendingAddress = (addr: string) => !addr || addr === "pending_deployment"
@@ -92,6 +94,13 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
       ? pool.contract_address
       : pool.id
 
+  // Determine membership: check the pool_members list returned by /api/pools
+  const isMember =
+    !!address &&
+    (pool.pool_members?.some(
+      (m) => m.member_address.toLowerCase() === address.toLowerCase()
+    ) ?? false)
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
@@ -104,13 +113,14 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
         </Button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ── Left column: details + timeline + activity ──────────────── */}
+          {/* ── Left column: details + timeline + activity + chat ───────── */}
           <div className="lg:col-span-2 space-y-6">
             <GroupDetails groupId={id} contractAddress={cacheKey} poolAdmin={poolAdmin} />
             {pool.type === "rotational" && (
               <RotationalTimelineContainer groupId={id} contractAddress={cacheKey} />
             )}
             <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
+            <PoolChat poolId={id} isMember={isMember} />
           </div>
 
           {/* ── Right column: actions + members ──────────────────────────── */}

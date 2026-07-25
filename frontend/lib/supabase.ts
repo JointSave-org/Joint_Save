@@ -340,6 +340,59 @@ export type Database = {
           created_at?: string
         }
       }
+      cron_job_logs: {
+        Row: {
+          id: string
+          job_name: string
+          pool_id: string | null
+          status: "success" | "failed" | "retry" | "warning"
+          error_message: string | null
+          tx_hash: string | null
+          retry_count: number
+          next_retry_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          job_name: string
+          pool_id?: string | null
+          status: "success" | "failed" | "retry" | "warning"
+          error_message?: string | null
+          tx_hash?: string | null
+          retry_count?: number
+          next_retry_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          job_name?: string
+          pool_id?: string | null
+          status?: "success" | "failed" | "retry" | "warning"
+          error_message?: string | null
+          tx_hash?: string | null
+          retry_count?: number
+          next_retry_at?: string | null
+          created_at?: string
+        }
+      }
+      pool_messages: {
+        Row: {
+          id: string
+          pool_id: string
+          sender_address: string
+          message: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          sender_address: string
+          message: string
+          created_at?: string
+        }
+        Update: {
+          message?: string
+        }
+      }
     }
   }
 }
