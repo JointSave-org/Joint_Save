@@ -125,6 +125,7 @@ export function PoolChat({ poolId, isMember }: PoolChatProps) {
     loadOlderMessages,
     rateLimited,
     rateLimitRemainingMs,
+    realtimeStatus,
   } = usePoolChat({
     poolId,
     walletAddress: isMember ? (walletAddress ?? null) : null,
@@ -208,9 +209,23 @@ export function PoolChat({ poolId, isMember }: PoolChatProps) {
             <MessageSquare className="h-4 w-4 text-primary" />
             <span className="font-semibold text-sm">Discussion</span>
           </div>
-          <div className="flex items-center gap-1 text-xs text-emerald-500">
+          <div
+            className={cn(
+              "flex items-center gap-1 text-xs",
+              realtimeStatus === "connected" && "text-emerald-500",
+              realtimeStatus === "connecting" && "text-yellow-500",
+              realtimeStatus === "disconnected" && "text-destructive"
+            )}
+            title={
+              realtimeStatus === "connected"
+                ? "Live — messages delivered in real time"
+                : realtimeStatus === "connecting"
+                  ? "Connecting to live updates…"
+                  : "Disconnected — refresh to reconnect"
+            }
+          >
             <Wifi className="h-3 w-3" />
-            <span>Live</span>
+            <span className="capitalize">{realtimeStatus}</span>
           </div>
         </div>
       </CardHeader>

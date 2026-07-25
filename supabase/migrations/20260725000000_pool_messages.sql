@@ -6,12 +6,23 @@ CREATE TABLE IF NOT EXISTS public.pool_messages (
   pool_id       uuid        NOT NULL REFERENCES public.pools(id) ON DELETE CASCADE,
   sender_address text       NOT NULL,
   message       text        NOT NULL,
-  created_at    timestamptz NOT NULL DEFAULT now()
+  created_at    timestamptz NOT NULL DEFAULT now(),
+
+  -- Enforce message length at the DB level (mirrors CHAT_MESSAGE_MAX_LENGTH = 500)
+  CONSTRAINT pool_messages_message_length CHECK (char_length(message) <= 500),
+  -- Ensure sender_address is always stored lowercase so direct Supabase client
+  -- writes cannot sneak in mixed-case duplicates that bypass membership checks.
+  CONSTRAINT pool_messages_sender_lowercase CHECK (sender_address = lower(sender_address))
 );
 
 -- Index to support efficient pagination queries (most recent first per pool)
 CREATE INDEX idx_pool_messages_pool_created
   ON public.pool_messages (pool_id, created_at DESC);
+
+-- Index to support the DB-level rate-limit check in the API
+-- (MAX(created_at) WHERE pool_id = ? AND sender_address = ?)
+CREATE INDEX idx_pool_messages_sender_recent
+  ON public.pool_messages (pool_id, sender_address, created_at DESC);
 
 -- ── Row-Level Security ────────────────────────────────────────────────────────
 ALTER TABLE public.pool_messages ENABLE ROW LEVEL SECURITY;

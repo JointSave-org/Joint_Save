@@ -7,8 +7,8 @@
  *
  * POST /api/pools/messages  { pool_id, wallet_address, message }
  *   Inserts a new message.  Enforces member check, length cap, and a
- *   per-sender 3-second server-side rate limit (separate from the global
- *   API rate limiter so it doesn't eat the caller's general quota).
+ *   per-sender 3-second DB-backed rate limit so it works correctly across
+ *   all serverless instances (no shared in-memory state).
  */
 
 import { getAdminClient } from "@/lib/supabase-admin"
@@ -17,9 +17,6 @@ import { readLimiter } from "@/lib/rate-limit"
 import { CHAT_MESSAGE_MAX_LENGTH, CHAT_RATE_LIMIT_MS } from "@/lib/constants"
 
 const PAGE_SIZE = 50
-
-// Per-sender timestamp map for chat-specific rate limiting (3 s between posts).
-const lastMessageAt = new Map<string, number>()
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -31,6 +28,31 @@ async function isMember(poolId: string, wallet: string): Promise<boolean> {
     .eq("member_address", wallet.toLowerCase())
     .maybeSingle()
   return data !== null
+}
+
+/**
+ * DB-backed rate limit: fetch the sender's most recent message timestamp for
+ * this pool.  Works correctly across all serverless instances because it reads
+ * from the shared database rather than a module-scoped Map.
+ *
+ * Returns the number of milliseconds the caller must still wait, or 0 if they
+ * are allowed to send now.
+ */
+async function getRateLimitWaitMs(poolId: string, wallet: string): Promise<number> {
+  const { data } = await getAdminClient()
+    .from("pool_messages")
+    .select("created_at")
+    .eq("pool_id", poolId)
+    .eq("sender_address", wallet.toLowerCase())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!data) return 0
+
+  const lastMs = new Date(data.created_at).getTime()
+  const elapsed = Date.now() - lastMs
+  return elapsed < CHAT_RATE_LIMIT_MS ? CHAT_RATE_LIMIT_MS - elapsed : 0
 }
 
 // ── GET ───────────────────────────────────────────────────────────────────────
@@ -100,10 +122,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Per-sender rate limit: max 1 message per CHAT_RATE_LIMIT_MS
-  const now = Date.now()
-  const last = lastMessageAt.get(wallet) ?? 0
-  const waitMs = CHAT_RATE_LIMIT_MS - (now - last)
+  // DB-backed per-sender rate limit — safe across all serverless instances
+  const waitMs = await getRateLimitWaitMs(pool_id, wallet)
   if (waitMs > 0) {
     return NextResponse.json(
       {
@@ -135,9 +155,6 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // Record timestamp only after a successful insert
-  lastMessageAt.set(wallet, Date.now())
 
   return NextResponse.json({ message: data }, { status: 201 })
 }

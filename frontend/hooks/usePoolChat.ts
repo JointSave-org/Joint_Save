@@ -17,7 +17,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 import { CHAT_RATE_LIMIT_MS, CHAT_MESSAGE_MAX_LENGTH } from "@/lib/constants"
-import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js"
+import type { RealtimeChannel, RealtimePostgresInsertPayload } from "@supabase/supabase-js"
 
 export interface PoolMessage {
   id: string
@@ -26,6 +26,8 @@ export interface PoolMessage {
   message: string
   created_at: string
 }
+
+export type RealtimeStatus = "connecting" | "connected" | "disconnected"
 
 interface UsePoolChatOptions {
   poolId: string
@@ -45,6 +47,8 @@ interface UsePoolChatReturn {
   rateLimited: boolean
   /** Milliseconds remaining until next send is allowed */
   rateLimitRemainingMs: number
+  /** Supabase Realtime connection status */
+  realtimeStatus: RealtimeStatus
 }
 
 const IS_E2E = process.env.NEXT_PUBLIC_E2E === "true"
@@ -56,6 +60,7 @@ export function usePoolChat({ poolId, walletAddress }: UsePoolChatOptions): UseP
   const [hasMore, setHasMore] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [isSending, setIsSending] = useState(false)
+  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>("connecting")
 
   // Client-side rate-limit state
   const lastSentAt = useRef<number>(0)
@@ -65,6 +70,16 @@ export function usePoolChat({ poolId, walletAddress }: UsePoolChatOptions): UseP
 
   // Deduplicate incoming realtime messages (can arrive before POST response)
   const seenIds = useRef(new Set<string>())
+
+  // Ref to the oldest message timestamp — avoids including `messages` in the
+  // loadOlderMessages dependency array (which would recreate the callback on
+  // every new message).
+  const oldestCreatedAtRef = useRef<string | null>(null)
+
+  // Keep oldestCreatedAtRef in sync whenever messages change
+  useEffect(() => {
+    oldestCreatedAtRef.current = messages.length > 0 ? messages[0].created_at : null
+  }, [messages])
 
   // ── Load initial history ──────────────────────────────────────────────────
 
@@ -78,6 +93,7 @@ export function usePoolChat({ poolId, walletAddress }: UsePoolChatOptions): UseP
     setLoading(true)
     setMessages([])
     seenIds.current.clear()
+    oldestCreatedAtRef.current = null
 
     fetch(
       `/api/pools/messages?pool_id=${encodeURIComponent(poolId)}&wallet=${encodeURIComponent(walletAddress)}`
@@ -101,12 +117,14 @@ export function usePoolChat({ poolId, walletAddress }: UsePoolChatOptions): UseP
     }
   }, [poolId, walletAddress])
 
-  // ── Supabase Realtime subscription ───────────────────────────────────────
+  // ── Supabase Realtime subscription with reconnection handling ─────────────
 
   useEffect(() => {
     if (!poolId || !walletAddress || IS_E2E || !supabase) return
 
-    const channel = supabase
+    setRealtimeStatus("connecting")
+
+    const channel: RealtimeChannel = supabase
       .channel(`pool_messages:${poolId}`)
       .on(
         "postgres_changes",
@@ -124,25 +142,37 @@ export function usePoolChat({ poolId, walletAddress }: UsePoolChatOptions): UseP
           setMessages((prev) => [...prev, incoming])
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setRealtimeStatus("connected")
+        } else if (status === "CLOSED" || status === "CHANNEL_ERROR") {
+          setRealtimeStatus("disconnected")
+        } else {
+          // TIMED_OUT or other transient states — show as connecting
+          setRealtimeStatus("connecting")
+        }
+      })
 
     return () => {
       supabase.removeChannel(channel)
+      setRealtimeStatus("disconnected")
     }
   }, [poolId, walletAddress])
 
   // ── Load older messages (infinite scroll) ────────────────────────────────
+  // Uses oldestCreatedAtRef instead of reading messages[0] directly so this
+  // callback is NOT recreated on every new message arrival.
 
   const loadOlderMessages = useCallback(async () => {
     if (!poolId || !walletAddress || loadingOlder || !hasMore) return
 
-    const oldest = messages[0]
-    if (!oldest) return
+    const cursor = oldestCreatedAtRef.current
+    if (!cursor) return
 
     setLoadingOlder(true)
     try {
       const res = await fetch(
-        `/api/pools/messages?pool_id=${encodeURIComponent(poolId)}&wallet=${encodeURIComponent(walletAddress)}&cursor=${encodeURIComponent(oldest.created_at)}`
+        `/api/pools/messages?pool_id=${encodeURIComponent(poolId)}&wallet=${encodeURIComponent(walletAddress)}&cursor=${encodeURIComponent(cursor)}`
       )
       if (!res.ok) return
       const data: { messages: PoolMessage[]; hasMore: boolean } = await res.json()
@@ -152,7 +182,8 @@ export function usePoolChat({ poolId, walletAddress }: UsePoolChatOptions): UseP
     } finally {
       setLoadingOlder(false)
     }
-  }, [poolId, walletAddress, loadingOlder, hasMore, messages])
+  }, [poolId, walletAddress, loadingOlder, hasMore])
+  // NOTE: `messages` intentionally excluded — cursor is read via ref.
 
   // ── Rate-limit countdown ticker ───────────────────────────────────────────
 
@@ -258,5 +289,6 @@ export function usePoolChat({ poolId, walletAddress }: UsePoolChatOptions): UseP
     loadOlderMessages,
     rateLimited,
     rateLimitRemainingMs,
+    realtimeStatus,
   }
 }
