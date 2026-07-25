@@ -103,15 +103,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install Frontend Dependencies
         working-directory: frontend
-        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+        run: pnpm install --frozen-lockfile
 
-      - name: Run React Component Test Suite
+      - name: Run React Component Test Suite with Coverage
         working-directory: frontend
-        run: npm run test:components
+        run: pnpm test:components:coverage
