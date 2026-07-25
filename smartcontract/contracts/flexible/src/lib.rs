@@ -2,6 +2,8 @@
 
 use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Address, Env, Vec};
 
+const VERSION: u32 = 1;
+
 #[contracttype]
 pub enum DataKey {
     Token,
@@ -19,6 +21,7 @@ pub enum DataKey {
     YieldStrategy,
     DeployedToYield,
     TokenDecimals,
+    MigratedFrom,
 }
 
 const LEDGER_THRESHOLD: u32 = 518400;
@@ -41,7 +44,10 @@ impl FlexiblePool {
         treasury_fee_bps: u32,
     ) {
         assert!(members.len() >= 2, "need >=2 members");
-        assert!(!Self::has_duplicate_members(&members), "duplicate member address");
+        assert!(
+            !Self::has_duplicate_members(&members),
+            "duplicate member address"
+        );
         assert!(minimum_deposit > 0, "minimum must be > 0");
 
         // Validate the token is a real SEP-41 contract by reading its decimals
@@ -328,6 +334,26 @@ impl FlexiblePool {
             .publish((symbol_short!("emrg_wd"),), contract_balance);
     }
 
+    /// Migrate this contract to a new version. Admin-only.
+    /// Version must be incremented by exactly 1. Safe to run multiple times
+    /// at the same target version (idempotent).
+    pub fn migrate(env: Env, admin: Address, to_version: u32) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let current = VERSION;
+        assert!(
+            to_version == current + 1,
+            "version must be incremented by exactly 1"
+        );
+
+        // Future migration logic goes here
+        env.events()
+            .publish((symbol_short!("migrated"), admin), to_version);
+    }
+
     // ── Yield strategy ────────────────────────────────────────────────────
 
     /// Set the yield strategy contract address. Treasury-only, requires yield_enabled.
@@ -456,6 +482,14 @@ impl FlexiblePool {
     }
 
     // ── Views ─────────────────────────────────────────────────────────────
+
+    pub fn get_version(_env: Env) -> u32 {
+        VERSION
+    }
+
+    pub fn migrated_from(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::MigratedFrom)
+    }
 
     pub fn balance_of(env: Env, member: Address) -> i128 {
         env.storage()

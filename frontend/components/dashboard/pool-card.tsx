@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Users, TrendingUp, Calendar, ArrowRight } from "lucide-react"
+import { Users, TrendingUp, Calendar, ArrowRight, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
@@ -17,6 +17,8 @@ import {
 import { usePoolHealth } from "@/hooks/usePoolHealth"
 import { PoolHealthBadge } from "@/components/dashboard/pool-health-badge"
 import { PoolSparkline } from "@/components/dashboard/pool-sparkline"
+import { isContractVersionUnknown } from "@/hooks/useJointSaveContracts"
+import { KNOWN_CONTRACT_VERSIONS } from "@/lib/constants"
 
 export interface Pool {
   id: string
@@ -149,6 +151,14 @@ export function PoolCard({ pool }: { pool: Pool }) {
   const { totalSaved, progress, progressLabel } = getLiveStats()
   const formatXlm = (n: number) => `${n.toFixed(2)} ${tokenSymbol}`
 
+  const contractVersion =
+    data?.onchain && "contractVersion" in data.onchain
+      ? (data.onchain.contractVersion as number | null)
+      : null
+  const showVersionWarning =
+    contractVersion !== null &&
+    isContractVersionUnknown(contractVersion, KNOWN_CONTRACT_VERSIONS[pool.type])
+
   return (
     <motion.div variants={item}>
       <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full flex flex-col">
@@ -209,6 +219,14 @@ export function PoolCard({ pool }: { pool: Pool }) {
           </div>
           {progressLabel && <p className="text-xs text-muted-foreground mt-1">{progressLabel}</p>}
         </div>
+        {showVersionWarning && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 mb-4 text-sm font-medium">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            <span>
+              Contract v{contractVersion} — This pool may run a newer version than expected.
+            </span>
+          </div>
+        )}
         <Button className="w-full bg-transparent" variant="outline" asChild>
           <Link href={`/dashboard/group/${pool.id}`}>
             View Details <ArrowRight className="ml-2 h-4 w-4" />

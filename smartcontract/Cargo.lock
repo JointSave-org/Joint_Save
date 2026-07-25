@@ -690,6 +690,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "jointsave-migration"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "jointsave-reputation"
 version = "0.1.0"
 dependencies = [

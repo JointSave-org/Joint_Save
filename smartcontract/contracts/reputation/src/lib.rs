@@ -13,7 +13,9 @@
 //! direct caller of the current invocation, so only the genuine pool
 //! contract (not an arbitrary spoofed caller) can update a member's score.
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, symbol_short, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, Vec};
+
+const VERSION: u32 = 1;
 
 const LEDGER_THRESHOLD: u32 = 518400;
 const LEDGER_BUMP: u32 = 2592000;
@@ -133,6 +135,10 @@ impl ReputationTracker {
     }
 
     // ── Views ──────────────────────────────────────────────────────────────
+
+    pub fn get_version(_env: Env) -> u32 {
+        VERSION
+    }
 
     /// Read-only — no fees, no signing required.
     pub fn get_reputation(env: Env, address: Address) -> ReputationScore {

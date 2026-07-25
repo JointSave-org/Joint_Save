@@ -8,9 +8,9 @@
 //! registered here. The factory stores the token address, treasury,
 //! and lists of all registered pool contract IDs.
 
-use soroban_sdk::{
-    contract, contractimpl, contracttype, Address, BytesN, Env, Vec, symbol_short,
-};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Vec};
+
+const VERSION: u32 = 1;
 
 #[contracttype]
 pub enum DataKey {
@@ -20,6 +20,7 @@ pub enum DataKey {
     Rotational,
     Target,
     Flexible,
+    MigratedFrom,
 }
 
 const LEDGER_THRESHOLD: u32 = 518400;
@@ -95,7 +96,8 @@ impl JointSaveFactory {
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
-        env.events().publish((symbol_short!("pause_all"), admin), ());
+        env.events()
+            .publish((symbol_short!("pause_all"), admin), ());
     }
 
     pub fn bump_state(env: Env) {
@@ -150,8 +152,46 @@ impl JointSaveFactory {
             .get(&DataKey::Flexible)
             .unwrap_or(Vec::new(&env))
     }
+
+    /// Return the current contract version.
+    pub fn get_version(_env: Env) -> u32 {
+        VERSION
+    }
+
+    /// Return the address this factory was migrated from, if any.
+    pub fn migrated_from(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::MigratedFrom)
+    }
+
+    /// Register a migration relationship between an old factory and this new one.
+    /// Admin-only. Records the old factory address for lineage tracing.
+    pub fn register_migration(env: Env, admin: Address, old_factory: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        storage.set(&DataKey::MigratedFrom, &old_factory);
+        env.events()
+            .publish((symbol_short!("migrated"), admin), old_factory);
+    }
+
+    /// Migrate this factory to a new version. Admin-only.
+    /// Currently at v1, this is a no-op placeholder for future migration logic.
+    pub fn migrate(env: Env, admin: Address, to_version: u32) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        assert!(
+            to_version == VERSION + 1,
+            "version must be incremented by exactly 1"
+        );
+        // Future migration logic goes here
+        env.events()
+            .publish((symbol_short!("migrated"), admin), to_version);
+    }
 }
 
 #[cfg(test)]
 mod tests;
-

@@ -898,7 +898,16 @@ fn test_add_member_fails_when_paused() {
     let mut members = Vec::new(&env);
     members.push_back(member_a.clone());
     members.push_back(member_b.clone());
-    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
     client.pause(&admin);
     client.add_member(&admin, &member_c);
 }
@@ -920,7 +929,16 @@ fn test_remove_member_fails_when_paused() {
     let mut members = Vec::new(&env);
     members.push_back(member_a.clone());
     members.push_back(member_b.clone());
-    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
     client.pause(&admin);
     client.remove_member(&admin, &member_b);
 }
@@ -948,7 +966,16 @@ fn test_leave_pool_non_admin_member_succeeds() {
     members.push_back(member_b.clone());
     members.push_back(member_c.clone());
 
-    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
 
     // member_b is not admin and not the current beneficiary (index 0 = member_a)
     client.leave_pool(&member_b);
@@ -983,7 +1010,16 @@ fn test_leave_pool_admin_panics_as_current_beneficiary() {
     members.push_back(member_b.clone());
     members.push_back(member_c.clone());
 
-    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
 
     // admin is index 0 = current beneficiary at round 0, so leave_pool must block them
     client.leave_pool(&admin);
@@ -1011,7 +1047,16 @@ fn test_leave_pool_panics_when_paused() {
     members.push_back(member_a.clone());
     members.push_back(member_b.clone());
 
-    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
 
     client.pause(&admin);
     client.leave_pool(&member_b);
@@ -1041,7 +1086,16 @@ fn test_leave_pool_panics_when_only_one_member() {
     members.push_back(member_b.clone());
     members.push_back(member_c.clone());
 
-    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
 
     // admin removes two members so only member_a remains
     client.remove_member(&admin, &member_c);
@@ -1075,7 +1129,16 @@ fn test_leave_pool_panics_when_current_beneficiary_non_admin() {
     members.push_back(member_b.clone());
     members.push_back(member_c.clone());
 
-    client.initialize(&token_address, &admin, &members, &100i128, &100u64, &0u32, &0u32, &treasury);
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
 
     // current_round = 0, beneficiary is member_a (index 0)
     client.leave_pool(&member_a);
@@ -1127,4 +1190,3 @@ fn test_bump_state() {
         assert!(members_ttl >= 2592000);
     });
 }
-

@@ -1,7 +1,10 @@
 #![cfg(test)]
 
 use super::{FlexiblePool, FlexiblePoolClient};
-use soroban_sdk::{testutils::{Address as _, Ledger as _, storage::Persistent}, token, Address, Env, Vec};
+use soroban_sdk::{
+    testutils::{storage::Persistent, Address as _, Ledger as _},
+    token, Address, Env, Vec,
+};
 
 fn setup_pool(
     env: &Env,
@@ -478,7 +481,16 @@ fn test_leave_pool_admin_can_leave_as_regular_member() {
     members.push_back(member_a.clone());
     members.push_back(member_b.clone());
 
-    client.initialize(&token_address, &admin, &members, &10i128, &0u32, &false, &treasury, &0u32);
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &10i128,
+        &0u32,
+        &false,
+        &treasury,
+        &0u32,
+    );
 
     // Admin leaves — leave_pool has no admin restriction
     client.leave_pool(&admin);

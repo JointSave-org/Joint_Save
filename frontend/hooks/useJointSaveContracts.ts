@@ -85,6 +85,8 @@ function e2eViewResult(method: string): xdr.ScVal {
       return i128Val(BigInt((s.balanceOf as number | undefined) ?? 0))
     case "deadline":
       return u32Val((s.deadlineLedger as number | undefined) ?? 0)
+    case "get_version":
+      return u32Val(1)
     default:
       return boolVal(false)
   }
@@ -758,6 +760,7 @@ export interface RotationalPoolState {
   depositCount: number // number of members who deposited in the current round
   treasuryFeeBps: number | null
   relayerFeeBps: number | null
+  contractVersion: number | null
 }
 
 export interface TargetPoolState {
@@ -766,12 +769,14 @@ export interface TargetPoolState {
   targetAmount: bigint
   userBalance: bigint
   deadlineLedger: number
+  contractVersion: number | null
 }
 
 export interface FlexiblePoolState {
   isActive: boolean
   totalBalance: bigint
   userBalance: bigint
+  contractVersion: number | null
 }
 
 export interface ReputationScore {
@@ -942,14 +947,16 @@ export async function fetchRotationalState(
   contractId: string,
   userAddress?: string
 ): Promise<RotationalPoolState> {
-  const [activeVal, roundVal, membersVal, payoutVal, treasurySc, relayerSc] = await Promise.all([
-    viewCall(contractId, "is_active"),
-    viewCall(contractId, "current_round"),
-    viewCall(contractId, "members"),
-    viewCall(contractId, "next_payout_time"),
-    fetchContractStorage(contractId, "TreasuryFeeBps"),
-    fetchContractStorage(contractId, "RelayerFeeBps"),
-  ])
+  const [activeVal, roundVal, membersVal, payoutVal, treasurySc, relayerSc, versionVal] =
+    await Promise.all([
+      viewCall(contractId, "is_active"),
+      viewCall(contractId, "current_round"),
+      viewCall(contractId, "members"),
+      viewCall(contractId, "next_payout_time"),
+      fetchContractStorage(contractId, "TreasuryFeeBps"),
+      fetchContractStorage(contractId, "RelayerFeeBps"),
+      fetchContractVersion(contractId),
+    ])
 
   const members =
     activeVal.switch().name !== "scvBool" ? [] : (membersVal.vec()?.map(scValToString) ?? [])
@@ -994,6 +1001,7 @@ export async function fetchRotationalState(
     depositCount,
     treasuryFeeBps,
     relayerFeeBps,
+    contractVersion: versionVal,
   }
 }
 
@@ -1001,11 +1009,12 @@ export async function fetchTargetState(
   contractId: string,
   userAddress?: string
 ): Promise<TargetPoolState> {
-  const [unlockedVal, totalVal, targetVal, deadlineVal] = await Promise.all([
+  const [unlockedVal, totalVal, targetVal, deadlineVal, versionVal] = await Promise.all([
     viewCall(contractId, "is_unlocked"),
     viewCall(contractId, "total_deposited"),
     viewCall(contractId, "target_amount"),
     viewCall(contractId, "deadline"),
+    fetchContractVersion(contractId),
   ])
 
   let userBalance = 0n
@@ -1022,6 +1031,7 @@ export async function fetchTargetState(
     targetAmount: scValToBigInt(targetVal),
     userBalance,
     deadlineLedger: deadlineVal.switch().name === "scvU32" ? deadlineVal.u32() : 0,
+    contractVersion: versionVal,
   }
 }
 
@@ -1138,9 +1148,10 @@ export async function fetchFlexibleState(
   contractId: string,
   userAddress?: string
 ): Promise<FlexiblePoolState> {
-  const [activeVal, totalVal] = await Promise.all([
+  const [activeVal, totalVal, versionVal] = await Promise.all([
     viewCall(contractId, "is_active"),
     viewCall(contractId, "total_balance"),
+    fetchContractVersion(contractId),
   ])
 
   let userBalance = 0n
@@ -1155,6 +1166,7 @@ export async function fetchFlexibleState(
     isActive: activeVal.switch().name === "scvBool" ? activeVal.b() : false,
     totalBalance: scValToBigInt(totalVal),
     userBalance,
+    contractVersion: versionVal,
   }
 }
 
@@ -1225,6 +1237,27 @@ export async function fetchPoolAdmin(contractId: string): Promise<string | null>
   } catch {
     return null
   }
+}
+
+export async function fetchContractVersion(contractId: string): Promise<number | null> {
+  try {
+    const val = await viewCall(contractId, "get_version")
+    return val.switch().name === "scvU32" ? val.u32() : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Check if a contract version is newer than the frontend's known version.
+ * Returns true if the contract is running a version the frontend doesn't know about.
+ */
+export function isContractVersionUnknown(
+  contractVersion: number | null,
+  knownVersion: number
+): boolean {
+  if (contractVersion === null) return false
+  return contractVersion > knownVersion
 }
 
 // ── Admin hooks ───────────────────────────────────────────────────────────────

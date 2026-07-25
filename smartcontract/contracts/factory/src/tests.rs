@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use super::{JointSaveFactory, JointSaveFactoryClient};
-use soroban_sdk::{testutils::Address as _, Address, Env, BytesN};
 use soroban_sdk::testutils::storage::Persistent;
+use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
 
 #[test]
 fn test_initialize() {
@@ -161,6 +161,3 @@ fn test_bump_state() {
         assert!(ttl >= 2592000);
     });
 }
-
-
-
