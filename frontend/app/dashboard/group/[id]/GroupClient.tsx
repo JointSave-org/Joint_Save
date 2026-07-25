@@ -97,9 +97,8 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
   // Determine membership: check the pool_members list returned by /api/pools
   const isMember =
     !!address &&
-    (pool.pool_members?.some(
-      (m) => m.member_address.toLowerCase() === address.toLowerCase()
-    ) ?? false)
+    (pool.pool_members?.some((m) => m.member_address.toLowerCase() === address.toLowerCase()) ??
+      false)
 
   return (
     <div className="min-h-screen bg-background">

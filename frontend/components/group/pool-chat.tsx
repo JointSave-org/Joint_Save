@@ -21,15 +21,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CHAT_MESSAGE_MAX_LENGTH } from "@/lib/constants"
-import {
-  MessageSquare,
-  Send,
-  ChevronUp,
-  AlertCircle,
-  Loader2,
-  Clock,
-  Wifi,
-} from "lucide-react"
+import { MessageSquare, Send, ChevronUp, AlertCircle, Loader2, Clock, Wifi } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -53,13 +45,7 @@ function shortAddress(addr: string): string {
 }
 
 /** A single chat bubble */
-function MessageBubble({
-  msg,
-  isOwn,
-}: {
-  msg: PoolMessage
-  isOwn: boolean
-}) {
+function MessageBubble({ msg, isOwn }: { msg: PoolMessage; isOwn: boolean }) {
   const isOptimistic = msg.id.startsWith("optimistic-")
 
   return (
