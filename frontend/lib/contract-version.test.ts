@@ -6,10 +6,7 @@ import assert from "node:assert"
  * Mirrors the isContractVersionUnknown function from useJointSaveContracts.ts.
  * We duplicate it here to avoid importing React/SDK dependencies in unit tests.
  */
-function isContractVersionUnknown(
-  contractVersion: number | null,
-  knownVersion: number
-): boolean {
+function isContractVersionUnknown(contractVersion: number | null, knownVersion: number): boolean {
   if (contractVersion === null) return false
   return contractVersion > knownVersion
 }
