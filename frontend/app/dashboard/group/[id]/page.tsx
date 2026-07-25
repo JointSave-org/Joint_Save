@@ -146,4 +146,3 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
     </ErrorBoundary>
   )
 }
-

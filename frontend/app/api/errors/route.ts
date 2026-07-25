@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     if (!message || typeof message !== "string") {
       return NextResponse.json(
         { error: "VALIDATION_ERROR", message: "Missing or invalid 'message' field." },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     if (isServerRateLimited(key)) {
       return NextResponse.json(
         { error: "TOO_MANY_REQUESTS", message: "Error reporting rate limit exceeded." },
-        { status: 429 },
+        { status: 429 }
       )
     }
 
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       console.error("[POST /api/errors] Supabase insert failed:", dbError)
       return NextResponse.json(
         { error: "DB_ERROR", message: "Failed to log error." },
-        { status: 500 },
+        { status: 500 }
       )
     }
 
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json(
       { error: "INTERNAL_ERROR", message: "Unexpected server error." },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

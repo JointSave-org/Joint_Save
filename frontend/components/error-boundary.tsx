@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error(
       `[ErrorBoundary${this.props.sectionName ? ` – ${this.props.sectionName}` : ""}]`,
       error,
-      errorInfo,
+      errorInfo
     )
 
     // Report to backend (fire-and-forget)
@@ -86,9 +86,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-destructive">
-                Failed to load {label}
-              </p>
+              <p className="text-sm font-medium text-destructive">Failed to load {label}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 An unexpected error occurred in this section.
               </p>
@@ -142,11 +140,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             onClick={this.toggleDetails}
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors mx-auto"
           >
-            {showDetails ? (
-              <ChevronUp className="h-3 w-3" />
-            ) : (
-              <ChevronDown className="h-3 w-3" />
-            )}
+            {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             {showDetails ? "Hide error details" : "Show error details"}
           </button>
 

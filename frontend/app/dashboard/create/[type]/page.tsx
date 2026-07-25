@@ -66,33 +66,33 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
   return (
     <ErrorBoundary sectionName="Create Pool">
       <div className="min-h-screen bg-background">
-      <DashboardHeader />
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="max-w-3xl mx-auto">
-          <Button variant="ghost" className="mb-6" asChild>
-            <Link href="/dashboard">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
+        <DashboardHeader />
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="max-w-3xl mx-auto">
+            <Button variant="ghost" className="mb-6" asChild>
+              <Link href="/dashboard">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Dashboard
+              </Link>
+            </Button>
 
-          <Card className="p-8">
-            <h1 className="text-3xl font-bold mb-2">
-              {prefill ? `New Cycle: ${prefill.name}` : titles[type as keyof typeof titles]}
-            </h1>
-            <p className="text-muted-foreground mb-8">
-              {prefill
-                ? "Pre-filled from the original pool. Edit any values before creating."
-                : "Fill in the details to create your savings group"}
-            </p>
+            <Card className="p-8">
+              <h1 className="text-3xl font-bold mb-2">
+                {prefill ? `New Cycle: ${prefill.name}` : titles[type as keyof typeof titles]}
+              </h1>
+              <p className="text-muted-foreground mb-8">
+                {prefill
+                  ? "Pre-filled from the original pool. Edit any values before creating."
+                  : "Fill in the details to create your savings group"}
+              </p>
 
-            {type === "rotational" && <RotationalForm prefill={prefill} />}
-            {type === "target" && <TargetForm prefill={prefill} />}
-            {type === "flexible" && <FlexibleForm prefill={prefill} />}
-          </Card>
-        </div>
-      </main>
-    </div>
+              {type === "rotational" && <RotationalForm prefill={prefill} />}
+              {type === "target" && <TargetForm prefill={prefill} />}
+              {type === "flexible" && <FlexibleForm prefill={prefill} />}
+            </Card>
+          </div>
+        </main>
+      </div>
     </ErrorBoundary>
   )
 }

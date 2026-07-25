@@ -33,13 +33,13 @@ beforeEach(() => {
     if (shouldInsertFail) {
       return new Response(JSON.stringify({ error: { message: "DB insert failed" } }), {
         status: 400,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       })
     }
 
     return new Response(JSON.stringify([{ id: "mock-id" }]), {
       status: 201,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
     })
   }) as typeof globalThis.fetch
 })
@@ -62,7 +62,6 @@ function createRequest(body: unknown, headers?: Record<string, string>): Request
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-
 
 test("POST /api/errors — returns 400 when message is missing", async () => {
   const req = createRequest({ stack: "some stack" })
@@ -100,7 +99,7 @@ test("POST /api/errors — returns 201 on valid payload", async () => {
   assert.strictEqual(inserted.status, "failed")
   assert.ok(
     (inserted.error_message as string).includes("Test component crashed"),
-    "error_message should contain the original message",
+    "error_message should contain the original message"
   )
 })
 
@@ -131,10 +130,7 @@ test("POST /api/errors — returns 500 when Supabase insert fails", async () => 
 test("POST /api/errors — rate-limits after 5 requests from same IP", async () => {
   // Send 5 requests (should all succeed)
   for (let i = 0; i < 5; i++) {
-    const req = createRequest(
-      { message: `Error ${i}` },
-      { "x-forwarded-for": "192.168.1.100" },
-    )
+    const req = createRequest({ message: `Error ${i}` }, { "x-forwarded-for": "192.168.1.100" })
     const res = await POST(req as unknown as Parameters<typeof POST>[0])
     assert.strictEqual(res.status, 201, `Request ${i + 1} should succeed`)
   }
@@ -142,7 +138,7 @@ test("POST /api/errors — rate-limits after 5 requests from same IP", async () 
   // 6th request should be rate-limited
   const req = createRequest(
     { message: "Error 6 — should be blocked" },
-    { "x-forwarded-for": "192.168.1.100" },
+    { "x-forwarded-for": "192.168.1.100" }
   )
   const res = await POST(req as unknown as Parameters<typeof POST>[0])
   assert.strictEqual(res.status, 429)
