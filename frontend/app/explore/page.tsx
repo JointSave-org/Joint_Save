@@ -23,10 +23,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Users, TrendingUp, Calendar, Loader2, Send, AlertCircle } from "lucide-react"
+import { Search, Users, TrendingUp, Calendar, Loader2, Send, AlertCircle, Heart } from "lucide-react"
 import { motion } from "framer-motion"
 import { useStellar } from "@/components/web3-provider"
-import { fetchFactoryPools } from "@/hooks/useJointSaveContracts"
+import { fetchFactoryPools, fetchReputation } from "@/hooks/useJointSaveContracts"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
@@ -47,6 +60,13 @@ interface Pool {
   contribution_amount: number | null
   frequency: string | null
   created_at: string
+}
+
+interface Recommendation {
+  pool_id: string
+  score: number
+  reasons: string[]
+  pool?: { health_score: number }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -205,6 +225,105 @@ function PoolCard({
   )
 }
 
+function RecommendedPoolCard({
+  pool,
+  reasons,
+  healthScore,
+  onRequestJoin,
+  isJoining,
+}: {
+  pool: Pool
+  reasons: string[]
+  healthScore?: number
+  onRequestJoin: (poolId: string) => void
+  isJoining: boolean
+}) {
+  const typeLabel = pool.type.charAt(0).toUpperCase() + pool.type.slice(1)
+
+  return (
+    <Card className="p-6 h-full flex flex-col hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-card to-secondary/20 border-primary/20">
+      <div className="flex items-start justify-between mb-4">
+        <div className="min-w-0 pr-2">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-lg font-semibold truncate">{pool.name}</h3>
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button aria-label="Why this pool?" className="text-muted-foreground hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full shrink-0">
+                    <AlertCircle className="h-4 w-4 text-indigo-500" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="space-y-1 max-w-[200px]">
+                    <p className="font-semibold text-sm">Why this pool?</p>
+                    <ul className="text-xs list-disc pl-4 text-muted-foreground">
+                      {reasons.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <Badge variant="secondary" className="mr-2">{typeLabel}</Badge>
+        </div>
+      </div>
+
+      <div className="space-y-3 mb-4 flex-1">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Members
+          </span>
+          <span className="font-medium">{pool.members_count}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Contribution
+          </span>
+          <span className="font-medium">{pool.contribution_amount?.toFixed(2) ?? "0.00"} XLM</span>
+        </div>
+        {healthScore !== undefined && healthScore > 0 && (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground flex items-center gap-2">
+              <Heart className="h-4 w-4 text-rose-500" />
+              Health Score
+            </span>
+            <span className="font-medium text-emerald-500">{healthScore}%</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button
+          variant="default"
+          size="sm"
+          className="flex-1"
+          onClick={(event) => {
+            event.stopPropagation()
+            onRequestJoin(pool.id)
+          }}
+          disabled={isJoining || pool.status !== "active"}
+        >
+          {isJoining ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4 mr-1" />
+          )}
+          Join
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/dashboard/group/${pool.id}`} onClick={(event) => event.stopPropagation()}>
+            View
+          </Link>
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
 // ── Explore Page ──────────────────────────────────────────────────────────────
 
 function ExploreContent() {
@@ -220,6 +339,9 @@ function ExploreContent() {
   const [error, setError] = useState("")
   const [joining, setJoining] = useState<string | null>(null)
   const [focusedPoolIndex, setFocusedPoolIndex] = useState(0)
+
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [hasReputation, setHasReputation] = useState(false)
 
   // Filter state is derived from the URL so it survives refresh and can be shared.
   const search = searchParams.get("search") || ""
@@ -257,6 +379,34 @@ function ExploreContent() {
       setSearch(debouncedSearchInput)
     }
   }, [debouncedSearchInput, search, setSearch])
+
+  // Fetch reputation and recommendations
+  useEffect(() => {
+    async function loadRecommendations() {
+      if (!address) {
+        setHasReputation(false)
+        setRecommendations([])
+        return
+      }
+      try {
+        const rep = await fetchReputation(address)
+        if (rep.totalDeposits > 0n || rep.poolsCompleted > 0) {
+          setHasReputation(true)
+          const res = await fetch(`/api/recommendations?wallet=${address}`)
+          if (res.ok) {
+            const data = await res.json()
+            setRecommendations(data.pools || [])
+          }
+        } else {
+          setHasReputation(false)
+          setRecommendations([])
+        }
+      } catch (err) {
+        console.error("Failed to load recommendations:", err)
+      }
+    }
+    loadRecommendations()
+  }, [address])
 
   // Fetch pools from DB + factory
   useEffect(() => {
@@ -441,6 +591,50 @@ function ExploreContent() {
             Discover savings pools on Stellar, filter by type, and request to join.
           </p>
         </motion.div>
+
+        {/* Recommended for You Section */}
+        {hasReputation && recommendations.length > 0 && pools.length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-12" 
+            aria-label="Recommended for You"
+          >
+            <h2 className="text-2xl font-bold mb-6">Recommended for You</h2>
+            <div className="relative max-w-full">
+              <Carousel
+                opts={{
+                  align: "start",
+                  loop: false,
+                }}
+                className="w-full"
+              >
+                <CarouselContent className="-ml-4">
+                  {recommendations.map((rec) => {
+                    const pool = pools.find(p => p.id === rec.pool_id)
+                    if (!pool) return null
+                    
+                    return (
+                      <CarouselItem key={rec.pool_id} className="pl-4 md:basis-1/2 lg:basis-1/3">
+                        <RecommendedPoolCard
+                          pool={pool}
+                          reasons={rec.reasons}
+                          healthScore={rec.pool?.health_score}
+                          onRequestJoin={handleRequestJoin}
+                          isJoining={joining === pool.id}
+                        />
+                      </CarouselItem>
+                    )
+                  })}
+                </CarouselContent>
+                <div className="hidden sm:block">
+                  <CarouselPrevious className="-left-4" />
+                  <CarouselNext className="-right-4" />
+                </div>
+              </Carousel>
+            </div>
+          </motion.div>
+        )}
 
         {/* Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-8">
