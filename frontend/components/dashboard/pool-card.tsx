@@ -17,7 +17,7 @@ import {
 import { usePoolHealth } from "@/hooks/usePoolHealth"
 import { PoolHealthBadge } from "@/components/dashboard/pool-health-badge"
 import { PoolSparkline } from "@/components/dashboard/pool-sparkline"
-import { isContractVersionUnknown } from "@/hooks/useJointSaveContracts"
+import { isContractVersionUnknown } from "@/lib/contract-version"
 import { KNOWN_CONTRACT_VERSIONS } from "@/lib/constants"
 
 export interface Pool {

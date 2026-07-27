@@ -138,6 +138,4 @@ export const KNOWN_CONTRACT_VERSIONS = {
   target: 1,
   flexible: 1,
   factory: 1,
-  reputation: 1,
-  yieldStrategy: 1,
 } as const

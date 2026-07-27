@@ -1190,3 +1190,112 @@ fn test_bump_state() {
         assert!(members_ttl >= 2592000);
     });
 }
+
+#[test]
+fn test_migrate_succeeds_to_next_version() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    assert_eq!(client.get_version(), 1);
+    client.migrate(&admin, &2);
+    // VERSION const is still 1 so get_version returns 1,
+    // but the migrate call succeeded without panicking.
+}
+
+#[test]
+fn test_migrate_idempotent_at_current_version() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    // Migrating to the current version (1) should be a safe no-op
+    client.migrate(&admin, &1);
+    assert_eq!(client.get_version(), 1);
+}
+
+#[test]
+#[should_panic(expected = "version must be incremented by exactly 1")]
+fn test_migrate_rejects_version_skip() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    // Skipping from v1 to v3 must be rejected
+    client.migrate(&admin, &3);
+}

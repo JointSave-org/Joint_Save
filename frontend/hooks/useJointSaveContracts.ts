@@ -22,6 +22,8 @@ import {
   type PendingTransactionType,
 } from "@/lib/pending-transactions"
 import { TX_TIMEOUT } from "@/lib/constants"
+import { isContractVersionUnknown } from "@/lib/contract-version"
+export { isContractVersionUnknown }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -116,6 +118,11 @@ export const NATIVE_TOKEN_METADATA: TokenMetadata = {
   symbol: "XLM",
   decimals: 7,
 }
+
+// ── Contract version cache ──────────────────────────────────────────────────
+// Module-level cache for contract versions to avoid redundant RPC calls when
+// loading many pool cards. Cleared on full page reload (module re-evaluation).
+const contractVersionCache = new Map<string, number | null>()
 
 export interface TokenMetadata {
   name: string
@@ -1240,24 +1247,16 @@ export async function fetchPoolAdmin(contractId: string): Promise<string | null>
 }
 
 export async function fetchContractVersion(contractId: string): Promise<number | null> {
+  const cached = contractVersionCache.get(contractId)
+  if (cached !== undefined) return cached
   try {
     const val = await viewCall(contractId, "get_version")
-    return val.switch().name === "scvU32" ? val.u32() : null
+    const version = val.switch().name === "scvU32" ? val.u32() : null
+    contractVersionCache.set(contractId, version)
+    return version
   } catch {
     return null
   }
-}
-
-/**
- * Check if a contract version is newer than the frontend's known version.
- * Returns true if the contract is running a version the frontend doesn't know about.
- */
-export function isContractVersionUnknown(
-  contractVersion: number | null,
-  knownVersion: number
-): boolean {
-  if (contractVersion === null) return false
-  return contractVersion > knownVersion
 }
 
 // ── Admin hooks ───────────────────────────────────────────────────────────────

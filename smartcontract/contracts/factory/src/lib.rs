@@ -177,12 +177,17 @@ impl JointSaveFactory {
 
     /// Migrate this factory to a new version. Admin-only.
     /// Currently at v1, this is a no-op placeholder for future migration logic.
+    /// Running migrate() with `to_version` equal to the current version is a
+    /// safe no-op (idempotent).
     pub fn migrate(env: Env, admin: Address, to_version: u32) {
         admin.require_auth();
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
 
+        if to_version == VERSION {
+            return;
+        }
         assert!(
             to_version == VERSION + 1,
             "version must be incremented by exactly 1"

@@ -28,9 +28,9 @@ migrate(admin: Address, to_version: u32)
 - No version skipping allowed
 
 **Properties:**
-- Idempotent — running `migrate(2)` twice is safe
+- Idempotent — running `migrate(current_version)` is a safe no-op
 - Admin-only — unauthorized callers are rejected
-- Event-emitting — emits `migrated` event on success
+- Event-emitting — emits `migrated` event on successful upgrade
 
 ### Migration Lineage
 

@@ -30,13 +30,41 @@ import {
   useBumpPoolState,
   ledgerToEstimatedDate,
   getRpc,
-  isContractVersionUnknown,
 } from "@/hooks/useJointSaveContracts"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import { KNOWN_CONTRACT_VERSIONS } from "@/lib/constants"
+import { isContractVersionUnknown } from "@/lib/contract-version"
 import { useToast } from "@/hooks/use-toast"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import { GroupMuteNotificationsToggle } from "@/components/group/GroupMuteNotificationsToggle"
+
+function VersionWarning({
+  onchainState,
+  poolType,
+}: {
+  onchainState: RotationalPoolState | TargetPoolState | FlexiblePoolState
+  poolType: string
+}) {
+  if (!(poolType in KNOWN_CONTRACT_VERSIONS)) return null
+  const cv = (onchainState as { contractVersion?: number | null }).contractVersion
+  if (
+    isContractVersionUnknown(
+      cv ?? null,
+      KNOWN_CONTRACT_VERSIONS[poolType as keyof typeof KNOWN_CONTRACT_VERSIONS]
+    )
+  ) {
+    return (
+      <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 mb-4 text-sm font-medium">
+        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+        <span>
+          ⚠️ Contract v{cv} — This pool may run a newer version than expected. Some features may
+          not be supported.
+        </span>
+      </div>
+    )
+  }
+  return null
+}
 
 interface GroupData {
   id: string
@@ -561,29 +589,9 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
           </div>
         )}
 
-        {!isPending(group.contract_address) &&
-          onchainState &&
-          group.type in KNOWN_CONTRACT_VERSIONS &&
-          (() => {
-            const cv = (onchainState as { contractVersion?: number | null }).contractVersion
-            if (
-              isContractVersionUnknown(
-                cv ?? null,
-                KNOWN_CONTRACT_VERSIONS[group.type as keyof typeof KNOWN_CONTRACT_VERSIONS]
-              )
-            ) {
-              return (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 mb-4 text-sm font-medium">
-                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                  <span>
-                    ⚠️ Contract v{cv} — This pool may run a newer version than expected. Some
-                    features may not be supported.
-                  </span>
-                </div>
-              )
-            }
-            return null
-          })()}
+        {!isPending(group.contract_address) && onchainState && (
+          <VersionWarning onchainState={onchainState} poolType={group.type} />
+        )}
 
         {!isPending(group.contract_address) && (
           <div className="mb-4 p-2 rounded bg-muted/30 flex items-center justify-between gap-2">

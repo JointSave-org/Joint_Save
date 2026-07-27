@@ -333,8 +333,8 @@ impl TargetPool {
     }
 
     /// Migrate this contract to a new version. Admin-only.
-    /// Version must be incremented by exactly 1. Safe to run multiple times
-    /// at the same target version (idempotent).
+    /// Version must be incremented by exactly 1. Running migrate() with
+    /// `to_version` equal to the current version is a safe no-op (idempotent).
     pub fn migrate(env: Env, admin: Address, to_version: u32) {
         admin.require_auth();
         let storage = env.storage().persistent();
@@ -342,6 +342,9 @@ impl TargetPool {
         assert!(admin == stored_admin, "not admin");
 
         let current = VERSION;
+        if to_version == current {
+            return;
+        }
         assert!(
             to_version == current + 1,
             "version must be incremented by exactly 1"

@@ -582,7 +582,38 @@ fn test_bump_state() {
     });
 }
 
-// ── Mock strategy ─────────────────────────────────────────────────────────────
+#[test]
+fn test_migrate_succeeds_to_next_version() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _token, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
+
+    assert_eq!(client.get_version(), 1);
+    client.migrate(&admin, &2);
+}
+
+#[test]
+fn test_migrate_idempotent_at_current_version() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _token, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
+
+    client.migrate(&admin, &1);
+    assert_eq!(client.get_version(), 1);
+}
+
+#[test]
+#[should_panic(expected = "version must be incremented by exactly 1")]
+fn test_migrate_rejects_version_skip() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _token, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
+
+    client.migrate(&admin, &3);
+} ─────────────────────────────────────────────────────────────
 
 mod mock_strategy {
     use soroban_sdk::{contract, contractimpl, Env};
