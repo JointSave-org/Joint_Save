@@ -2,8 +2,17 @@ import { supabase } from "@/lib/supabase"
 import { NextRequest, NextResponse } from "next/server"
 import { readLimiter } from "@/lib/rate-limit"
 
+interface RecommendationResponse {
+  pools: {
+    pool_id: string
+    score: number
+    reasons: string[]
+    pool?: { health_score: number }
+  }[]
+}
+
 interface CacheEntry {
-  data: any
+  data: RecommendationResponse
   timestamp: number
 }
 const cache = new Map<string, CacheEntry>()
@@ -168,7 +177,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(responseData)
   } catch (error) {
-    console.error("Recommendations error:", error)
+    // Return standard error payload
     return NextResponse.json({ error: "Failed to generate recommendations" }, { status: 500 })
   }
 }

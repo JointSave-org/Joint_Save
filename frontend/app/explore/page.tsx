@@ -402,7 +402,7 @@ function ExploreContent() {
           setRecommendations([])
         }
       } catch (err) {
-        console.error("Failed to load recommendations:", err)
+        // Handle silently
       }
     }
     loadRecommendations()
