@@ -1,4 +1,7 @@
-use soroban_sdk::{testutils::{Address as _, storage::Persistent}, Address, Env};
+use soroban_sdk::{
+    testutils::{storage::Persistent, Address as _},
+    Address, Env,
+};
 
 use crate::{ReputationScore, ReputationTracker, ReputationTrackerClient};
 
@@ -117,14 +120,22 @@ fn test_bump_state() {
         let ttl_members = env.storage().persistent().get_ttl(&crate::DataKey::Members);
         assert!(ttl_members >= 2592000);
 
-        let ttl_score = env.storage().persistent().get_ttl(&crate::DataKey::Score(member.clone()));
+        let ttl_score = env
+            .storage()
+            .persistent()
+            .get_ttl(&crate::DataKey::Score(member.clone()));
         assert!(ttl_score >= 2592000);
 
-        let ttl_deposits = env.storage().persistent().get_ttl(&crate::DataKey::DepositsMade(member.clone()));
+        let ttl_deposits = env
+            .storage()
+            .persistent()
+            .get_ttl(&crate::DataKey::DepositsMade(member.clone()));
         assert!(ttl_deposits >= 2592000);
 
-        let ttl_rounds = env.storage().persistent().get_ttl(&crate::DataKey::RoundsTracked(member.clone()));
+        let ttl_rounds = env
+            .storage()
+            .persistent()
+            .get_ttl(&crate::DataKey::RoundsTracked(member.clone()));
         assert!(ttl_rounds >= 2592000);
     });
 }
-

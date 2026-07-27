@@ -126,6 +126,20 @@ export const MAX_DESCRIPTION_LENGTH = 300 as const
  */
 export const MAX_DEADLINE_DAYS = 3650 as const
 
+// ── Contract Versioning ─────────────────────────────────────────────────────
+
+/**
+ * Latest known contract versions. The frontend uses these to detect
+ * when a pool contract is running a newer version than expected.
+ * If `contract_version > known_version`, a warning banner is displayed.
+ */
+export const KNOWN_CONTRACT_VERSIONS = {
+  rotational: 1,
+  target: 1,
+  flexible: 1,
+  factory: 1,
+} as const
+
 // ── Chat ──────────────────────────────────────────────────────────────────────
 
 /**

@@ -12,18 +12,13 @@ pub fn add_liquidity(
     _to: &Address,
 ) -> i128 {
     // Transfer tokens from this contract to the router
-    token::Client::new(env, token_a)
-        .transfer(&env.current_contract_address(), router, &amount_a);
+    token::Client::new(env, token_a).transfer(&env.current_contract_address(), router, &amount_a);
 
     // Notify the router to record the deposit
     let _: () = env.invoke_contract(
         router,
         &symbol_short!("add_liq"),
-        soroban_sdk::vec![
-            env,
-            token_a.into_val(env),
-            amount_a.into_val(env),
-        ],
+        soroban_sdk::vec![env, token_a.into_val(env), amount_a.into_val(env),],
     );
     amount_a
 }
@@ -62,10 +57,6 @@ pub fn get_position_value(
     env.invoke_contract(
         router,
         &symbol_short!("get_pos"),
-        soroban_sdk::vec![
-            env,
-            token_a.into_val(env),
-            account.into_val(env),
-        ],
+        soroban_sdk::vec![env, token_a.into_val(env), account.into_val(env),],
     )
 }
