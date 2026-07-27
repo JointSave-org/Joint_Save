@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     // Fetch user's past pool memberships
     const { data: pastMemberships, error: memErr } = await supabase
       .from("pool_members")
-      .select('pool_id, contribution_amount, pools!inner(type, status)')
+      .select("pool_id, contribution_amount, pools!inner(type, status)")
       .eq("member_address", wallet)
 
     if (memErr) throw memErr
@@ -66,15 +66,15 @@ export async function GET(req: NextRequest) {
     // Fetch past co-members
     const pastCoMembers = new Set<string>()
     if (pastPoolIds.size > 0) {
-       const { data: coMembers } = await supabase
+      const { data: coMembers } = await supabase
         .from("pool_members")
         .select("member_address")
         .in("pool_id", Array.from(pastPoolIds))
         .neq("member_address", wallet)
 
-       if (coMembers) {
-         coMembers.forEach(m => pastCoMembers.add(m.member_address.toLowerCase()))
-       }
+      if (coMembers) {
+        coMembers.forEach((m) => pastCoMembers.add(m.member_address.toLowerCase()))
+      }
     }
 
     // Fetch all active pools we can recommend
@@ -82,96 +82,99 @@ export async function GET(req: NextRequest) {
       .from("pools")
       .select("id, type, contribution_amount, created_at, pool_members(member_address)")
       .eq("status", "active")
-      
+
     if (poolsErr) throw poolsErr
-    
+
     // Fetch pool health scores for active pools
-    const activePoolIds = pools?.map(p => p.id) || []
+    const activePoolIds = pools?.map((p) => p.id) || []
     const healthMap = new Map<string, number>()
-    
+
     if (activePoolIds.length > 0) {
       const { data: healthData } = await supabase
         .from("pool_health_scores")
         .select("pool_id, health_score")
         .in("pool_id", activePoolIds)
-        
+
       if (healthData) {
-        healthData.forEach(h => healthMap.set(h.pool_id, h.health_score))
+        healthData.forEach((h) => healthMap.set(h.pool_id, h.health_score))
       }
     }
 
     // Score pools
     const scoredPools = []
     const now = new Date().getTime()
-    
-    for (const pool of (pools || [])) {
-       if (pastPoolIds.has(pool.id)) continue // Skip pools user is already in
 
-       let score = 0
-       const reasons = []
+    for (const pool of pools || []) {
+      if (pastPoolIds.has(pool.id)) continue // Skip pools user is already in
 
-       // Type affinity
-       if (completedTypes.has(pool.type)) {
-         score += 20
-         reasons.push("Matches types of pools you've completed")
-       }
+      let score = 0
+      const reasons = []
 
-       // Health score match
-       const healthScore = healthMap.get(pool.id) || 0
-       if (healthScore > 70) {
-         score += 15
-         reasons.push("High pool health score")
-       }
+      // Type affinity
+      if (completedTypes.has(pool.type)) {
+        score += 20
+        reasons.push("Matches types of pools you've completed")
+      }
 
-       // Deposit compatibility
-       if (pool.contribution_amount !== null && avgDeposit > 0) {
-          if (pool.contribution_amount >= avgDeposit * 0.5 && pool.contribution_amount <= avgDeposit * 2.0) {
-            score += 10
-            reasons.push("Matches your usual contribution amounts")
+      // Health score match
+      const healthScore = healthMap.get(pool.id) || 0
+      if (healthScore > 70) {
+        score += 15
+        reasons.push("High pool health score")
+      }
+
+      // Deposit compatibility
+      if (pool.contribution_amount !== null && avgDeposit > 0) {
+        if (
+          pool.contribution_amount >= avgDeposit * 0.5 &&
+          pool.contribution_amount <= avgDeposit * 2.0
+        ) {
+          score += 10
+          reasons.push("Matches your usual contribution amounts")
+        }
+      }
+
+      // Member overlap
+      let overlapFound = false
+      if (pool.pool_members) {
+        for (const pm of pool.pool_members) {
+          if (pastCoMembers.has(pm.member_address.toLowerCase())) {
+            overlapFound = true
+            break
           }
-       }
+        }
+      }
+      if (overlapFound) {
+        score += 5
+        reasons.push("Has members you've pooled with before")
+      }
 
-       // Member overlap
-       let overlapFound = false
-       if (pool.pool_members) {
-         for (const pm of pool.pool_members) {
-            if (pastCoMembers.has(pm.member_address.toLowerCase())) {
-              overlapFound = true
-              break
-            }
-         }
-       }
-       if (overlapFound) {
-         score += 5
-         reasons.push("Has members you've pooled with before")
-       }
+      // Recency
+      const createdAt = new Date(pool.created_at).getTime()
+      const ageDays = (now - createdAt) / (1000 * 60 * 60 * 24)
+      if (ageDays <= 7) {
+        score += 5
+        reasons.push("Recently created")
+      }
 
-       // Recency
-       const createdAt = new Date(pool.created_at).getTime()
-       const ageDays = (now - createdAt) / (1000 * 60 * 60 * 24)
-       if (ageDays <= 7) {
-         score += 5
-         reasons.push("Recently created")
-       }
-
-       if (score > 0) {
-         scoredPools.push({
-           pool_id: pool.id,
-           score,
-           reasons,
-           pool: {
-             ...pool,
-             health_score: healthScore
-           }
-         })
-       }
+      if (score > 0) {
+        scoredPools.push({
+          pool_id: pool.id,
+          score,
+          reasons,
+          pool: {
+            ...pool,
+            health_score: healthScore,
+          },
+        })
+      }
     }
 
     scoredPools.sort((a, b) => b.score - a.score)
     const top5 = scoredPools.slice(0, 5)
 
     const responseData = { pools: top5 }
-    
+
     // Set cache
     cache.set(wallet, { data: responseData, timestamp: Date.now() })
 

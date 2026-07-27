@@ -23,16 +23,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Users, TrendingUp, Calendar, Loader2, Send, AlertCircle, Heart } from "lucide-react"
+import {
+  Search,
+  Users,
+  TrendingUp,
+  Calendar,
+  Loader2,
+  Send,
+  AlertCircle,
+  Heart,
+} from "lucide-react"
 import { motion } from "framer-motion"
 import { useStellar } from "@/components/web3-provider"
 import { fetchFactoryPools, fetchReputation } from "@/hooks/useJointSaveContracts"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   Carousel,
   CarouselContent,
@@ -249,7 +253,10 @@ function RecommendedPoolCard({
             <TooltipProvider delayDuration={100}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button aria-label="Why this pool?" className="text-muted-foreground hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full shrink-0">
+                  <button
+                    aria-label="Why this pool?"
+                    className="text-muted-foreground hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full shrink-0"
+                  >
                     <AlertCircle className="h-4 w-4 text-indigo-500" />
                   </button>
                 </TooltipTrigger>
@@ -266,7 +273,9 @@ function RecommendedPoolCard({
               </Tooltip>
             </TooltipProvider>
           </div>
-          <Badge variant="secondary" className="mr-2">{typeLabel}</Badge>
+          <Badge variant="secondary" className="mr-2">
+            {typeLabel}
+          </Badge>
         </div>
       </div>
 
@@ -594,10 +603,10 @@ function ExploreContent() {
 
         {/* Recommended for You Section */}
         {hasReputation && recommendations.length > 0 && pools.length > 0 && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mb-12" 
+            className="mb-12"
             aria-label="Recommended for You"
           >
             <h2 className="text-2xl font-bold mb-6">Recommended for You</h2>
@@ -611,9 +620,9 @@ function ExploreContent() {
               >
                 <CarouselContent className="-ml-4">
                   {recommendations.map((rec) => {
-                    const pool = pools.find(p => p.id === rec.pool_id)
+                    const pool = pools.find((p) => p.id === rec.pool_id)
                     if (!pool) return null
-                    
+
                     return (
                       <CarouselItem key={rec.pool_id} className="pl-4 md:basis-1/2 lg:basis-1/3">
                         <RecommendedPoolCard
