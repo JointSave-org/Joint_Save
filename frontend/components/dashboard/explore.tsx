@@ -45,7 +45,6 @@ export function Explore() {
 
   useEffect(() => {
     loadPools(page)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page])
 
   const loadPools = async (currentPage: number) => {
