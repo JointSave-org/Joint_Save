@@ -401,7 +401,7 @@ function ExploreContent() {
           setHasReputation(false)
           setRecommendations([])
         }
-      } catch (err) {
+      } catch (_err) {
         // Handle silently
       }
     }
