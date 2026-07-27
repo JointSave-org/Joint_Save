@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use super::{JointSaveFactory, JointSaveFactoryClient};
-use soroban_sdk::{testutils::Address as _, Address, Env, BytesN};
 use soroban_sdk::testutils::storage::Persistent;
+use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
 
 #[test]
 fn test_initialize() {
@@ -162,5 +162,55 @@ fn test_bump_state() {
     });
 }
 
+#[test]
+fn test_migrate_succeeds_to_next_version() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, JointSaveFactory);
+    let client = JointSaveFactoryClient::new(&env, &contract_id);
 
+    let admin = Address::generate(&env);
+    let token = Address::generate(&env);
+    let treasury = Address::generate(&env);
 
+    env.mock_all_auths();
+    client.initialize(&admin, &token, &treasury);
+
+    assert_eq!(client.get_version(), 1);
+    client.migrate(&admin, &2);
+}
+
+#[test]
+fn test_migrate_idempotent_at_current_version() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, JointSaveFactory);
+    let client = JointSaveFactoryClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let token = Address::generate(&env);
+    let treasury = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &token, &treasury);
+
+    // Migrating to the current version (1) should be a safe no-op
+    client.migrate(&admin, &1);
+    assert_eq!(client.get_version(), 1);
+}
+
+#[test]
+#[should_panic(expected = "version must be incremented by exactly 1")]
+fn test_migrate_rejects_version_skip() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, JointSaveFactory);
+    let client = JointSaveFactoryClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let token = Address::generate(&env);
+    let treasury = Address::generate(&env);
+
+    env.mock_all_auths();
+    client.initialize(&admin, &token, &treasury);
+
+    // Skipping from v1 to v3 must be rejected
+    client.migrate(&admin, &3);
+}

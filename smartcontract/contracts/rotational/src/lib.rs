@@ -8,6 +8,8 @@ use soroban_sdk::xdr::{FromXdr};
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
+const VERSION: u32 = 1;
+
 #[contracttype]
 pub enum DataKey {
     Token,
@@ -37,6 +39,7 @@ pub enum Action {
     Unpause,
     EmergencyWithdraw(Address),
     RemoveMember(Address),
+    MigratedFrom,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -62,7 +65,10 @@ impl RotationalPool {
         treasury: Address,
     ) {
         assert!(members.len() >= 2, "need >=2 members");
-        assert!(!Self::has_duplicate_members(&members), "duplicate member address");
+        assert!(
+            !Self::has_duplicate_members(&members),
+            "duplicate member address"
+        );
         assert!(deposit_amount > 0, "deposit must be > 0");
         assert!(round_duration > 0, "round_duration must be > 0");
 
@@ -292,7 +298,10 @@ impl RotationalPool {
 
         let current_round: u32 = storage.get(&DataKey::CurrentRound).unwrap_or(0);
         let beneficiary = members.get(current_round).unwrap();
-        assert!(member != beneficiary, "current beneficiary cannot leave mid-round");
+        assert!(
+            member != beneficiary,
+            "current beneficiary cannot leave mid-round"
+        );
 
         Self::remove_member_internal(&env, &member);
     }
@@ -329,7 +338,8 @@ impl RotationalPool {
                 .publish((symbol_short!("complete"),), Symbol::new(env, "pool_done"));
         }
         storage.remove(&DataKey::HasDeposited(member.clone()));
-        env.events().publish((symbol_short!("rem_mem"), member.clone()), ());
+        env.events()
+            .publish((symbol_short!("rem_mem"), member.clone()), ());
         Self::bump_config_state_internal(env);
     }
 
@@ -457,6 +467,29 @@ impl RotationalPool {
         Self::bump_config_state_internal(env);
     }
 
+    /// Migrate this contract to a new version. Admin-only.
+    /// Version must be incremented by exactly 1. Running migrate() with
+    /// `to_version` equal to the current version is a safe no-op (idempotent).
+    pub fn migrate(env: Env, admin: Address, to_version: u32) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let current = VERSION;
+        if to_version == current {
+            return;
+        }
+        assert!(
+            to_version == current + 1,
+            "version must be incremented by exactly 1"
+        );
+
+        // Future migration logic goes here
+        env.events()
+            .publish((symbol_short!("migrated"), admin), to_version);
+    }
+
     /// Point this pool at a deployed ReputationTracker contract so deposits,
     /// payouts, and missed rounds are reported for the on-chain reputation
     /// system. Restricted to pool members; safe to call more than once.
@@ -505,6 +538,14 @@ impl RotationalPool {
     }
 
     // ── Views ──────────────────────────────────────────────────────────────
+
+    pub fn get_version(_env: Env) -> u32 {
+        VERSION
+    }
+
+    pub fn migrated_from(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::MigratedFrom)
+    }
 
     pub fn reputation_tracker(env: Env) -> Option<Address> {
         env.storage().persistent().get(&DataKey::ReputationTracker)
@@ -665,8 +706,8 @@ impl RotationalPool {
 }
 
 #[cfg(test)]
+mod fuzz_tests;
+#[cfg(test)]
 mod test;
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-mod fuzz_tests;

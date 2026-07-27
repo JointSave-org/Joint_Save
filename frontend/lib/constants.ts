@@ -125,3 +125,31 @@ export const MAX_DESCRIPTION_LENGTH = 300 as const
  * 3650 days ≈ 10 years.
  */
 export const MAX_DEADLINE_DAYS = 3650 as const
+
+// ── Contract Versioning ─────────────────────────────────────────────────────
+
+/**
+ * Latest known contract versions. The frontend uses these to detect
+ * when a pool contract is running a newer version than expected.
+ * If `contract_version > known_version`, a warning banner is displayed.
+ */
+export const KNOWN_CONTRACT_VERSIONS = {
+  rotational: 1,
+  target: 1,
+  flexible: 1,
+  factory: 1,
+} as const
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Maximum character length for a single pool chat message.
+ */
+export const CHAT_MESSAGE_MAX_LENGTH = 500 as const
+
+/**
+ * Minimum time (ms) a sender must wait between consecutive messages.
+ * Enforced both client-side (UX) and server-side (API rate limiter).
+ * 3 seconds matches the requirement in issue #90.
+ */
+export const CHAT_RATE_LIMIT_MS = 3_000 as const

@@ -1,0 +1,8 @@
+[package]
+name = "jointsave-migration"
+version = "0.1.0"
+edition = "2021"
+description = "Shared migration framework for JointSave Soroban contracts"
+
+[dependencies]
+soroban-sdk = "21.0.0"
