@@ -613,7 +613,7 @@ fn test_migrate_rejects_version_skip() {
     let (client, _token, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
 
     client.migrate(&admin, &3);
-} ─────────────────────────────────────────────────────────────
+}
 
 mod mock_strategy {
     use soroban_sdk::{contract, contractimpl, Env};
