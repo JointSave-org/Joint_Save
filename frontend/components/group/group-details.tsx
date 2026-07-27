@@ -57,8 +57,8 @@ function VersionWarning({
       <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 mb-4 text-sm font-medium">
         <AlertTriangle className="h-4 w-4 flex-shrink-0" />
         <span>
-          ⚠️ Contract v{cv} — This pool may run a newer version than expected. Some features may
-          not be supported.
+          ⚠️ Contract v{cv} — This pool may run a newer version than expected. Some features may not
+          be supported.
         </span>
       </div>
     )

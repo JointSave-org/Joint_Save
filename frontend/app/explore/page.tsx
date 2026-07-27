@@ -30,6 +30,7 @@ import { fetchFactoryPools } from "@/hooks/useJointSaveContracts"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -416,7 +417,7 @@ function ExploreContent() {
         toast({
           title: "Error",
           description: err instanceof Error ? err.message : "Something went wrong",
-          variant: "destructive",
+          variant: "error",
         })
       } finally {
         setJoining(null)
@@ -561,7 +562,9 @@ function ExploreFallback() {
 export default function ExplorePage() {
   return (
     <Suspense fallback={<ExploreFallback />}>
-      <ExploreContent />
+      <ErrorBoundary sectionName="Explore Pools">
+        <ExploreContent />
+      </ErrorBoundary>
     </Suspense>
   )
 }
