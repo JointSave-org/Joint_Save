@@ -5,6 +5,8 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { GroupDetails } from "@/components/group/group-details"
 import { GroupMembers } from "@/components/group/group-members"
 import { GroupActivity } from "@/components/group/group-activity"
+import { AdminQuorumManager } from "@/components/group/admin-quorum-manager"
+import { PendingActionsList } from "@/components/group/pending-actions-list"
 import { GroupActions } from "@/components/group/group-actions"
 import { YieldDashboard } from "@/components/group/yield-dashboard"
 import { AdminAuditLog } from "@/components/group/admin-audit-log"
@@ -125,26 +127,20 @@ export default function GroupPage({
             </div>
 
             <div className="space-y-6">
-              <SectionErrorBoundary sectionName="Group Actions" walletAddress={address}>
-                <GroupActions
-                  groupId={id}
-                  poolAddress={pool.contract_address}
-                  poolType={pool.type}
-                  tokenAddress={pool.token_address}
-                  creatorAddress={pool.creator_address}
-                  isPaused={isPaused}
-                  poolAdmin={poolAdmin}
-                  onPauseChange={refreshPoolState}
-                />
-              </SectionErrorBoundary>
-              {pool.type === "flexible" && (
-                <SectionErrorBoundary sectionName="Yield Dashboard" walletAddress={address}>
-                  <YieldDashboard poolAddress={pool.contract_address} />
-                </SectionErrorBoundary>
-              )}
-              <SectionErrorBoundary sectionName="Members List" walletAddress={address}>
-                <GroupMembers groupId={id} contractAddress={cacheKey} poolType={pool.type} />
-              </SectionErrorBoundary>
+              <GroupActions
+                groupId={id}
+                poolAddress={pool.contract_address}
+                poolType={pool.type}
+                tokenAddress={pool.token_address}
+                creatorAddress={pool.creator_address}
+                isPaused={isPaused}
+                poolAdmin={poolAdmin}
+                onPauseChange={refreshPoolState}
+              />
+              <PendingActionsList poolId={id} poolAddress={pool.contract_address} />
+              <AdminQuorumManager poolAddress={pool.contract_address} poolAdmin={poolAdmin} />
+              {pool.type === "flexible" && <YieldDashboard poolAddress={pool.contract_address} />}
+              <GroupMembers groupId={id} contractAddress={cacheKey} poolType={pool.type} />
             </div>
           </div>
         </main>

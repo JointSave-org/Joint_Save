@@ -1261,6 +1261,152 @@ export async function fetchContractVersion(contractId: string): Promise<number |
 
 // ── Admin hooks ───────────────────────────────────────────────────────────────
 
+export function useGetAdminQuorum(contractId: string) {
+  const [data, setData] = useState<string[] | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const fetchData = useCallback(async () => {
+    if (!contractId) return
+    setIsLoading(true)
+    try {
+      const val = await viewCall(contractId, "get_admin_quorum")
+      setData(val.vec()?.map(scValToString) ?? [])
+    } catch (e) {
+      setError(e as Error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [contractId])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  return { data, isLoading, error, refetch: fetchData }
+}
+
+export function useSetAdminQuorum(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const setAdminQuorum = async (newAdmins: string[], threshold: number): Promise<string | undefined> => {
+    if (!kit || !address || !contractId) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(normalizeId(contractId)).call(
+            "set_admin_quorum",
+            addressVal(address),
+            vecVal(newAdmins),
+            u32Val(threshold)
+          )
+        )
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { setAdminQuorum, isLoading }
+}
+
+export function useGetPendingAction(contractId: string, actionHash: string) {
+  const [data, setData] = useState<string[] | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!contractId || !actionHash) return
+      try {
+        const val = await viewCall(contractId, "get_pending_action", nativeToScVal(Buffer.from(actionHash, "hex"), { type: "bytes" }))
+        setData(val.vec()?.map(scValToString) ?? [])
+      } catch (e) {
+        setError(e as Error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchData()
+  }, [contractId, actionHash])
+
+  return { data, isLoading, error }
+}
+
+export function useApproveAction(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const approveAction = async (actionHash: string): Promise<string | undefined> => {
+    if (!kit || !address || !contractId || !actionHash) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(normalizeId(contractId)).call(
+            "approve_action",
+            addressVal(address),
+            nativeToScVal(Buffer.from(actionHash, "hex"), { type: "bytes" })
+          )
+        )
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { approveAction, isLoading }
+}
+
+export function useExecuteAction(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const executeAction = async (actionHash: string, actionData: Uint8Array): Promise<string | undefined> => {
+    if (!kit || !address || !contractId || !actionHash) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(normalizeId(contractId)).call(
+            "execute_approved",
+            nativeToScVal(Buffer.from(actionHash, "hex"), { type: "bytes" }),
+            nativeToScVal(actionData, { type: "bytes" })
+          )
+        )
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx, {
+        address,
+        type: "execute_action",
+        poolId: contractId,
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { executeAction, isLoading }
+}
+
 export function useAddPoolMember(contractId: string) {
   const { kit, address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)

@@ -1,6 +1,7 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Address, Env, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Address, Bytes, Env, Vec};
+use soroban_sdk::xdr::{FromXdr};
 
 const VERSION: u32 = 1;
 
@@ -21,7 +22,19 @@ pub enum DataKey {
     YieldStrategy,
     DeployedToYield,
     TokenDecimals,
-    MigratedFrom,
+    AdminQuorum,
+    AdminQuorumThreshold,
+    PendingApprovals(Bytes),
+    PendingCreated(Bytes),
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub enum Action {
+    Pause,
+    Unpause,
+    EmergencyWithdraw(Address),
+    RemoveMember(Address),
 }
 
 const LEDGER_THRESHOLD: u32 = 518400;
@@ -68,6 +81,8 @@ impl FlexiblePool {
         storage.set(&DataKey::Active, &true);
         storage.set(&DataKey::Paused, &false);
         storage.set(&DataKey::DeployedToYield, &0i128);
+        storage.set(&DataKey::AdminQuorum, &Vec::<Address>::new(&env));
+        storage.set(&DataKey::AdminQuorumThreshold, &0u32);
 
         Self::bump_config_state_internal(&env);
     }
@@ -204,20 +219,29 @@ impl FlexiblePool {
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
+        if !Self::quorum_is_empty(&env) {
+            panic!("use execute_approved");
+        }
+
+        Self::remove_member_internal(&env, &member);
+    }
+
+    fn remove_member_internal(env: &Env, member: &Address) {
+        let storage = env.storage().persistent();
 
         let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
         assert!(!paused, "pool paused");
 
         let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
-        assert!(Self::is_member(&members, &member), "not a member");
+        assert!(Self::is_member(&members, member), "not a member");
         assert!(members.len() > 1, "need >=1 members");
 
         let balance: i128 = storage.get(&DataKey::Balance(member.clone())).unwrap_or(0);
         if balance > 0 {
             let token_addr: Address = storage.get(&DataKey::Token).unwrap();
-            token::Client::new(&env, &token_addr).transfer(
+            token::Client::new(env, &token_addr).transfer(
                 &env.current_contract_address(),
-                &member,
+                member,
                 &balance,
             );
 
@@ -226,19 +250,19 @@ impl FlexiblePool {
             storage.set(&DataKey::Balance(member.clone()), &0i128);
         }
 
-        let mut updated_members: Vec<Address> = Vec::new(&env);
+        let mut updated_members: Vec<Address> = Vec::new(env);
         for existing in members.iter() {
-            if existing != member {
+            if existing != *member {
                 updated_members.push_back(existing);
             }
         }
 
         storage.set(&DataKey::Members, &updated_members);
 
-        Self::bump_config_state_internal(&env);
+        Self::bump_config_state_internal(env);
 
         env.events()
-            .publish((symbol_short!("rem_mem"), member), balance);
+            .publish((symbol_short!("rem_mem"), member.clone()), balance);
     }
 
     pub fn leave_pool(env: Env, member: Address) {
@@ -281,14 +305,79 @@ impl FlexiblePool {
 
     // ── Emergency controls ────────────────────────────────────────────────
 
+    pub fn set_admin_quorum(env: Env, admin: Address, new_admins: Vec<Address>, threshold: u32) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        assert!(storage.get::<_, Address>(&DataKey::Admin).unwrap() == admin, "not admin");
+        assert!(!Self::has_duplicate_members(&new_admins), "duplicate admin");
+        assert!(threshold > 0, "threshold must be > 0");
+        assert!(threshold <= new_admins.len(), "threshold > admins");
+        storage.set(&DataKey::AdminQuorum, &new_admins);
+        storage.set(&DataKey::AdminQuorumThreshold, &threshold);
+        Self::bump_config_state_internal(&env);
+    }
+
+    pub fn approve_action(env: Env, admin: Address, action_hash: Bytes) {
+        admin.require_auth(); let storage = env.storage().persistent();
+        let quorum: Vec<Address> = storage.get(&DataKey::AdminQuorum).unwrap_or(Vec::new(&env));
+        assert!(Self::is_member(&quorum, &admin), "not quorum admin");
+        let mut approvals: Vec<Address> = storage.get(&DataKey::PendingApprovals(action_hash.clone())).unwrap_or(Vec::new(&env));
+        assert!(!Self::is_member(&approvals, &admin), "already approved"); approvals.push_back(admin);
+        storage.set(&DataKey::PendingApprovals(action_hash.clone()), &approvals);
+        if !storage.has(&DataKey::PendingCreated(action_hash.clone())) { storage.set(&DataKey::PendingCreated(action_hash), &env.ledger().timestamp()); }
+    }
+
+    pub fn revoke_approval(env: Env, admin: Address, action_hash: Bytes) {
+        admin.require_auth(); let storage = env.storage().persistent();
+        let quorum: Vec<Address> = storage.get(&DataKey::AdminQuorum).unwrap_or(Vec::new(&env)); assert!(Self::is_member(&quorum, &admin), "not quorum admin");
+        let approvals: Vec<Address> = storage.get(&DataKey::PendingApprovals(action_hash.clone())).unwrap_or(Vec::new(&env)); let mut updated = Vec::new(&env);
+        for item in approvals.iter() { if item != admin { updated.push_back(item); } } storage.set(&DataKey::PendingApprovals(action_hash), &updated);
+    }
+
+    pub fn execute_approved(env: Env, action_hash: Bytes, action_data: Bytes) {
+        let digest = env.crypto().sha256(&action_data);
+        let expected = Bytes::from_slice(&env, &digest.to_array());
+        assert!(expected == action_hash, "action hash mismatch");
+        let storage = env.storage().persistent();
+        let quorum: Vec<Address> = storage.get(&DataKey::AdminQuorum).unwrap_or(Vec::new(&env));
+        assert!(!quorum.is_empty(), "quorum not configured");
+        let created: u64 = storage.get(&DataKey::PendingCreated(action_hash.clone())).unwrap_or(0);
+        assert!(created > 0 && env.ledger().timestamp() <= created + 172800, "approval expired");
+        let approvals: Vec<Address> = storage.get(&DataKey::PendingApprovals(action_hash.clone())).unwrap_or(Vec::new(&env));
+        let threshold: u32 = storage.get(&DataKey::AdminQuorumThreshold).unwrap_or(0);
+        let required_approvals = if threshold > 0 {
+            threshold
+        } else {
+            (quorum.len() + 1) / 2
+        };
+        assert!(approvals.len() >= required_approvals, "quorum not met");
+        let action: Action = Action::from_xdr(&env, &action_data).unwrap();
+        match action {
+            Action::Pause => Self::pause_internal(&env),
+            Action::Unpause => Self::unpause_internal(&env),
+            Action::EmergencyWithdraw(recipient) => Self::emergency_withdraw_internal(&env, &recipient),
+            Action::RemoveMember(member) => Self::remove_member_internal(&env, &member),
+        }
+        storage.remove(&DataKey::PendingApprovals(action_hash.clone()));
+        storage.remove(&DataKey::PendingCreated(action_hash));
+    }
+
     pub fn pause(env: Env, admin: Address) {
         admin.require_auth();
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
+        if !Self::quorum_is_empty(&env) {
+            panic!("use execute_approved");
+        }
+        Self::pause_internal(&env);
+    }
+
+    fn pause_internal(env: &Env) {
+        let storage = env.storage().persistent();
         storage.set(&DataKey::Paused, &true);
 
-        Self::bump_config_state_internal(&env);
+        Self::bump_config_state_internal(env);
 
         env.events().publish((symbol_short!("paused"),), ());
     }
@@ -298,9 +387,17 @@ impl FlexiblePool {
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
+        if !Self::quorum_is_empty(&env) {
+            panic!("use execute_approved");
+        }
+        Self::unpause_internal(&env);
+    }
+
+    fn unpause_internal(env: &Env) {
+        let storage = env.storage().persistent();
         storage.set(&DataKey::Paused, &false);
 
-        Self::bump_config_state_internal(&env);
+        Self::bump_config_state_internal(env);
 
         env.events().publish((symbol_short!("unpaused"),), ());
     }
@@ -310,25 +407,33 @@ impl FlexiblePool {
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
+        if !Self::quorum_is_empty(&env) {
+            panic!("use execute_approved");
+        }
+        Self::emergency_withdraw_internal(&env, &recipient);
+    }
+
+    fn emergency_withdraw_internal(env: &Env, recipient: &Address) {
+        let storage = env.storage().persistent();
 
         let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
         assert!(paused, "pool not paused");
 
         let token_addr: Address = storage.get(&DataKey::Token).unwrap();
-        let token_client = token::Client::new(&env, &token_addr);
+        let token_client = token::Client::new(env, &token_addr);
         let contract_balance = token_client.balance(&env.current_contract_address());
 
         if contract_balance > 0 {
             token_client.transfer(
                 &env.current_contract_address(),
-                &recipient,
+                recipient,
                 &contract_balance,
             );
         }
 
         storage.set(&DataKey::TotalBalance, &0i128);
 
-        Self::bump_config_state_internal(&env);
+        Self::bump_config_state_internal(env);
 
         env.events()
             .publish((symbol_short!("emrg_wd"),), contract_balance);
@@ -478,6 +583,7 @@ impl FlexiblePool {
         storage.extend_ttl(&DataKey::Active, LEDGER_THRESHOLD, LEDGER_BUMP);
         storage.extend_ttl(&DataKey::Paused, LEDGER_THRESHOLD, LEDGER_BUMP);
         storage.extend_ttl(&DataKey::DeployedToYield, LEDGER_THRESHOLD, LEDGER_BUMP);
+        if storage.has(&DataKey::AdminQuorum) { storage.extend_ttl(&DataKey::AdminQuorum, LEDGER_THRESHOLD, LEDGER_BUMP); }
 
         if storage.has(&DataKey::YieldStrategy) {
             storage.extend_ttl(&DataKey::YieldStrategy, LEDGER_THRESHOLD, LEDGER_BUMP);
@@ -488,10 +594,6 @@ impl FlexiblePool {
 
     pub fn get_version(_env: Env) -> u32 {
         VERSION
-    }
-
-    pub fn migrated_from(env: Env) -> Option<Address> {
-        env.storage().persistent().get(&DataKey::MigratedFrom)
     }
 
     pub fn balance_of(env: Env, member: Address) -> i128 {
@@ -507,6 +609,10 @@ impl FlexiblePool {
             .get(&DataKey::TotalBalance)
             .unwrap_or(0)
     }
+
+    pub fn get_admin_quorum(env: Env) -> Vec<Address> { env.storage().persistent().get(&DataKey::AdminQuorum).unwrap_or(Vec::new(&env)) }
+    pub fn get_pending_action(env: Env, action_hash: Bytes) -> Vec<Address> { env.storage().persistent().get(&DataKey::PendingApprovals(action_hash)).unwrap_or(Vec::new(&env)) }
+    pub fn get_approval_count(env: Env, action_hash: Bytes) -> u32 { Self::get_pending_action(env, action_hash).len() }
 
     /// Decimals of the pool's token, recorded at initialize time. Defaults to 7
     /// (native XLM) for pools created before multi-token support.
@@ -563,6 +669,8 @@ impl FlexiblePool {
         }
         false
     }
+
+    fn quorum_is_empty(env: &Env) -> bool { env.storage().persistent().get::<_, Vec<Address>>(&DataKey::AdminQuorum).unwrap_or(Vec::new(env)).is_empty() }
 
     /// O(n^2) pairwise scan — member lists are small, so this is cheaper
     /// than maintaining a separate index just to dedupe at init time.

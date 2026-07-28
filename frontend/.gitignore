@@ -33,4 +33,5 @@ next-env.d.ts
 /blob-report/
 /playwright/.cache/
 .last-run.json
+/test_snapshots/
 /coverage
