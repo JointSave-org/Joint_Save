@@ -4,6 +4,14 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { getRpc } from "./useJointSaveContracts"
 import { rpc } from "@stellar/stellar-sdk"
 
+export interface OptimisticTx {
+  id: string
+  type: string
+  amount: number
+  status: "pending" | "confirmed" | "failed"
+  error?: string
+}
+
 export interface PendingTransaction {
   id: string // unique identifier (txHash or local ID before submission)
   type: "deposit" | "withdraw" | "trigger_payout"
@@ -11,8 +19,8 @@ export interface PendingTransaction {
   userAddress: string
   amount?: bigint // for deposit/withdraw
   timestamp: number
-  txHash?: string // populated after submission
   status: "pending" | "confirmed" | "failed"
+  txHash?: string // populated after submission
   error?: string
 }
 
@@ -133,18 +141,30 @@ class OptimisticTransactionManager {
 // Singleton instance
 const manager = new OptimisticTransactionManager()
 
-/**
- * Hook for managing optimistic transaction UI state.
- *
- * Usage:
- * 1. Before submitting: register pending TX with registerOptimistic()
- * 2. After getting txHash: updateTxHash() to enable polling
- * 3. Hook notifies on confirmation/failure
- * 4. Component reflects optimistic update until confirmed/rolled back
- */
-export function useOptimisticTransactions(poolAddress: string) {
+export function useOptimisticTransactions(poolAddress?: string) {
+  const [transactions, setTransactions] = useState<OptimisticTx[]>([])
   const [optimisticState, setOptimisticState] = useState<OptimisticUpdate>({})
   const txIdRef = useRef<string>("")
+
+  const addTransaction = useCallback((tx: Omit<OptimisticTx, "status">) => {
+    const newTx: OptimisticTx = { ...tx, status: "pending" }
+    setTransactions((prev) => [newTx, ...prev])
+    return newTx.id
+  }, [])
+
+  const markSuccess = useCallback((id: string) => {
+    setTransactions((prev) => prev.filter((tx) => tx.id !== id))
+  }, [])
+
+  const markError = useCallback((id: string, errorMessage: string) => {
+    setTransactions((prev) =>
+      prev.map((tx) => (tx.id === id ? { ...tx, status: "failed", error: errorMessage } : tx))
+    )
+  }, [])
+
+  const rollback = useCallback((id: string) => {
+    setTransactions((prev) => prev.filter((tx) => tx.id !== id))
+  }, [])
 
   const registerOptimistic = useCallback(
     (
@@ -152,11 +172,12 @@ export function useOptimisticTransactions(poolAddress: string) {
       userAddress: string,
       amount?: bigint
     ): PendingTransaction => {
-      const txId = `${poolAddress}-${type}-${Date.now()}-${Math.random()}`
+      const pAddr = poolAddress || "default"
+      const txId = `${pAddr}-${type}-${Date.now()}-${Math.random()}`
       const tx: PendingTransaction = {
         id: txId,
         type,
-        poolAddress,
+        poolAddress: pAddr,
         userAddress,
         amount,
         timestamp: Date.now(),
@@ -213,7 +234,6 @@ export function useOptimisticTransactions(poolAddress: string) {
         pendingTx: tx,
       }))
       if (status === "confirmed" || status === "failed") {
-        // Clear after a delay to let user see the toast
         setTimeout(() => {
           clearOptimistic()
         }, 2000)
@@ -223,6 +243,11 @@ export function useOptimisticTransactions(poolAddress: string) {
   }, [clearOptimistic])
 
   return {
+    transactions,
+    addTransaction,
+    markSuccess,
+    markError,
+    rollback,
     optimisticState,
     registerOptimistic,
     updateTxHash,
