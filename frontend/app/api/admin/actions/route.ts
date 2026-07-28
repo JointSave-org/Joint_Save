@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     if (limited) return limited
 
     const body = await req.json()
-    const { poolId, adminAddress, actionType, targetAddress, metadata, txHash } = body
+    const { poolId, adminAddress, actionType, targetAddress, metadata, txHash, action_hash } = body
 
     if (!poolId || !adminAddress || !actionType) {
       return NextResponse.json(
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
         target_address: targetAddress ? targetAddress.toLowerCase() : null,
         metadata: metadata || {},
         tx_hash: txHash || null,
+        action_hash: action_hash || null,
       })
       .select()
       .single()

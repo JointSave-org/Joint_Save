@@ -1266,29 +1266,31 @@ export function useGetAdminQuorum(contractId: string) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  useEffect(() => {
-    async function fetchData() {
-      if (!contractId) return
-      try {
-        const val = await viewCall(contractId, "get_admin_quorum")
-        setData(val.vec()?.map(scValToString) ?? [])
-      } catch (e) {
-        setError(e as Error)
-      } finally {
-        setIsLoading(false)
-      }
+  const fetchData = useCallback(async () => {
+    if (!contractId) return
+    setIsLoading(true)
+    try {
+      const val = await viewCall(contractId, "get_admin_quorum")
+      setData(val.vec()?.map(scValToString) ?? [])
+    } catch (e) {
+      setError(e as Error)
+    } finally {
+      setIsLoading(false)
     }
-    fetchData()
   }, [contractId])
 
-  return { data, isLoading, error }
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  return { data, isLoading, error, refetch: fetchData }
 }
 
 export function useSetAdminQuorum(contractId: string) {
   const { kit, address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)
 
-  const setAdminQuorum = async (newAdmins: string[]): Promise<string | undefined> => {
+  const setAdminQuorum = async (newAdmins: string[], threshold: number): Promise<string | undefined> => {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
@@ -1301,7 +1303,8 @@ export function useSetAdminQuorum(contractId: string) {
           new Contract(normalizeId(contractId)).call(
             "set_admin_quorum",
             addressVal(address),
-            vecVal(newAdmins)
+            vecVal(newAdmins),
+            u32Val(threshold)
           )
         )
         .setTimeout(TX_TIMEOUT)
@@ -1391,7 +1394,11 @@ export function useExecuteAction(contractId: string) {
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitTx(kit, tx, {
+        address,
+        type: "execute_action",
+        poolId: contractId,
+      })
     } finally {
       setIsLoading(false)
     }

@@ -28,6 +28,7 @@ pub enum DataKey {
     ReputationTracker,
     TokenDecimals,
     AdminQuorum,
+    AdminQuorumThreshold,
     PendingApprovals(Bytes),
     PendingCreated(Bytes),
 }
@@ -94,6 +95,7 @@ impl RotationalPool {
         storage.set(&DataKey::Active, &true);
         storage.set(&DataKey::Paused, &false);
         storage.set(&DataKey::AdminQuorum, &Vec::<Address>::new(&env));
+        storage.set(&DataKey::AdminQuorumThreshold, &0u32);
         Self::bump_config_state_internal(&env);
     }
 
@@ -345,12 +347,15 @@ impl RotationalPool {
 
     // ── Emergency controls ─────────────────────────────────────────────────
 
-    pub fn set_admin_quorum(env: Env, admin: Address, new_admins: Vec<Address>) {
+    pub fn set_admin_quorum(env: Env, admin: Address, new_admins: Vec<Address>, threshold: u32) {
         admin.require_auth();
         let storage = env.storage().persistent();
         assert!(storage.get::<_, Address>(&DataKey::Admin).unwrap() == admin, "not admin");
         assert!(!Self::has_duplicate_members(&new_admins), "duplicate admin");
+        assert!(threshold > 0, "threshold must be > 0");
+        assert!(threshold <= new_admins.len(), "threshold > admins");
         storage.set(&DataKey::AdminQuorum, &new_admins);
+        storage.set(&DataKey::AdminQuorumThreshold, &threshold);
         Self::bump_config_state_internal(&env);
     }
 
@@ -390,7 +395,13 @@ impl RotationalPool {
         let created: u64 = storage.get(&DataKey::PendingCreated(action_hash.clone())).unwrap_or(0);
         assert!(created > 0 && env.ledger().timestamp() <= created + 172800, "approval expired");
         let approvals: Vec<Address> = storage.get(&DataKey::PendingApprovals(action_hash.clone())).unwrap_or(Vec::new(&env));
-        assert!(approvals.len() >= (quorum.len() + 1) / 2, "quorum not met");
+        let threshold: u32 = storage.get(&DataKey::AdminQuorumThreshold).unwrap_or(0);
+        let required_approvals = if threshold > 0 {
+            threshold
+        } else {
+            (quorum.len() + 1) / 2
+        };
+        assert!(approvals.len() >= required_approvals, "quorum not met");
         let action: Action = Action::from_xdr(&env, &action_data).unwrap();
         match action {
             Action::Pause => Self::pause_internal(&env),

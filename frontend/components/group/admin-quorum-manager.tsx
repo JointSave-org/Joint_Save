@@ -1,20 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useStellar } from "@/components/web3-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import {
-  getAdminQuorum,
-  setAdminQuorum,
-  approveAction,
-  getPendingAction,
-  getApprovalCount,
-} from "@/hooks/useJointSaveContracts"
-import { PendingActionCard } from "./pending-action-card"
+import { useGetAdminQuorum, useSetAdminQuorum } from "@/hooks/useJointSaveContracts"
 import { stellarAddress } from "@/utils/stellarAddress"
+import { validateStellarAddress } from "@/lib/form-validation"
 
 interface AdminQuorumManagerProps {
   poolAddress: string
@@ -24,63 +18,45 @@ interface AdminQuorumManagerProps {
 export function AdminQuorumManager({ poolAddress, poolAdmin }: AdminQuorumManagerProps) {
   const { address } = useStellar()
   const { toast } = useToast()
-  const [quorum, setQuorum] = useState<string[]>([])
+  const { data: quorum, isLoading: isQuorumLoading, refetch } = useGetAdminQuorum(poolAddress)
+  const { setAdminQuorum, isLoading: isSetQuorumLoading } = useSetAdminQuorum(poolAddress)
   const [newAdmin, setNewAdmin] = useState("")
-  const [pendingActions, setPendingActions] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [threshold, setThreshold] = useState(0)
 
   const isPoolAdmin = address && poolAdmin && address === poolAdmin
 
-  const fetchQuorum = async () => {
-    if (!poolAddress) return
+  const handleSetQuorum = async (newQuorum: string[]) => {
+    if (!isPoolAdmin) return
+
+    const newThreshold = threshold > 0 ? threshold : Math.ceil(newQuorum.length / 2)
+
     try {
-      const q = await getAdminQuorum(poolAddress)
-      setQuorum(q)
-    } catch (error) {
-      console.error("Error fetching admin quorum:", error)
+      await setAdminQuorum(newQuorum, newThreshold)
+      refetch()
+      toast({ title: "Admin quorum updated" })
+    } catch (_error) {
+      toast({ title: "Error updating quorum", variant: "destructive" })
     }
   }
-
-  const fetchPendingActions = async () => {
-    // This is a placeholder. I will need to implement a way to get all pending actions.
-    // For now, I will just leave it empty.
-    setPendingActions([])
-  }
-
-  useEffect(() => {
-    fetchQuorum()
-    fetchPendingActions()
-  }, [poolAddress])
 
   const handleAddAdmin = async () => {
     if (!newAdmin || !isPoolAdmin) return
-    setIsLoading(true)
-    try {
-      const newQuorum = [...quorum, newAdmin]
-      await setAdminQuorum(poolAddress, address!, newQuorum)
-      setQuorum(newQuorum)
-      setNewAdmin("")
-      toast({ title: "Admin added to quorum" })
-    } catch (error) {
-      console.error("Error adding admin:", error)
-      toast({ title: "Error adding admin", variant: "destructive" })
+
+    const validation = validateStellarAddress(newAdmin.trim().toUpperCase())
+    if (!validation.valid) {
+      toast({ title: "Invalid Stellar Address", description: validation.message, variant: "destructive" })
+      return
     }
-    setIsLoading(false)
+
+    const newQuorum = [...(quorum || []), newAdmin.trim().toUpperCase()]
+    await handleSetQuorum(newQuorum)
+    setNewAdmin("")
   }
 
   const handleRemoveAdmin = async (adminToRemove: string) => {
     if (!isPoolAdmin) return
-    setIsLoading(true)
-    try {
-      const newQuorum = quorum.filter((a) => a !== adminToRemove)
-      await setAdminQuorum(poolAddress, address!, newQuorum)
-      setQuorum(newQuorum)
-      toast({ title: "Admin removed from quorum" })
-    } catch (error) {
-      console.error("Error removing admin:", error)
-      toast({ title: "Error removing admin", variant: "destructive" })
-    }
-    setIsLoading(false)
+    const newQuorum = (quorum || []).filter((a) => a !== adminToRemove)
+    await handleSetQuorum(newQuorum)
   }
 
   if (!isPoolAdmin) {
@@ -95,7 +71,9 @@ export function AdminQuorumManager({ poolAddress, poolAdmin }: AdminQuorumManage
       <CardContent className="space-y-4">
         <div>
           <h3 className="font-semibold">Current Quorum</h3>
-          {quorum.length > 0 ? (
+          {isQuorumLoading ? (
+            <p className="text-muted-foreground">Loading quorum...</p>
+          ) : quorum && quorum.length > 0 ? (
             <ul className="list-disc list-inside">
               {quorum.map((admin) => (
                 <li key={admin} className="flex items-center justify-between">
@@ -104,7 +82,7 @@ export function AdminQuorumManager({ poolAddress, poolAdmin }: AdminQuorumManage
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemoveAdmin(admin)}
-                    disabled={isLoading}
+                    disabled={isSetQuorumLoading}
                   >
                     Remove
                   </Button>
@@ -124,29 +102,21 @@ export function AdminQuorumManager({ poolAddress, poolAdmin }: AdminQuorumManage
               value={newAdmin}
               onChange={(e) => setNewAdmin(e.target.value)}
             />
-            <Button onClick={handleAddAdmin} disabled={isLoading}>
+            <Button onClick={handleAddAdmin} disabled={isSetQuorumLoading}>
               Add
             </Button>
           </div>
         </div>
-
         <div>
-          <h3 className="font-semibold">Pending Actions</h3>
-          {pendingActions.length > 0 ? (
-            <div className="space-y-2">
-              {pendingActions.map((action) => (
-                <PendingActionCard
-                  key={action.hash}
-                  poolAddress={poolAddress}
-                  action={action}
-                  quorumSize={quorum.length}
-                  onApproved={fetchPendingActions}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground">No pending actions.</p>
-          )}
+          <h3 className="font-semibold">Quorum Threshold</h3>
+          <div className="flex items-center space-x-2">
+            <Input
+              type="number"
+              placeholder="e.g. 2"
+              value={threshold}
+              onChange={(e) => setThreshold(parseInt(e.target.value, 10))}
+            />
+          </div>
         </div>
       </CardContent>
     </Card>
