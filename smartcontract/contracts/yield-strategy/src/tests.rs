@@ -19,8 +19,11 @@ mod mock_soroswap {
 
         /// Transfer `amount` tokens from this router back to `to`.
         pub fn rem_liq(env: Env, token: Address, amount: i128, to: Address) -> i128 {
-            token::Client::new(&env, &token)
-                .transfer(&env.current_contract_address(), &to, &amount);
+            token::Client::new(&env, &token).transfer(
+                &env.current_contract_address(),
+                &to,
+                &amount,
+            );
             amount
         }
 
@@ -47,8 +50,11 @@ mod mock_amm {
 
         /// Transfer `amount` tokens from this pool back to `to`.
         pub fn withdraw(env: Env, token: Address, amount: i128, to: Address) -> i128 {
-            token::Client::new(&env, &token)
-                .transfer(&env.current_contract_address(), &to, &amount);
+            token::Client::new(&env, &token).transfer(
+                &env.current_contract_address(),
+                &to,
+                &amount,
+            );
             amount
         }
 

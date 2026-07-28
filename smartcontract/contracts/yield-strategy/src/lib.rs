@@ -1,13 +1,15 @@
 #![no_std]
 
 mod events;
-mod types;
 mod soroswap;
 #[path = "stellar-amm.rs"]
 mod stellar_amm;
+mod types;
 
 use soroban_sdk::{contract, contractimpl, token, Address, Env};
 use types::{DataKey, StrategyConfig, StrategyType};
+
+const VERSION: u32 = 1;
 
 #[contract]
 pub struct YieldStrategy;
@@ -23,8 +25,12 @@ impl YieldStrategy {
         env.storage().persistent().set(&DataKey::Admin, &admin);
         env.storage().persistent().set(&DataKey::Token, &token);
         env.storage().persistent().set(&DataKey::Strategy, &config);
-        env.storage().persistent().set(&DataKey::DeployedAmount, &0i128);
-        env.storage().persistent().set(&DataKey::TotalHarvested, &0i128);
+        env.storage()
+            .persistent()
+            .set(&DataKey::DeployedAmount, &0i128);
+        env.storage()
+            .persistent()
+            .set(&DataKey::TotalHarvested, &0i128);
     }
 
     /// Deploy `amount` into the DeFi protocol via the configured strategy.
@@ -210,6 +216,10 @@ impl YieldStrategy {
     }
 
     // ── Views ─────────────────────────────────────────────────────────────────
+
+    pub fn get_version(_env: Env) -> u32 {
+        VERSION
+    }
 
     pub fn deployed_amount(env: Env) -> i128 {
         env.storage()
