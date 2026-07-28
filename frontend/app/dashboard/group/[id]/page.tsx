@@ -30,8 +30,14 @@ interface Pool {
 
 const isPendingAddress = (addr: string) => !addr || addr === "pending_deployment"
 
-export default function GroupPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export default function GroupPage({
+  params,
+}: {
+  params: Promise<{ id: string }> | { id: string }
+}) {
+  // Support both async params (Next 15+) and plain object params
+  const resolvedParams = params instanceof Promise ? use(params) : (params as { id: string })
+  const id = resolvedParams.id
   const { address } = useStellar()
   const { trackVisit } = useRecentPools(address)
   const [pool, setPool] = useState<Pool | null>(null)
