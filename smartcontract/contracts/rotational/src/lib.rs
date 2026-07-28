@@ -40,7 +40,6 @@ pub enum Action {
     Unpause,
     EmergencyWithdraw(Address),
     RemoveMember(Address),
-    MigratedFrom,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -552,10 +551,6 @@ impl RotationalPool {
 
     pub fn get_version(_env: Env) -> u32 {
         VERSION
-    }
-
-    pub fn migrated_from(env: Env) -> Option<Address> {
-        env.storage().persistent().get(&DataKey::MigratedFrom)
     }
 
     pub fn reputation_tracker(env: Env) -> Option<Address> {

@@ -31,7 +31,6 @@ pub enum Action {
     Unpause,
     EmergencyWithdraw(Address),
     RemoveMember(Address),
-    MigratedFrom,
 }
 
 const LEDGER_THRESHOLD: u32 = 518400;
@@ -470,10 +469,6 @@ impl TargetPool {
 
     pub fn get_version(_env: Env) -> u32 {
         VERSION
-    }
-
-    pub fn migrated_from(env: Env) -> Option<Address> {
-        env.storage().persistent().get(&DataKey::MigratedFrom)
     }
 
     pub fn balance_of(env: Env, member: Address) -> i128 {
