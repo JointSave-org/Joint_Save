@@ -82,5 +82,5 @@ vi.mock("@creit.tech/stellar-wallets-kit", () => {
 // Tests can override specific functions using vi.mocked() as needed
 vi.mock("@/hooks/useJointSaveContracts", () => {
   // Import the mock implementations directly
-  return import("@/__mocks__/useJointSaveContracts")
+  return import("@/hooks/__mocks__/useJointSaveContracts")
 })
