@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Users, Target, Zap } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { ContextualHelp } from "@/components/onboarding/contextual-help"
 
 const groupTypes = [
   {
@@ -75,7 +76,10 @@ export function CreateGroup() {
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 mb-4">
                 <groupType.icon className="h-7 w-7 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">{groupType.title}</h3>
+              <div className="flex items-center gap-1.5 mb-2">
+                <h3 className="text-xl font-semibold">{groupType.title}</h3>
+                <ContextualHelp title={groupType.title} content={groupType.description} />
+              </div>
               <p className="text-muted-foreground mb-4 text-sm flex-1">{groupType.description}</p>
 
               <ul className="space-y-2 mb-6">
