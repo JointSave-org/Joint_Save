@@ -53,6 +53,14 @@ export function Footer() {
                   Security
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/bridge"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Bridge USDC
+                </Link>
+              </li>
             </ul>
           </div>
 

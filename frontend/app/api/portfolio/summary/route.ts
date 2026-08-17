@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
     if (poolIds.length === 0) {
       return NextResponse.json({
         total_saved: 0,
+        total_saved_by_token: {},
         total_pools: { rotational: 0, target: 0, flexible: 0, total: 0 },
         total_yield_earned: 0,
         upcoming_commitments: [],
@@ -79,6 +80,26 @@ export async function GET(req: NextRequest) {
       .reduce((s, a) => s + (a.amount || 0), 0)
 
     const total_saved = Math.max(0, deposits - withdrawals)
+
+    // Same net-saved calculation, broken out per token symbol so the
+    // dashboard can show "Total XLM: X | Total USDC: Y" instead of summing
+    // across currencies.
+    const tokenSymbolByPool = new Map(userPools.map((p) => [p.id, p.token_symbol || "XLM"]))
+    const total_saved_by_token: Record<string, number> = {}
+    for (const a of userActivities) {
+      const symbol = tokenSymbolByPool.get(a.pool_id) || "XLM"
+      const signed =
+        a.activity_type === "deposit"
+          ? a.amount || 0
+          : a.activity_type === "withdraw" || a.activity_type === "payout"
+            ? -(a.amount || 0)
+            : 0
+      if (signed === 0) continue
+      total_saved_by_token[symbol] = (total_saved_by_token[symbol] || 0) + signed
+    }
+    for (const symbol of Object.keys(total_saved_by_token)) {
+      total_saved_by_token[symbol] = Math.max(0, total_saved_by_token[symbol])
+    }
 
     const poolsByType = { rotational: 0, target: 0, flexible: 0 }
     userPools.forEach((p) => {
@@ -145,6 +166,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       total_saved,
+      total_saved_by_token,
       total_pools: { ...poolsByType, total: userPools.length },
       total_yield_earned,
       upcoming_commitments,

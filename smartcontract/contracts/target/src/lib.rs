@@ -18,6 +18,7 @@ pub enum DataKey {
     Balance(Address),
     TokenDecimals,
     MigratedFrom,
+    SupportedTokens,
 }
 
 const LEDGER_THRESHOLD: u32 = 518400;
@@ -83,6 +84,7 @@ impl TargetPool {
         assert!(env.ledger().sequence() <= deadline, "deadline passed");
 
         let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+        Self::assert_token_supported(&env, &token_addr);
         token::Client::new(&env, &token_addr).transfer(
             &member,
             &env.current_contract_address(),
@@ -305,6 +307,27 @@ impl TargetPool {
         Self::bump_config_state_internal(&env);
     }
 
+    // ── Token allowlist ───────────────────────────────────────────────────
+
+    /// Set the tokens this pool is allowed to accept deposits in (e.g. the
+    /// native XLM SAC and USDC's SAC on Stellar). Admin-only. An empty list
+    /// (the default) leaves the pool unrestricted — it only ever holds the
+    /// single token chosen at `initialize()`.
+    pub fn set_supported_tokens(env: Env, admin: Address, tokens: Vec<Address>) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        storage.set(&DataKey::SupportedTokens, &tokens);
+        storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
+
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("sup_tok"), admin), tokens.len() as u32);
+    }
+
     pub fn emergency_withdraw(env: Env, admin: Address, recipient: Address) {
         admin.require_auth();
         let storage = env.storage().persistent();
@@ -380,6 +403,9 @@ impl TargetPool {
         storage.extend_ttl(&DataKey::Active, LEDGER_THRESHOLD, LEDGER_BUMP);
         storage.extend_ttl(&DataKey::Unlocked, LEDGER_THRESHOLD, LEDGER_BUMP);
         storage.extend_ttl(&DataKey::Paused, LEDGER_THRESHOLD, LEDGER_BUMP);
+        if storage.has(&DataKey::SupportedTokens) {
+            storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
     }
 
     // ── Views ──────────────────────────────────────────────────────────────
@@ -454,6 +480,15 @@ impl TargetPool {
             .unwrap_or(0)
     }
 
+    /// Tokens this pool is allowed to accept deposits in. Empty until an
+    /// admin calls `set_supported_tokens`.
+    pub fn get_supported_tokens(env: Env) -> Vec<Address> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::SupportedTokens)
+            .unwrap_or(Vec::new(&env))
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     fn is_member(members: &Vec<Address>, who: &Address) -> bool {
@@ -463,6 +498,26 @@ impl TargetPool {
             }
         }
         false
+    }
+
+    /// If a supported-token allowlist has been configured, require `token` to
+    /// be on it. No-op while the allowlist is empty (default/back-compat).
+    fn assert_token_supported(env: &Env, token: &Address) {
+        let supported: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::SupportedTokens)
+            .unwrap_or(Vec::new(env));
+        if supported.len() > 0 {
+            let mut found = false;
+            for t in supported.iter() {
+                if t == *token {
+                    found = true;
+                    break;
+                }
+            }
+            assert!(found, "token not supported");
+        }
     }
 
     /// O(n^2) pairwise scan — member lists are small, so this is cheaper

@@ -125,6 +125,7 @@ export type Database = {
           activity_type: string
           user_address: string | null
           amount: number | null
+          token_amount: number | null
           description: string | null
           tx_hash: string | null
           created_at: string
@@ -134,6 +135,7 @@ export type Database = {
           activity_type: string
           user_address?: string | null
           amount?: number | null
+          token_amount?: number | null
           description?: string | null
           tx_hash?: string | null
         }
@@ -142,6 +144,7 @@ export type Database = {
           activity_type?: string
           user_address?: string | null
           amount?: number | null
+          token_amount?: number | null
           description?: string | null
           tx_hash?: string | null
         }

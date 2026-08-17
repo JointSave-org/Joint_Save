@@ -239,13 +239,14 @@ export async function PATCH(req: NextRequest) {
 
     // If body contains an `activity` object, log it to pool_activity
     if (body.activity) {
-      const { activity_type, user_address, amount, tx_hash } = body.activity
+      const { activity_type, user_address, amount, token_amount, tx_hash } = body.activity
       const { error: actErr } = await supabase.from("pool_activity").insert([
         {
           pool_id: poolId,
           activity_type,
           user_address: user_address?.toLowerCase() || null,
           amount: amount || null,
+          token_amount: token_amount ?? amount ?? null,
           tx_hash: tx_hash || null,
           description: `${activity_type} transaction`,
         },

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,6 +36,7 @@ import {
   fetchPoolMembers,
 } from "@/hooks/useJointSaveContracts"
 import { validateStellarAddress } from "@/lib/form-validation"
+import { getTokenBySymbol, getTokenBalance, formatUsdApprox } from "@/lib/token-utils"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import { toastManager } from "@/lib/toast"
 import {
@@ -81,6 +83,7 @@ async function logActivity(
           activity_type: type,
           user_address: userAddress,
           amount: amount ? parseFloat(amount) : null,
+          token_amount: amount ? parseFloat(amount) : null,
           tx_hash: txHash,
         },
         memberAddress: memberAddress || null,
@@ -147,11 +150,38 @@ export function GroupActions({
   const [newMember, setNewMember] = useState("")
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
+  const [error, setError] = useState("")
+  const [successMsg, setSuccessMsg] = useState("")
   const isPending = !poolAddress || poolAddress === "pending_deployment"
   // Token display metadata (persisted on the pool row; defaults to native XLM)
   const tokenSymbol: string = (poolData?.token_symbol as string) ?? "XLM"
   const tokenDecimals: number = (poolData?.token_decimals as number) ?? 7
   const toBaseUnits = (amount: number) => BigInt(Math.round(amount * 10 ** tokenDecimals))
+
+  // Wallet balance in the pool's deposit currency (for the deposit form) —
+  // resolved via the token registry so both native XLM and USDC work.
+  const [walletBalance, setWalletBalance] = useState<number | null>(null)
+  const [balanceLoading, setBalanceLoading] = useState(false)
+
+  useEffect(() => {
+    if (!address) {
+      setWalletBalance(null)
+      return
+    }
+    let cancelled = false
+    const token = getTokenBySymbol(tokenSymbol) ?? getTokenBySymbol("XLM")!
+    setBalanceLoading(true)
+    getTokenBalance(address, token)
+      .then((bal) => {
+        if (!cancelled) setWalletBalance(bal)
+      })
+      .finally(() => {
+        if (!cancelled) setBalanceLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [address, tokenSymbol])
 
   // Modal Preview states
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -567,13 +597,25 @@ export function GroupActions({
           <div className="space-y-6">
             {/* Deposit / Contribute */}
             <div className="space-y-3">
-              <Label htmlFor="deposit">
-                {isRotational
-                  ? "Deposit Fixed Amount"
-                  : isTarget
-                    ? `Contribute Amount (${tokenSymbol})`
-                    : `Deposit Amount (${tokenSymbol})`}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="deposit">
+                  {isRotational
+                    ? "Deposit Fixed Amount"
+                    : isTarget
+                      ? `Contribute Amount (${tokenSymbol})`
+                      : `Deposit Amount (${tokenSymbol})`}
+                </Label>
+                {address &&
+                  (balanceLoading ? (
+                    <Skeleton className="h-3 w-24" />
+                  ) : (
+                    walletBalance !== null && (
+                      <span className="text-xs text-muted-foreground">
+                        Balance: {walletBalance.toFixed(2)} {tokenSymbol}
+                      </span>
+                    )
+                  ))}
+              </div>
               {!isRotational && (
                 <Input
                   id="deposit"
@@ -585,11 +627,24 @@ export function GroupActions({
                   disabled={isDepositLoading || actionsDisabled}
                 />
               )}
+              {!isRotational && depositAmount && !isNaN(parseFloat(depositAmount)) && (
+                <p className="text-xs text-muted-foreground">
+                  {formatUsdApprox(parseFloat(depositAmount), getTokenBySymbol(tokenSymbol) ?? getTokenBySymbol("XLM")!)}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 {isRotational && "Deposit the fixed pool amount. Same for all members."}
                 {isTarget && "Contribute any amount toward the target goal."}
                 {isFlexible && "Deposit any amount (must meet minimum). Withdraw anytime."}
               </p>
+              {tokenSymbol === "USDC" && address && walletBalance === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No USDC in this wallet yet?{" "}
+                  <Link href="/bridge" className="text-primary hover:underline">
+                    Bridge USDC to Stellar
+                  </Link>
+                </p>
+              )}
               <Button
                 className="w-full bg-primary hover:bg-primary/90"
                 onClick={handleDeposit}
@@ -911,6 +966,9 @@ export function GroupActions({
                 Triggering the payout earns you the relayer fee reward directly in your wallet.
               </p>
             )}
+
+            {error && <p className="text-xs text-destructive text-center">{error}</p>}
+            {successMsg && <p className="text-xs text-green-600 text-center">{successMsg}</p>}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
