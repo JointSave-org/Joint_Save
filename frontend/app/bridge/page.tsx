@@ -16,46 +16,38 @@ export const metadata: Metadata = {
 const cctpSteps = [
   {
     title: "Open a CCTP-enabled bridge",
-    body:
-      "Circle's Cross-Chain Transfer Protocol (CCTP) burns USDC on the source chain and mints native USDC on Stellar — no wrapped assets, no extra gas token needed on the destination side. Use a CCTP-enabled interface such as Circle's own bridge, Allbridge, or Portal.",
+    body: "Circle's Cross-Chain Transfer Protocol (CCTP) burns USDC on the source chain and mints native USDC on Stellar — no wrapped assets, no extra gas token needed on the destination side. Use a CCTP-enabled interface such as Circle's own bridge, Allbridge, or Portal.",
   },
   {
     title: "Connect your source-chain wallet",
-    body:
-      "Connect the wallet holding your USDC on Ethereum, Base, Avalanche, or another CCTP-supported chain. Select Stellar as the destination network.",
+    body: "Connect the wallet holding your USDC on Ethereum, Base, Avalanche, or another CCTP-supported chain. Select Stellar as the destination network.",
   },
   {
     title: "Enter your Stellar address",
-    body:
-      "Paste the Stellar (G…) address you use with JointSave as the recipient. Double-check it — Stellar transfers to accounts without the right trustline or memo can be unrecoverable, so most bridge UIs will warn you if something looks off.",
+    body: "Paste the Stellar (G…) address you use with JointSave as the recipient. Double-check it — Stellar transfers to accounts without the right trustline or memo can be unrecoverable, so most bridge UIs will warn you if something looks off.",
   },
   {
     title: "Confirm the burn-and-mint",
-    body:
-      "Approve the transaction on the source chain. CCTP burns your USDC there and, once Circle's attestation confirms, mints the equivalent amount of native USDC directly into your Stellar account. This typically takes a few minutes.",
+    body: "Approve the transaction on the source chain. CCTP burns your USDC there and, once Circle's attestation confirms, mints the equivalent amount of native USDC directly into your Stellar account. This typically takes a few minutes.",
   },
   {
     title: "Deposit into your pool",
-    body:
-      "Once the USDC lands in your Stellar wallet, open your JointSave pool and deposit as usual — the deposit form shows your live USDC balance and the correct token contract is used automatically.",
+    body: "Once the USDC lands in your Stellar wallet, open your JointSave pool and deposit as usual — the deposit form shows your live USDC balance and the correct token contract is used automatically.",
   },
 ]
 
 const stellarUsdcSteps = [
   {
     title: "Already hold USDC via a centralized exchange?",
-    body:
-      "Many exchanges (Coinbase, Kraken, and others) support withdrawing USDC directly on the Stellar network. Choose \"Stellar\" as the withdrawal network and send to your JointSave wallet's G… address.",
+    body: 'Many exchanges (Coinbase, Kraken, and others) support withdrawing USDC directly on the Stellar network. Choose "Stellar" as the withdrawal network and send to your JointSave wallet\'s G… address.',
   },
   {
     title: "Add a USDC trustline",
-    body:
-      "Stellar accounts must \"trust\" an asset before they can hold it. Most modern Stellar wallets (Freighter, Lobstr, xBull) prompt you to add the USDC trustline automatically the first time you receive it — if not, add it manually from your wallet's assets screen.",
+    body: 'Stellar accounts must "trust" an asset before they can hold it. Most modern Stellar wallets (Freighter, Lobstr, xBull) prompt you to add the USDC trustline automatically the first time you receive it — if not, add it manually from your wallet\'s assets screen.',
   },
   {
     title: "Verify on Stellar Expert",
-    body:
-      "Use Stellar Expert to confirm the incoming USDC transaction and that your balance reflects the official Circle-issued USDC asset, not a look-alike.",
+    body: "Use Stellar Expert to confirm the incoming USDC transaction and that your balance reflects the official Circle-issued USDC asset, not a look-alike.",
   },
 ]
 
@@ -109,9 +101,9 @@ export default function BridgePage() {
           Bridge USDC to Stellar
         </h1>
         <p className="mb-8 max-w-2xl text-lg text-muted-foreground text-pretty">
-          JointSave pools accept native USDC on Stellar as a deposit currency alongside XLM. If
-          your USDC lives on Ethereum, Base, Solana, or another chain, here&apos;s how to bring it
-          over before depositing.
+          JointSave pools accept native USDC on Stellar as a deposit currency alongside XLM. If your
+          USDC lives on Ethereum, Base, Solana, or another chain, here&apos;s how to bring it over
+          before depositing.
         </p>
 
         <Alert className="mb-10">
@@ -119,8 +111,8 @@ export default function BridgePage() {
           <AlertTitle>This page is educational only</AlertTitle>
           <AlertDescription>
             JointSave does not custody funds during a bridge transfer or operate a bridge itself.
-            Bridging happens entirely on the external services linked below — always verify URLs
-            and double-check recipient addresses before sending funds.
+            Bridging happens entirely on the external services linked below — always verify URLs and
+            double-check recipient addresses before sending funds.
           </AlertDescription>
         </Alert>
 
@@ -158,8 +150,8 @@ export default function BridgePage() {
                 Option B: Stellar&apos;s native USDC
               </CardTitle>
               <CardDescription>
-                If you already hold USDC on a centralized exchange, you can often withdraw
-                directly to Stellar without bridging at all.
+                If you already hold USDC on a centralized exchange, you can often withdraw directly
+                to Stellar without bridging at all.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -186,10 +178,9 @@ export default function BridgePage() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground leading-relaxed space-y-2">
               <p>
-                Once USDC shows up in your Stellar wallet, head back to your pool. The deposit
-                form on any USDC-denominated pool automatically reads your live USDC balance and
-                builds the transaction against the correct token contract — no extra
-                configuration needed.
+                Once USDC shows up in your Stellar wallet, head back to your pool. The deposit form
+                on any USDC-denominated pool automatically reads your live USDC balance and builds
+                the transaction against the correct token contract — no extra configuration needed.
               </p>
               <Link
                 href="/dashboard"

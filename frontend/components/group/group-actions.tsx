@@ -629,7 +629,10 @@ export function GroupActions({
               )}
               {!isRotational && depositAmount && !isNaN(parseFloat(depositAmount)) && (
                 <p className="text-xs text-muted-foreground">
-                  {formatUsdApprox(parseFloat(depositAmount), getTokenBySymbol(tokenSymbol) ?? getTokenBySymbol("XLM")!)}
+                  {formatUsdApprox(
+                    parseFloat(depositAmount),
+                    getTokenBySymbol(tokenSymbol) ?? getTokenBySymbol("XLM")!
+                  )}
                 </p>
               )}
               <p className="text-xs text-muted-foreground">

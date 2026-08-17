@@ -59,7 +59,9 @@ describe("token-utils", () => {
     })
 
     it("returns undefined for an unregistered address", () => {
-      expect(getTokenByAddress("CUNKNOWNTOKENADDRESSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")).toBeUndefined()
+      expect(
+        getTokenByAddress("CUNKNOWNTOKENADDRESSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+      ).toBeUndefined()
     })
   })
 

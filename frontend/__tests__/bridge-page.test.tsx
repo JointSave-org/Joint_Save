@@ -11,9 +11,7 @@ describe("BridgePage", () => {
 
   it("explains both bridging paths", () => {
     render(<BridgePage />)
-    expect(screen.getAllByText(/Cross-Chain Transfer Protocol \(CCTP\)/i).length).toBeGreaterThan(
-      0
-    )
+    expect(screen.getAllByText(/Cross-Chain Transfer Protocol \(CCTP\)/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/Option B: Stellar's native USDC/i)).toBeInTheDocument()
   })
 
