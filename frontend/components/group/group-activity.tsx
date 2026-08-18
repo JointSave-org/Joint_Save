@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react"
 import { useStellar } from "@/components/web3-provider"
+import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { DateRangePicker } from "@/components/shared/date-range-picker"
 import { ACTIVITY_TYPES } from "@/lib/activity-query"
@@ -82,6 +83,13 @@ interface GroupActivityProps {
 
 export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) {
   const { address } = useStellar()
+
+  // The refresh action must also refresh the shared pool cache (balances and
+  // on-chain state shown elsewhere on the page), as it did before the feed
+  // moved to the server-side activity API.
+  const cacheKey =
+    contractAddress && contractAddress !== "pending_deployment" ? contractAddress : groupId
+  const { refetch: refetchPoolCache } = usePoolData(cacheKey)
 
   // Filters
   const [search, setSearch] = useState("")
@@ -158,6 +166,10 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
   useEffect(() => {
     fetchPage(1, false)
   }, [fetchPage])
+
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([refetchPoolCache?.(), fetchPage(1, false)])
+  }, [refetchPoolCache, fetchPage])
 
   const handleReindex = async () => {
     if (!address || !contractAddress || contractAddress === "pending_deployment") return
@@ -257,7 +269,7 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => fetchPage(1, false)}
+          onClick={handleRefresh}
           disabled={loading}
           className="h-8 w-8 p-0"
           aria-label="Refresh activity"
