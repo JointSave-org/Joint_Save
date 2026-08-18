@@ -6,15 +6,16 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { CheckCircle2, Clock, XCircle, AlertCircle, Award, Copy, Check } from "lucide-react"
+import { CheckCircle2, Clock, XCircle, AlertCircle, Copy, Check, ArrowUpDown } from "lucide-react"
 import { useState, useEffect } from "react"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import {
   RotationalPoolState,
-  fetchReputation,
-  type ReputationScore,
+  fetchMembersReputationData,
+  type ReputationData,
 } from "@/hooks/useJointSaveContracts"
+import { ReputationBadge } from "@/components/shared/reputation-badge"
 import { useToast } from "@/hooks/use-toast"
 import { countPendingMembers, filterPendingMembers } from "@/lib/member-filters"
 
@@ -53,9 +54,11 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
   const members: Member[] = data?.db?.pool_members ?? []
   const onchainState = data?.onchain
 
-  const [reputations, setReputations] = useState<Record<string, ReputationScore>>({})
+  const [reputations, setReputations] = useState<Record<string, ReputationData>>({})
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
   const [showPendingOnly, setShowPendingOnly] = useState(false)
+  type SortKey = "score" | "joined" | "contribution"
+  const [sortBy, setSortBy] = useState<SortKey>("score")
 
   const handleCopyMemberAddress = async (address: string) => {
     try {
@@ -75,21 +78,9 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
   useEffect(() => {
     if (members.length === 0) return
     const loadReputations = async () => {
-      const results = await Promise.allSettled(
-        members.map(
-          async (m) => [m.member_address, await fetchReputation(m.member_address)] as const
-        )
-      )
-      setReputations(
-        Object.fromEntries(
-          results
-            .filter(
-              (r): r is PromiseFulfilledResult<readonly [string, ReputationScore]> =>
-                r.status === "fulfilled"
-            )
-            .map((r) => r.value)
-        )
-      )
+      const addresses = members.map((m) => m.member_address)
+      const results = await fetchMembersReputationData(addresses)
+      setReputations(results)
     }
     loadReputations()
   }, [members])
@@ -113,7 +104,23 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
 
   // Client-side "pending only" view derived from data already on the page (no fetching).
   const pendingCount = countPendingMembers(members)
-  const visibleMembers = showPendingOnly ? filterPendingMembers(members) : members
+  const filteredMembers = showPendingOnly ? filterPendingMembers(members) : members
+
+  // Sort: score (desc), join date (asc), contribution (desc)
+  const visibleMembers = [...filteredMembers].sort((a, b) => {
+    if (sortBy === "score") {
+      const ra = reputations[a.member_address]
+      const rb = reputations[b.member_address]
+      const scoreA = ra ? ra.totalScore : 500
+      const scoreB = rb ? rb.totalScore : 500
+      return scoreB - scoreA
+    }
+    if (sortBy === "joined") {
+      return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
+    }
+    // contribution desc
+    return b.contribution_amount - a.contribution_amount
+  })
 
   if (isLoading && members.length === 0) {
     return (
@@ -154,21 +161,42 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
           )}
         </div>
         {members.length > 0 && (
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            size="sm"
-            value={showPendingOnly ? "pending" : "all"}
-            onValueChange={(v) => setShowPendingOnly(v === "pending")}
-            aria-label="Filter members by deposit status"
-          >
-            <ToggleGroupItem value="all" aria-label="Show all members">
-              Show all
-            </ToggleGroupItem>
-            <ToggleGroupItem value="pending" aria-label="Show pending members only">
-              Pending only
-            </ToggleGroupItem>
-          </ToggleGroup>
+          <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              value={showPendingOnly ? "pending" : "all"}
+              onValueChange={(v) => setShowPendingOnly(v === "pending")}
+              aria-label="Filter members by deposit status"
+            >
+              <ToggleGroupItem value="all" aria-label="Show all members">
+                All
+              </ToggleGroupItem>
+              <ToggleGroupItem value="pending" aria-label="Show pending members only">
+                Pending
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              value={sortBy}
+              onValueChange={(v) => v && setSortBy(v as "score" | "joined" | "contribution")}
+              aria-label="Sort members"
+            >
+              <ToggleGroupItem value="score" aria-label="Sort by reputation score">
+                <ArrowUpDown className="h-3 w-3 mr-1" />
+                Score
+              </ToggleGroupItem>
+              <ToggleGroupItem value="joined" aria-label="Sort by join date">
+                Joined
+              </ToggleGroupItem>
+              <ToggleGroupItem value="contribution" aria-label="Sort by contribution">
+                Amount
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         )}
       </div>
       {members.length === 0 ? (
@@ -254,10 +282,10 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
                     </>
                   )}
                   {reputations[member.member_address] && (
-                    <Badge variant="outline" className="text-xs font-normal gap-1">
-                      <Award className="h-3 w-3" />
-                      {Math.round(reputations[member.member_address].onTimeRate / 100)}% on-time
-                    </Badge>
+                    <ReputationBadge
+                      data={reputations[member.member_address]}
+                      compact={false}
+                    />
                   )}
                 </div>
               </div>

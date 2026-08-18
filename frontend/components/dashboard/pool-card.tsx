@@ -4,16 +4,19 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Users, TrendingUp, Calendar, ArrowRight, AlertTriangle } from "lucide-react"
+import { Users, TrendingUp, Calendar, ArrowRight, AlertTriangle, Shield } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { useState, useEffect } from "react"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import {
   formatTokenAmount,
   RotationalPoolState,
   TargetPoolState,
   FlexiblePoolState,
+  fetchMembersReputationData,
 } from "@/hooks/useJointSaveContracts"
+import { getTierFromScore, TIER_DISPLAY } from "@/hooks/useMemberReputation"
 import { usePoolHealth } from "@/hooks/usePoolHealth"
 import { PoolHealthBadge } from "@/components/dashboard/pool-health-badge"
 import { PoolSparkline } from "@/components/dashboard/pool-sparkline"
@@ -92,6 +95,27 @@ export function PoolCard({ pool }: { pool: Pool }) {
   const tokenSymbol = pool.token_symbol ?? "XLM"
   const tokenDecimals = pool.token_decimals ?? 7
   const fmt = (v: bigint) => formatTokenAmount(v, tokenDecimals)
+
+  // Average member reputation score
+  const [avgScore, setAvgScore] = useState<number | null>(null)
+  useEffect(() => {
+    const members: string[] =
+      pool.type === "rotational" && data?.onchain
+        ? (data.onchain as RotationalPoolState).members
+        : []
+    if (members.length === 0) return
+    let cancelled = false
+    fetchMembersReputationData(members).then((reps) => {
+      if (cancelled) return
+      const scores = Object.values(reps).map((r) => r.totalScore)
+      if (scores.length > 0) {
+        setAvgScore(Math.round(scores.reduce((a, b) => a + b, 0) / scores.length))
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [pool.type, data?.onchain, pool.id])
 
   const getLiveStats = (): {
     totalSaved: number
@@ -203,6 +227,25 @@ export function PoolCard({ pool }: { pool: Pool }) {
             </span>
             <span className="font-medium">{pool.frequency || pool.status}</span>
           </div>
+          {avgScore !== null && (() => {
+            const tier = getTierFromScore(avgScore, avgScore === 500)
+            const display = TIER_DISPLAY[tier]
+            return (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Avg. Member Score
+                </span>
+                <span className={`font-medium flex items-center gap-1 ${display.textClass}`}>
+                  <span
+                    className="inline-block h-2 w-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: display.dotColor }}
+                  />
+                  {avgScore}
+                </span>
+              </div>
+            )
+          })()}
         </div>
         <div className="mb-4">
           <div className="flex items-center justify-between text-sm mb-2">
