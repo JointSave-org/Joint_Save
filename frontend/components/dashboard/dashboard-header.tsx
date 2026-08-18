@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useRecentPools } from "@/hooks/useRecentPools"
 import { useNotifications } from "@/hooks/useNotifications"
 import { formatRelativeTime } from "@/lib/utils"
+import { ContextualHelp } from "@/components/onboarding/contextual-help"
 
 export function DashboardHeader() {
   const { address, disconnect } = useStellar()
@@ -66,12 +67,16 @@ export function DashboardHeader() {
           </Link>
 
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-            <span className="text-xs text-muted-foreground hidden md:block">
+            <span className="text-xs text-muted-foreground hidden md:flex items-center gap-1">
               Press{" "}
               <kbd className="rounded-sm border border-border bg-muted px-1 font-sans text-[10px] font-medium">
                 ?
               </kbd>{" "}
               for shortcuts
+              <ContextualHelp
+                content="Manage your savings groups from this dashboard. Use the tabs above to explore pools, create a new one, view your portfolio, or check analytics."
+                title="Your dashboard"
+              />
             </span>
             <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
               <Link href="/explore">Explore</Link>
