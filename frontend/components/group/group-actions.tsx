@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,6 +46,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useSearchParams } from "next/navigation"
 import {
   findRecentPendingTransaction,
   pendingTransactionLabel,
@@ -137,9 +138,30 @@ export function GroupActions({
   onPauseChange,
 }: GroupActionsProps) {
   const { address } = useStellar()
+  const searchParams = useSearchParams()
+  // Arriving from the onboarding wizard with ?highlight=deposit draws attention
+  // to the deposit button and scrolls it into view.
+  const highlightDeposit = searchParams.get("highlight") === "deposit"
+  const depositButtonRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (highlightDeposit) {
+      const timer = setTimeout(() => {
+        depositButtonRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        })
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+  }, [highlightDeposit])
+
   const isAdmin = !!address && !!poolAdmin && address.toUpperCase() === poolAdmin.toUpperCase()
   const [depositAmount, setDepositAmount] = useState("")
   const [withdrawAmount, setWithdrawAmount] = useState("")
+  // Used by the transaction preview / leave-pool dialogs below.
+  const [, setError] = useState("")
+  const [, setSuccessMsg] = useState("")
 
   // Pool metadata from Supabase
   const [poolData, setPoolData] = useState<Record<string, unknown> | null>(null)
@@ -566,7 +588,13 @@ export function GroupActions({
         {(poolData || isPending) && (
           <div className="space-y-6">
             {/* Deposit / Contribute */}
-            <div className="space-y-3">
+            <div ref={depositButtonRef} className="space-y-3">
+              {highlightDeposit && (
+                <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/40 px-3 py-2 text-sm font-medium text-primary animate-pulse">
+                  <ArrowUpRight className="h-4 w-4" />
+                  Make your first deposit to get the cycle going!
+                </div>
+              )}
               <Label htmlFor="deposit">
                 {isRotational
                   ? "Deposit Fixed Amount"
@@ -591,7 +619,9 @@ export function GroupActions({
                 {isFlexible && "Deposit any amount (must meet minimum). Withdraw anytime."}
               </p>
               <Button
-                className="w-full bg-primary hover:bg-primary/90"
+                className={`w-full bg-primary hover:bg-primary/90 ${
+                  highlightDeposit ? "ring-4 ring-primary/30 animate-pulse" : ""
+                }`}
                 onClick={handleDeposit}
                 disabled={isDepositLoading || actionsDisabled}
               >
