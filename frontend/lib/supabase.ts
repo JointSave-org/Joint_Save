@@ -95,6 +95,7 @@ export type Database = {
           withdrawal_fee?: number | null
           yield_enabled?: boolean
         }
+        Relationships: []
       }
       pool_members: {
         Row: {
@@ -117,6 +118,7 @@ export type Database = {
           contribution_amount?: number
           status?: "pending" | "paid" | "late"
         }
+        Relationships: []
       }
       pool_activity: {
         Row: {
@@ -148,6 +150,7 @@ export type Database = {
           description?: string | null
           tx_hash?: string | null
         }
+        Relationships: []
       }
       pool_daily_metrics: {
         Row: {
@@ -180,6 +183,7 @@ export type Database = {
           active_members_count?: number
           created_at?: string
         }
+        Relationships: []
       }
       join_requests: {
         Row: {
@@ -201,6 +205,7 @@ export type Database = {
           responded_at?: string | null
           responder_id?: string | null
         }
+        Relationships: []
       }
       pool_health_scores: {
         Row: {
@@ -227,6 +232,7 @@ export type Database = {
           risk_indicator?: string
           last_calculated_at?: string
         }
+        Relationships: []
       }
       user_profiles: {
         Row: {
@@ -266,6 +272,7 @@ export type Database = {
           }
           updated_at?: string
         }
+        Relationships: []
       }
       deposit_reminders: {
         Row: {
@@ -288,6 +295,7 @@ export type Database = {
           round_deadline?: string
           created_at?: string
         }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -311,6 +319,7 @@ export type Database = {
         Update: {
           read?: boolean
         }
+        Relationships: []
       }
       admin_actions: {
         Row: {
@@ -342,6 +351,7 @@ export type Database = {
           tx_hash?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       cron_job_logs: {
         Row: {
@@ -376,8 +386,13 @@ export type Database = {
           next_retry_at?: string | null
           created_at?: string
         }
+        Relationships: []
       }
     }
+    // supabase-js v2 requires these keys on the schema type; without them the
+    // client can't match GenericSchema and every table degrades to `never`.
+    Views: Record<string, never>
+    Functions: Record<string, never>
   }
 }
 
