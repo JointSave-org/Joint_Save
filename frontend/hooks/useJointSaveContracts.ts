@@ -22,6 +22,7 @@ import {
   type PendingTransactionType,
 } from "@/lib/pending-transactions"
 import { TX_TIMEOUT } from "@/lib/constants"
+import { mapSorobanEvent } from "@/lib/soroban-event-mapping"
 import { isContractVersionUnknown } from "@/lib/contract-version"
 export { isContractVersionUnknown }
 
@@ -1093,56 +1094,19 @@ export async function fetchContractEvents(
   const events: ActivityEvent[] = []
 
   for (const ev of response.events) {
-    const topics = ev.topic
-    if (!topics.length) continue
-
-    // First topic is always the event name symbol
-    const topicName = topics[0].switch().name === "scvSymbol" ? topics[0].sym().toString() : null
-    if (!topicName) continue
-
-    // Second topic (optional) is the address
-    let userAddress: string | null = null
-    if (topics[1]?.switch().name === "scvAddress") {
-      try {
-        userAddress = Address.fromScVal(topics[1]).toString()
-      } catch {}
-    }
-
-    // Value is the amount (i128) for deposit/payout/withdraw
-    let amount: number | null = null
-    try {
-      const val = ev.value
-      const sw = val.switch().name
-      if (sw === "scvI128" || sw === "scvU128" || sw === "scvU64" || sw === "scvI64") {
-        amount = Number(scValToBigInt(val)) / 10_000_000
-      }
-    } catch {}
-
-    const typeMap: Record<string, string> = {
-      deposit: "deposit",
-      payout: "payout",
-      withdraw: "withdraw",
-      complete: "complete",
-      unlocked: "complete",
-      refunded: "withdraw",
-      yield: "yield",
-    }
-
-    const activity_type = typeMap[topicName]
-    if (!activity_type) continue
-
-    // Derive a stable id from txHash + topic
-    const id = `${ev.txHash}-${topicName}`
+    const mapped = mapSorobanEvent(ev)
+    if (!mapped) continue
 
     events.push({
-      id,
-      activity_type,
-      user_address: userAddress,
-      amount,
+      // Derive a stable id from txHash + activity type
+      id: `${mapped.tx_hash}-${mapped.activity_type}`,
+      activity_type: mapped.activity_type,
+      user_address: mapped.user_address,
+      amount: mapped.amount,
       description: null,
       // Soroban events don't carry a timestamp; use ledger close time if available
-      created_at: ev.ledgerClosedAt ?? new Date(0).toISOString(),
-      tx_hash: ev.txHash,
+      created_at: mapped.ledgerClosedAt ?? new Date(0).toISOString(),
+      tx_hash: mapped.tx_hash,
       source: "onchain",
     })
   }
