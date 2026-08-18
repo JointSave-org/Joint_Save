@@ -604,7 +604,24 @@ CREATE TABLE pool_activity (
   activity_type TEXT NOT NULL,            -- 'deposit', 'withdraw', 'payout', 'refund'
   amount NUMERIC,
   tx_hash TEXT,
+  on_chain_timestamp TIMESTAMPTZ,         -- ledger close time (from Horizon / RPC)
+  block_number BIGINT,                    -- ledger sequence number
+  fee_charged BIGINT,                     -- fee in stroops (from Horizon)
   created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### event_index_log table
+
+Tracks per-pool on-chain indexing progress so a re-index run never re-reads
+old ledgers (populated by `POST /api/pools/[id]/index-events`).
+
+```sql
+CREATE TABLE event_index_log (
+  id BIGSERIAL PRIMARY KEY,
+  pool_id UUID NOT NULL UNIQUE REFERENCES pools(id) ON DELETE CASCADE,
+  last_indexed_ledger BIGINT NOT NULL DEFAULT 0,
+  indexed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
