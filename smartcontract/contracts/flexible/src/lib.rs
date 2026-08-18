@@ -93,6 +93,7 @@ impl FlexiblePool {
         assert!(amount >= min, "below minimum deposit");
 
         let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+        Self::assert_token_supported(&env, &token_addr);
         let token_client = token::Client::new(&env, &token_addr);
         token_client.transfer(&member, &env.current_contract_address(), &amount);
 
@@ -310,6 +311,27 @@ impl FlexiblePool {
         Self::bump_config_state_internal(&env);
 
         env.events().publish((symbol_short!("unpaused"),), ());
+    }
+
+    // ── Token allowlist ───────────────────────────────────────────────────
+
+    /// Set the tokens this pool is allowed to accept deposits in (e.g. the
+    /// native XLM SAC and USDC's SAC on Stellar). Admin-only. An empty list
+    /// (the default) leaves the pool unrestricted — it only ever holds the
+    /// single token chosen at `initialize()`.
+    pub fn set_supported_tokens(env: Env, admin: Address, tokens: Vec<Address>) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        storage.set(&DataKey::SupportedTokens, &tokens);
+        storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
+
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("sup_tok"), admin), tokens.len() as u32);
     }
 
     pub fn emergency_withdraw(env: Env, admin: Address, recipient: Address) {
@@ -580,6 +602,26 @@ impl FlexiblePool {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
+
+    /// If a supported-token allowlist has been configured, require `token` to
+    /// be on it. No-op while the allowlist is empty (default/back-compat).
+    fn assert_token_supported(env: &Env, token: &Address) {
+        let supported: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::SupportedTokens)
+            .unwrap_or(Vec::new(env));
+        if supported.len() > 0 {
+            let mut found = false;
+            for t in supported.iter() {
+                if t == *token {
+                    found = true;
+                    break;
+                }
+            }
+            assert!(found, "token not supported");
+        }
+    }
 
     fn is_member(members: &Vec<Address>, who: &Address) -> bool {
         for m in members.iter() {

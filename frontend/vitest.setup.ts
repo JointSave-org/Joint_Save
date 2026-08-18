@@ -36,6 +36,22 @@ if (!global.PointerEvent) {
   global.PointerEvent = PointerEvent
 }
 
+// jsdom doesn't implement the Pointer Events capture API or scrollIntoView,
+// which Radix UI's Select relies on — without these, interacting with any
+// Select in tests throws "target.hasPointerCapture is not a function".
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false
+}
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = () => {}
+}
+if (!Element.prototype.releasePointerCapture) {
+  Element.prototype.releasePointerCapture = () => {}
+}
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {}
+}
+
 // Mock URL.createObjectURL and URL.revokeObjectURL for CSV exports in jsdom
 if (typeof URL.createObjectURL !== "function") {
   URL.createObjectURL = vi.fn().mockReturnValue("blob:mock-url")

@@ -37,8 +37,11 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
     redirect("/dashboard")
   }
 
+  const isOnboarding = searchParams.get("onboarding") === "1"
+  const isDuplicate = searchParams.get("duplicate") === "1"
+
   const prefill: DuplicatePrefill | undefined = useMemo(() => {
-    if (!searchParams.get("duplicate")) return undefined
+    if (!isDuplicate && !isOnboarding) return undefined
     try {
       const membersRaw = searchParams.get("members")
       const members = membersRaw ? JSON.parse(decodeURIComponent(membersRaw)) : []
@@ -55,7 +58,7 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
     } catch {
       return undefined
     }
-  }, [searchParams])
+  }, [searchParams, isDuplicate, isOnboarding])
 
   const titles = {
     rotational: "Create Rotational Savings Group",
@@ -78,12 +81,18 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
 
             <Card className="p-8">
               <h1 className="text-3xl font-bold mb-2">
-                {prefill ? `New Cycle: ${prefill.name}` : titles[type as keyof typeof titles]}
+                {isDuplicate && prefill
+                  ? `New Cycle: ${prefill.name}`
+                  : isOnboarding
+                    ? `Create your ${type} pool`
+                    : titles[type as keyof typeof titles]}
               </h1>
               <p className="text-muted-foreground mb-8">
-                {prefill
+                {isDuplicate
                   ? "Pre-filled from the original pool. Edit any values before creating."
-                  : "Fill in the details to create your savings group"}
+                  : isOnboarding
+                    ? "Smart defaults pre-filled from the onboarding wizard — review and edit before creating."
+                    : "Fill in the details to create your savings group"}
               </p>
 
               {type === "rotational" && <RotationalForm prefill={prefill} />}

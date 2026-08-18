@@ -12,6 +12,7 @@ import {
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { FieldTooltip } from "@/components/ui/field-tooltip"
 import { fetchTokenMetadata, type TokenMetadata } from "@/hooks/useJointSaveContracts"
+import { SUPPORTED_TOKENS } from "@/lib/token-utils"
 
 /** What the parent form needs to create a pool with the chosen token. */
 export interface SelectedToken {
@@ -22,23 +23,34 @@ export interface SelectedToken {
 }
 
 const NATIVE: SelectedToken = { address: "native", symbol: "XLM", decimals: 7 }
+const USDC_TOKEN = SUPPORTED_TOKENS.find((t) => t.symbol === "USDC")!
+const USDC: SelectedToken = {
+  address: USDC_TOKEN.contractAddress,
+  symbol: USDC_TOKEN.symbol,
+  decimals: USDC_TOKEN.decimals,
+}
 const isValidContractId = (id: string) => /^C[A-Z2-7]{55}$/.test(id)
 
+type TokenMode = "native" | "usdc" | "custom"
+
 /**
- * Token picker shared by all three creation forms. Defaults to native XLM; when
- * "Custom token" is chosen it resolves the SEP-41 name/symbol/decimals via a view
- * call and reports the resolved `SelectedToken` to the parent. The parent should
- * also seed its own state to native XLM so submit works without interaction.
+ * Token picker shared by all three creation forms. Defaults to native XLM;
+ * "USDC" uses the well-known registry entry from `lib/token-utils` directly
+ * (see the bridge tutorial at /bridge for getting USDC onto Stellar first).
+ * "Custom token" resolves any other SEP-41 token's name/symbol/decimals via a
+ * view call and reports the resolved `SelectedToken` to the parent. The
+ * parent should also seed its own state to native XLM so submit works
+ * without interaction.
  */
 export function TokenSelect({ onChange }: { onChange: (token: SelectedToken) => void }) {
-  const [mode, setMode] = useState<"native" | "custom">("native")
+  const [mode, setMode] = useState<TokenMode>("native")
   const [customId, setCustomId] = useState("")
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle")
   const [meta, setMeta] = useState<TokenMetadata | null>(null)
   const [error, setError] = useState("")
 
   const handleMode = (v: string) => {
-    const next = v as "native" | "custom"
+    const next = v as TokenMode
     setMode(next)
     setError("")
     setMeta(null)
@@ -46,6 +58,9 @@ export function TokenSelect({ onChange }: { onChange: (token: SelectedToken) => 
     if (next === "native") {
       setCustomId("")
       onChange(NATIVE)
+    } else if (next === "usdc") {
+      setCustomId("")
+      onChange(USDC)
     }
   }
 
@@ -74,8 +89,8 @@ export function TokenSelect({ onChange }: { onChange: (token: SelectedToken) => 
   return (
     <div className="space-y-2">
       <FieldTooltip
-        label="Token"
-        tooltip="The asset members deposit. Defaults to native XLM. Choose 'Custom token' to use any SEP-41 token (e.g. USDC) by its contract id."
+        label="Deposit Currency"
+        tooltip="The asset members deposit. Defaults to native XLM. Choose USDC to use Stellar's native USDC, or 'Custom token' for any other SEP-41 token by its contract id."
         required
       />
       <Select value={mode} onValueChange={handleMode}>
@@ -84,9 +99,20 @@ export function TokenSelect({ onChange }: { onChange: (token: SelectedToken) => 
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="native">XLM (native)</SelectItem>
+          <SelectItem value="usdc">USDC</SelectItem>
           <SelectItem value="custom">Custom token…</SelectItem>
         </SelectContent>
       </Select>
+
+      {mode === "usdc" && (
+        <p className="text-xs text-muted-foreground">
+          Members deposit native USDC on Stellar. Bridging USDC from another chain?{" "}
+          <a href="/bridge" className="text-primary hover:underline">
+            See the bridge guide
+          </a>
+          .
+        </p>
+      )}
 
       {mode === "custom" && (
         <div className="space-y-1">

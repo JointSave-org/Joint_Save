@@ -48,6 +48,12 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  usePoolComparison,
+  getPoolComparisonKey,
+  MAX_COMPARISON_POOLS,
+} from "@/hooks/usePoolComparison"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -125,6 +131,10 @@ function PoolCard({
   onFocus,
   onClick,
   onKeyDown,
+  compareKey,
+  isSelected,
+  onToggleCompare,
+  compareDisabled,
 }: {
   pool: Pool
   onRequestJoin: (poolId: string) => void
@@ -134,6 +144,10 @@ function PoolCard({
   onFocus: () => void
   onClick: (event: MouseEvent<HTMLDivElement>) => void
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void
+  compareKey: string
+  isSelected: boolean
+  onToggleCompare: (key: string) => void
+  compareDisabled: boolean
 }) {
   const typeLabel = pool.type.charAt(0).toUpperCase() + pool.type.slice(1)
   const statusLabel =
@@ -146,12 +160,36 @@ function PoolCard({
       tabIndex={tabIndex}
       role="link"
       aria-label={`View details for ${pool.name}`}
+      aria-selected={isSelected}
       onFocus={onFocus}
       onClick={onClick}
       onKeyDown={onKeyDown}
       className="h-full cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full flex flex-col">
+      <Card
+        className={`p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full flex flex-col relative ${
+          isSelected ? "border-primary border-2 ring-2 ring-primary/30" : ""
+        }`}
+      >
+        {/* Compare checkbox overlay (top-right) */}
+        <div className="absolute top-3 right-3 z-10">
+          <label
+            className={`flex items-center gap-1.5 rounded-full px-2 py-1 cursor-pointer transition-colors ${
+              isSelected ? "bg-primary/10" : "bg-background/80 hover:bg-muted"
+            }`}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`Select ${pool.name} for comparison`}
+          >
+            <Checkbox
+              checked={isSelected}
+              disabled={compareDisabled}
+              onCheckedChange={() => onToggleCompare(compareKey)}
+              aria-label={`Compare ${pool.name}`}
+            />
+            <span className="text-[10px] font-medium text-muted-foreground">Compare</span>
+          </label>
+        </div>
+
         <div className="flex items-start justify-between mb-4">
           <div className="min-w-0">
             <h3 className="text-lg font-semibold truncate mb-1">{pool.name}</h3>
@@ -235,17 +273,48 @@ function RecommendedPoolCard({
   healthScore,
   onRequestJoin,
   isJoining,
+  compareKey,
+  isSelected,
+  onToggleCompare,
+  compareDisabled,
 }: {
   pool: Pool
   reasons: string[]
   healthScore?: number
   onRequestJoin: (poolId: string) => void
   isJoining: boolean
+  compareKey: string
+  isSelected: boolean
+  onToggleCompare: (key: string) => void
+  compareDisabled: boolean
 }) {
   const typeLabel = pool.type.charAt(0).toUpperCase() + pool.type.slice(1)
 
   return (
-    <Card className="p-6 h-full flex flex-col hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-card to-secondary/20 border-primary/20">
+    <Card
+      className={`p-6 h-full flex flex-col hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-card to-secondary/20 border-primary/20 relative ${
+        isSelected ? "border-primary border-2 ring-2 ring-primary/30" : ""
+      }`}
+    >
+      {/* Compare checkbox overlay (top-right) */}
+      <div className="absolute top-3 right-3 z-10">
+        <label
+          className={`flex items-center gap-1.5 rounded-full px-2 py-1 cursor-pointer transition-colors ${
+            isSelected ? "bg-primary/10" : "bg-background/80 hover:bg-muted"
+          }`}
+          onClick={(event) => event.stopPropagation()}
+          aria-label={`Select ${pool.name} for comparison`}
+        >
+          <Checkbox
+            checked={isSelected}
+            disabled={compareDisabled}
+            onCheckedChange={() => onToggleCompare(compareKey)}
+            aria-label={`Compare ${pool.name}`}
+          />
+          <span className="text-[10px] font-medium text-muted-foreground">Compare</span>
+        </label>
+      </div>
+
       <div className="flex items-start justify-between mb-4">
         <div className="min-w-0 pr-2">
           <div className="flex items-center gap-2 mb-1">
@@ -351,6 +420,30 @@ function ExploreContent() {
 
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [hasReputation, setHasReputation] = useState(false)
+
+  // Pool comparison (multi-select, synced to URL query string)
+  const {
+    selectedKeys: compareSelected,
+    togglePool: toggleComparePool,
+    clearSelection: clearCompare,
+    isSelected: isPoolSelected,
+    isAtMax: compareAtMax,
+  } = usePoolComparison()
+
+  const handleToggleCompare = useCallback(
+    (key: string) => {
+      if (!compareSelected.includes(key) && compareAtMax) {
+        toast({
+          title: "Comparison limit reached",
+          description: `You can compare up to ${MAX_COMPARISON_POOLS} pools at once. Remove one first.`,
+          variant: "error",
+        })
+        return
+      }
+      toggleComparePool(key)
+    },
+    [compareSelected, compareAtMax, toggleComparePool, toast]
+  )
 
   // Filter state is derived from the URL so it survives refresh and can be shared.
   const search = searchParams.get("search") || ""
@@ -631,6 +724,12 @@ function ExploreContent() {
                           healthScore={rec.pool?.health_score}
                           onRequestJoin={handleRequestJoin}
                           isJoining={joining === pool.id}
+                          compareKey={getPoolComparisonKey(pool)}
+                          isSelected={isPoolSelected(getPoolComparisonKey(pool))}
+                          onToggleCompare={handleToggleCompare}
+                          compareDisabled={
+                            !isPoolSelected(getPoolComparisonKey(pool)) && compareAtMax
+                          }
                         />
                       </CarouselItem>
                     )
@@ -737,8 +836,45 @@ function ExploreContent() {
                 onFocus={() => setFocusedPoolIndex(index)}
                 onClick={(event) => handlePoolCardClick(event, pool.id)}
                 onKeyDown={(event) => handlePoolCardKeyDown(event, index, pool.id)}
+                compareKey={getPoolComparisonKey(pool)}
+                isSelected={isPoolSelected(getPoolComparisonKey(pool))}
+                onToggleCompare={handleToggleCompare}
+                compareDisabled={!isPoolSelected(getPoolComparisonKey(pool)) && compareAtMax}
               />
             ))}
+          </motion.div>
+        )}
+
+        {/* Floating Compare bar */}
+        {compareSelected.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+          >
+            <div className="flex items-center gap-2 rounded-full border border-border bg-background/95 backdrop-blur px-4 py-2 shadow-lg">
+              <span className="text-sm font-medium">
+                {compareSelected.length} pool{compareSelected.length !== 1 ? "s" : ""} selected
+              </span>
+              <Button
+                size="sm"
+                className="rounded-full"
+                disabled={compareSelected.length < 2}
+                asChild={compareSelected.length >= 2}
+              >
+                {compareSelected.length >= 2 ? (
+                  <Link href={`/explore/compare?pools=${compareSelected.join(",")}`}>
+                    Compare ({compareSelected.length})
+                  </Link>
+                ) : (
+                  <span>Compare ({compareSelected.length})</span>
+                )}
+              </Button>
+              <Button variant="ghost" size="sm" className="rounded-full" onClick={clearCompare}>
+                Clear
+              </Button>
+            </div>
           </motion.div>
         )}
       </div>

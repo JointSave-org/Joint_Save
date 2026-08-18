@@ -85,6 +85,8 @@ function e2eViewResult(method: string): xdr.ScVal {
       return i128Val(BigInt((s.totalBalance as number | undefined) ?? 0))
     case "balance_of":
       return i128Val(BigInt((s.balanceOf as number | undefined) ?? 0))
+    case "balance":
+      return i128Val(BigInt((s.walletBalance as number | undefined) ?? 1000))
     case "deadline":
       return u32Val((s.deadlineLedger as number | undefined) ?? 0)
     case "get_version":
@@ -964,6 +966,17 @@ export async function fetchTokenMetadata(tokenId: string): Promise<TokenMetadata
     symbol: scValToText(symbolV) || "TKN",
     decimals: decimalsV.switch().name === "scvU32" ? decimalsV.u32() : 7,
   }
+}
+
+/**
+ * Read a wallet's balance of a given SEP-41 token via the token contract's
+ * `balance()` view call. Returns base units (use formatTokenAmount to
+ * convert). "native"/empty resolves to the native XLM SAC.
+ */
+export async function fetchTokenBalance(tokenId: string, holderAddress: string): Promise<bigint> {
+  const addr = resolveTokenAddress(tokenId)
+  const val = await viewCall(addr, "balance", addressVal(holderAddress))
+  return scValToBigInt(val)
 }
 
 function scValToU32(val?: xdr.ScVal): number {

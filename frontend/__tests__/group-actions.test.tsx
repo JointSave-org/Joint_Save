@@ -1,7 +1,7 @@
 import React from "react"
 import { render, screen, waitFor } from "@/test-utils"
 import { GroupActions } from "@/components/group/group-actions"
-import { vi, describe, it, expect, beforeEach } from "vitest"
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest"
 
 vi.mock("@/hooks/useJointSaveContracts")
 
@@ -18,6 +18,10 @@ describe("GroupActions Component", () => {
         token_decimals: 7,
       }),
     })
+  })
+
+  afterEach(() => {
+    localStorage.removeItem("jointsave_address")
   })
 
   it("renders quick actions title and stellar address info", async () => {
@@ -117,6 +121,78 @@ describe("GroupActions Component", () => {
       expect(screen.getByRole("button", { name: /Contribute/i })).toBeInTheDocument()
       expect(screen.getByRole("button", { name: /Withdraw/i })).toBeInTheDocument()
       expect(screen.getByRole("button", { name: /Refund/i })).toBeInTheDocument()
+    })
+  })
+
+  it("shows the connected wallet's token balance next to the deposit label", async () => {
+    localStorage.setItem("jointsave_address", "GCONNECTEDTESTADDRESS")
+
+    render(
+      <GroupActions
+        groupId="pool-1"
+        poolAddress="CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI"
+        poolType="flexible"
+        tokenAddress="native"
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/Balance: 100\.00 XLM/i)).toBeInTheDocument()
+    })
+  })
+
+  it("shows an approximate USD value once a deposit amount is entered", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event")
+    const user = userEvent.setup()
+    localStorage.setItem("jointsave_address", "GCONNECTEDTESTADDRESS")
+
+    render(
+      <GroupActions
+        groupId="pool-1"
+        poolAddress="CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI"
+        poolType="flexible"
+        tokenAddress="native"
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Deposit Amount/i)).toBeInTheDocument()
+    })
+
+    await user.type(screen.getByLabelText(/Deposit Amount/i), "100")
+
+    await waitFor(() => {
+      expect(screen.getByText(/≈ \$12\.00/)).toBeInTheDocument()
+    })
+  })
+
+  it("nudges USDC pools with an empty balance toward the bridge page", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "pool-1",
+        name: "USDC Pool",
+        type: "flexible",
+        token_symbol: "USDC",
+        token_decimals: 7,
+      }),
+    })
+    const { fetchTokenBalance } = await import("@/hooks/useJointSaveContracts")
+    vi.mocked(fetchTokenBalance).mockResolvedValueOnce(0n)
+    localStorage.setItem("jointsave_address", "GCONNECTEDTESTADDRESS")
+
+    render(
+      <GroupActions
+        groupId="pool-1"
+        poolAddress="CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI"
+        poolType="flexible"
+        tokenAddress="native"
+      />
+    )
+
+    await waitFor(() => {
+      const link = screen.getByRole("link", { name: /bridge usdc to stellar/i })
+      expect(link).toHaveAttribute("href", "/bridge")
     })
   })
 })

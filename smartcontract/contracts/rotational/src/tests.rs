@@ -1299,3 +1299,113 @@ fn test_migrate_rejects_version_skip() {
     // Skipping from v1 to v3 must be rejected
     client.migrate(&admin, &3);
 }
+
+// ── Supported-token allowlist (USDC bridge deposits, issue #209) ──────────────
+
+fn setup_rotational_pool(
+    env: &Env,
+) -> (
+    RotationalPoolClient<'static>,
+    Address,
+    Address,
+    Address,
+    Address,
+) {
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(env, &contract_id);
+
+    let token_admin = Address::generate(env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let treasury = Address::generate(env);
+    let admin = Address::generate(env);
+    let member_a = Address::generate(env);
+    let member_b = Address::generate(env);
+
+    let mut members = Vec::new(env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &500u32,
+        &200u32,
+        &treasury,
+    );
+
+    (client, token_address, admin, member_a, member_b)
+}
+
+#[test]
+fn test_supported_tokens_empty_by_default() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, ..) = setup_rotational_pool(&env);
+    assert_eq!(client.get_supported_tokens().len(), 0);
+}
+
+#[test]
+fn test_set_supported_tokens_by_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token, admin, _a, _b) = setup_rotational_pool(&env);
+
+    let usdc = Address::generate(&env);
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(token.clone());
+    tokens.push_back(usdc);
+    client.set_supported_tokens(&admin, &tokens);
+
+    assert_eq!(client.get_supported_tokens().len(), 2);
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn test_set_supported_tokens_rejects_non_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token, _admin, member_a, _b) = setup_rotational_pool(&env);
+
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(token);
+    client.set_supported_tokens(&member_a, &tokens);
+}
+
+#[test]
+#[should_panic(expected = "token not supported")]
+fn test_deposit_fails_when_pool_token_not_in_allowlist() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, member_a, _b) = setup_rotational_pool(&env);
+
+    let usdc = Address::generate(&env);
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(usdc);
+    client.set_supported_tokens(&admin, &tokens);
+
+    client.deposit(&member_a);
+}
+
+#[test]
+fn test_deposit_succeeds_when_pool_token_is_in_allowlist() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token, admin, member_a, _b) = setup_rotational_pool(&env);
+
+    let usdc = Address::generate(&env);
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(token.clone());
+    tokens.push_back(usdc);
+    client.set_supported_tokens(&admin, &tokens);
+
+    let token_client = token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&member_a, &100i128);
+
+    client.deposit(&member_a);
+    assert!(client.has_deposited(&member_a));
+}
