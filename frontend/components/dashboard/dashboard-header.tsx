@@ -81,6 +81,9 @@ export function DashboardHeader() {
             <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
               <Link href="/explore">Explore</Link>
             </Button>
+            <Button variant="ghost" size="sm" asChild className="hidden lg:flex">
+              <Link href="/bridge">Bridge USDC</Link>
+            </Button>
             <ThemeToggle />
 
             {/* Notification bell — only shown when wallet is connected */}

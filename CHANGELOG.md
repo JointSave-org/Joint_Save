@@ -11,6 +11,7 @@ All notable changes to **JointSave** will be documented in this file.
 - **React Error Boundaries** with fallback UIs and error reporting across all dashboard routes to prevent full page crashes.
 - **Smart contract pause & recovery** capabilities to improve safety and operational resilience of deployed pool contracts.
 - **Multi-token support** (including support for the native token) for pool participation.
+- **USDC deposits** for all three pool types, with an on-chain supported-token allowlist, a token-aware deposit flow (live balance + approximate USD value), token-separated dashboard totals, and a bridge tutorial page (`/bridge`) covering Circle's CCTP and Stellar's native USDC.
 - **Reputation tracking** to represent participant trust based on pool participation.
 - **Pool notifications** for user-facing updates related to pool activity.
 - **Explore page** so users can discover available pools.

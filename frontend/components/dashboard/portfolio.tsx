@@ -43,6 +43,7 @@ interface UpcomingCommitment {
 
 interface PortfolioData {
   total_saved: number
+  total_saved_by_token: Record<string, number>
   total_pools: { rotational: number; target: number; flexible: number; total: number }
   total_yield_earned: number
   upcoming_commitments: UpcomingCommitment[]
@@ -218,7 +219,31 @@ export function Portfolio() {
             <Wallet className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.total_saved.toFixed(2)} XLM</div>
+            {(() => {
+              const byToken = Object.entries(data.total_saved_by_token || {}).filter(
+                ([, v]) => v > 0
+              )
+              if (byToken.length === 0) {
+                return <div className="text-2xl font-bold">{data.total_saved.toFixed(2)} XLM</div>
+              }
+              if (byToken.length === 1) {
+                const [symbol, value] = byToken[0]
+                return (
+                  <div className="text-2xl font-bold">
+                    {value.toFixed(2)} {symbol}
+                  </div>
+                )
+              }
+              return (
+                <div className="space-y-0.5" data-testid="total-saved-by-token">
+                  {byToken.map(([symbol, value]) => (
+                    <div key={symbol} className="text-lg font-bold">
+                      {value.toFixed(2)} {symbol}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
             <p className="text-xs text-muted-foreground mt-1">Net deposits minus withdrawals</p>
           </CardContent>
         </Card>
