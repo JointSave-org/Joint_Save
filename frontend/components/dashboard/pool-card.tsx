@@ -161,7 +161,18 @@ export function PoolCard({ pool }: { pool: Pool }) {
 
   return (
     <motion.div variants={item}>
-      <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full flex flex-col">
+      <Card 
+        className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full flex flex-col focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none cursor-default"
+        role="article"
+        aria-label={`Pool ${pool.name}, ${pool.type} pool. Status: ${pool.status}. Members: ${pool.members_count}. Total Saved: ${formatXlm(totalSaved)}. Progress: ${progress.toFixed(1)}%`}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            document.getElementById(`pool-link-${pool.id}`)?.click();
+          }
+        }}
+      >
         <div className="flex items-start justify-between mb-4 gap-3">
           <div>
             <h3 className="text-xl font-semibold mb-1">{pool.name}</h3>
@@ -209,7 +220,7 @@ export function PoolCard({ pool }: { pool: Pool }) {
             <span className="text-muted-foreground">Progress</span>
             <span className="font-medium">{progress.toFixed(1)}%</span>
           </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div className="h-2 bg-muted rounded-full overflow-hidden" aria-hidden="true">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
@@ -217,7 +228,7 @@ export function PoolCard({ pool }: { pool: Pool }) {
               className="h-full bg-primary"
             />
           </div>
-          {progressLabel && <p className="text-xs text-muted-foreground mt-1">{progressLabel}</p>}
+          {progressLabel && <p className="text-xs text-muted-foreground mt-1" aria-hidden="true">{progressLabel}</p>}
         </div>
         {showVersionWarning && (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 mb-4 text-sm font-medium">
@@ -227,8 +238,8 @@ export function PoolCard({ pool }: { pool: Pool }) {
             </span>
           </div>
         )}
-        <Button className="w-full bg-transparent" variant="outline" asChild>
-          <Link href={`/dashboard/group/${pool.id}`}>
+        <Button className="w-full bg-transparent" variant="outline" asChild tabIndex={-1}>
+          <Link href={`/dashboard/group/${pool.id}`} id={`pool-link-${pool.id}`}>
             View Details <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>

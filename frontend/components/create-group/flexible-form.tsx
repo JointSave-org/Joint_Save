@@ -252,8 +252,10 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
             if (touched.name) validateField("name", e.target.value)
           }}
           onBlur={(e) => handleBlur("name", e.target.value)}
+          aria-required="true"
+          aria-describedby="name-error"
         />
-        {touched.name && <FieldError message={fieldErrors.name} />}
+        {touched.name && <FieldError id="name-error" message={fieldErrors.name} />}
       </div>
 
       <div className="space-y-1">
@@ -303,8 +305,10 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
               if (touched.minimumDeposit) validateField("minimumDeposit", e.target.value)
             }}
             onBlur={(e) => handleBlur("minimumDeposit", e.target.value)}
+            aria-required="true"
+            aria-describedby="minimum-error"
           />
-          {touched.minimumDeposit && <FieldError message={fieldErrors.minimumDeposit} />}
+          {touched.minimumDeposit && <FieldError id="minimum-error" message={fieldErrors.minimumDeposit} />}
         </div>
 
         <div className="space-y-1">
@@ -327,8 +331,10 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
               if (touched.withdrawalFee) validateField("withdrawalFee", e.target.value)
             }}
             onBlur={(e) => handleBlur("withdrawalFee", e.target.value)}
+            aria-required="true"
+            aria-describedby="fee-error"
           />
-          {touched.withdrawalFee && <FieldError message={fieldErrors.withdrawalFee} />}
+          {touched.withdrawalFee && <FieldError id="fee-error" message={fieldErrors.withdrawalFee} />}
         </div>
       </div>
 
@@ -402,6 +408,9 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
                   placeholder="G... (56-character Stellar address)"
                   value={member}
                   onChange={(e) => updateMember(i, e.target.value)}
+                  aria-label={`Member ${i + 2} address`}
+                  aria-required="true"
+                  aria-describedby={`member-error-${i}`}
                   className={
                     memberErrors[i]
                       ? "border-destructive"
@@ -411,12 +420,12 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
                   }
                 />
                 {members.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)}>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)} aria-label={`Remove member ${i + 2}`}>
                     <X className="h-4 w-4" />
                   </Button>
                 )}
               </div>
-              {memberErrors[i] && <FieldError message={memberErrors[i]} />}
+              {memberErrors[i] && <FieldError id={`member-error-${i}`} message={memberErrors[i]} />}
               {!memberErrors[i] && member && isValidStellarAddress(member) && (
                 <p className="text-green-600 text-xs flex items-center gap-1">✓ Valid address</p>
               )}
