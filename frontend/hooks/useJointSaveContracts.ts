@@ -176,23 +176,41 @@ function vecVal(addrs: string[]): xdr.ScVal {
   return nativeToScVal(addrs.map((a) => nativeToScVal(a, { type: "address" })))
 }
 
-/** Simulate → assemble → sign → send → poll. Returns tx hash. */
-async function submitTx(
-  kit: {
-    signTransaction: (
-      xdr: string,
-      opts: { networkPassphrase: string }
-    ) => Promise<{ signedTxXdr: string }>
-  },
-  tx: Transaction,
+/**
+ * Lifecycle phases a contract transaction moves through, reported via
+ * `onPhase` so callers (e.g. the batch-deposit progress UI) can show
+ * per-transaction status without re-implementing the submit pipeline.
+ */
+export type TxPhase = "signing" | "submitted" | "confirmed"
+
+export interface SubmitContractTxOptions {
+  /** Recorded in local storage so a refresh can still track the tx. */
   pendingTx?: {
     address: string
     type: PendingTransactionType
     poolId: string
     amount?: string
   }
+  /** Called as the transaction advances; `hash` is set from "submitted" on. */
+  onPhase?: (phase: TxPhase, hash?: string) => void
+}
+
+/**
+ * Simulate → assemble → sign → send → poll. Returns the tx hash.
+ *
+ * Signing goes through the app-wide tx-queue (`enqueueSign`), so concurrent
+ * callers never open two wallet popups at once.
+ */
+export async function submitContractTx(
+  tx: Transaction,
+  { pendingTx, onPhase }: SubmitContractTxOptions = {}
 ): Promise<string> {
-  if (IS_E2E) return E2E_TX_HASH
+  if (IS_E2E) {
+    onPhase?.("signing")
+    onPhase?.("submitted", E2E_TX_HASH)
+    onPhase?.("confirmed", E2E_TX_HASH)
+    return E2E_TX_HASH
+  }
   const server = getRpc()
 
   const simResult = await server.simulateTransaction(tx)
@@ -202,6 +220,7 @@ async function submitTx(
 
   const preparedTx = rpc.assembleTransaction(tx, simResult).build()
 
+  onPhase?.("signing")
   const { signedTxXdr } = await enqueueSign(preparedTx.toXDR(), {
     networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
   })
@@ -213,6 +232,8 @@ async function submitTx(
   if (result.status === "ERROR") {
     throw new Error(`Send failed: ${JSON.stringify(result.errorResult)}`)
   }
+
+  onPhase?.("submitted", result.hash)
 
   if (pendingTx) {
     addPendingTransactionRecord(pendingTx.address, {
@@ -243,6 +264,8 @@ async function submitTx(
   if (getResult.status === rpc.Api.GetTransactionStatus.SUCCESS && pendingTx) {
     removePendingTransactionRecord(pendingTx.address, result.hash)
   }
+
+  onPhase?.("confirmed", result.hash)
 
   return result.hash
 }
@@ -363,7 +386,7 @@ export function useInitializePool() {
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
@@ -400,7 +423,7 @@ export function useInitializePool() {
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
@@ -443,7 +466,7 @@ export function useInitializePool() {
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
@@ -483,7 +506,7 @@ export function useRegisterPool(poolType: "rotational" | "target" | "flexible") 
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
@@ -517,7 +540,7 @@ export function useSetReputationTracker() {
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
@@ -544,10 +567,12 @@ export function useRotationalDeposit(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("deposit", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx, {
-        address,
-        type: "deposit",
-        poolId: contractId,
+      return await submitContractTx(tx, {
+        pendingTx: {
+          address,
+          type: "deposit",
+          poolId: contractId,
+        },
       })
     } finally {
       setIsLoading(false)
@@ -575,10 +600,12 @@ export function useTriggerPayout(contractId: string) {
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx, {
-        address,
-        type: "trigger_payout",
-        poolId: contractId,
+      return await submitContractTx(tx, {
+        pendingTx: {
+          address,
+          type: "trigger_payout",
+          poolId: contractId,
+        },
       })
     } finally {
       setIsLoading(false)
@@ -612,11 +639,13 @@ export function useTargetContribute(contractId: string, amount: string, decimals
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx, {
-        address,
-        type: "deposit",
-        poolId: contractId,
-        amount,
+      return await submitContractTx(tx, {
+        pendingTx: {
+          address,
+          type: "deposit",
+          poolId: contractId,
+          amount,
+        },
       })
     } finally {
       setIsLoading(false)
@@ -642,10 +671,12 @@ export function useTargetWithdraw(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("withdraw", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx, {
-        address,
-        type: "withdraw",
-        poolId: contractId,
+      return await submitContractTx(tx, {
+        pendingTx: {
+          address,
+          type: "withdraw",
+          poolId: contractId,
+        },
       })
     } finally {
       setIsLoading(false)
@@ -671,10 +702,12 @@ export function useTargetRefund(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("refund", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx, {
-        address,
-        type: "withdraw",
-        poolId: contractId,
+      return await submitContractTx(tx, {
+        pendingTx: {
+          address,
+          type: "withdraw",
+          poolId: contractId,
+        },
       })
     } finally {
       setIsLoading(false)
@@ -708,11 +741,13 @@ export function useFlexibleDeposit(contractId: string, amount: string, decimals 
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx, {
-        address,
-        type: "deposit",
-        poolId: contractId,
-        amount,
+      return await submitContractTx(tx, {
+        pendingTx: {
+          address,
+          type: "deposit",
+          poolId: contractId,
+          amount,
+        },
       })
     } finally {
       setIsLoading(false)
@@ -744,11 +779,13 @@ export function useFlexibleWithdraw(contractId: string, amount: string, decimals
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx, {
-        address,
-        type: "withdraw",
-        poolId: contractId,
-        amount,
+      return await submitContractTx(tx, {
+        pendingTx: {
+          address,
+          type: "withdraw",
+          poolId: contractId,
+          amount,
+        },
       })
     } finally {
       setIsLoading(false)
@@ -1296,7 +1333,7 @@ export function useAddPoolMember(contractId: string) {
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
@@ -1327,7 +1364,7 @@ export function useRemovePoolMember(contractId: string) {
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
@@ -1352,7 +1389,7 @@ export function useLeavePool(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("leave_pool", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
@@ -1377,7 +1414,7 @@ export function usePausePool(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("pause", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
@@ -1402,7 +1439,7 @@ export function useUnpausePool(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("unpause", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
@@ -1470,7 +1507,7 @@ export function useBumpPoolState(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("bump_state"))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx)
+      return await submitContractTx(tx)
     } finally {
       setIsLoading(false)
     }
