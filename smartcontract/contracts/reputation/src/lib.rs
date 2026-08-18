@@ -59,10 +59,12 @@ pub struct ReputationData {
     pub pools_completed: u32,
     /// Total pools this member has been recorded in (≥ 1 deposit OR ≥ 1 miss)
     pub pools_joined: u32,
-    /// Cumulative successful deposits
+    /// Cumulative successful deposit count (used for scoring)
     pub total_deposits: u32,
     /// Cumulative missed deposit rounds
     pub missed_deposits: u32,
+    /// Cumulative token amount deposited (used for legacy total_deposits field)
+    pub total_deposit_amount: i128,
     /// Unix timestamp of the last recorded activity (deposit or miss)
     pub last_activity: u64,
     /// Unix timestamp of the most recent score computation
@@ -236,6 +238,7 @@ impl ReputationTracker {
         }
 
         data.total_deposits += 1;
+        data.total_deposit_amount += amount;
         data.last_activity = now;
 
         // Recompute
@@ -415,7 +418,7 @@ impl ReputationTracker {
             ((data.total_deposits as u64 * 10000) / total_rounds as u64).min(10000) as u32
         };
         ReputationScore {
-            total_deposits: data.total_deposits as i128,
+            total_deposits: data.total_deposit_amount,
             pools_completed: data.pools_completed,
             missed_rounds: data.missed_deposits,
             on_time_rate,
@@ -517,6 +520,7 @@ impl ReputationTracker {
                 pools_joined: 0,
                 total_deposits: 0,
                 missed_deposits: 0,
+                total_deposit_amount: 0,
                 last_activity: 0,
                 score_updated_at: 0,
             })
@@ -532,7 +536,8 @@ impl ReputationTracker {
             ((data.total_deposits as u64 * 10000) / total_rounds as u64).min(10000) as u32
         };
         let legacy = ReputationScore {
-            total_deposits: data.total_deposits as i128,
+            // Legacy field stored the cumulative token amount, not the count
+            total_deposits: data.total_deposit_amount,
             pools_completed: data.pools_completed,
             missed_rounds: data.missed_deposits,
             on_time_rate,

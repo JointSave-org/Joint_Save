@@ -38,7 +38,8 @@ fn record_deposit_accumulates_total_and_keeps_full_on_time_rate() {
     client.record_deposit(&pool, &member, &50);
 
     let score = client.get_reputation(&member);
-    assert_eq!(score.total_deposits, 2); // count, not amount sum
+    // total_deposits in the legacy struct is the cumulative token amount
+    assert_eq!(score.total_deposits, 150);
     assert_eq!(score.missed_rounds, 0);
     assert_eq!(score.on_time_rate, 10000);
 }
@@ -83,7 +84,8 @@ fn reputation_is_tracked_independently_per_member() {
 
     let score_a = client.get_reputation(&member_a);
     let score_b = client.get_reputation(&member_b);
-    assert_eq!(score_a.total_deposits, 1);
+    // total_deposits in legacy struct = cumulative token amount
+    assert_eq!(score_a.total_deposits, 100);
     assert_eq!(score_a.missed_rounds, 0);
     assert_eq!(score_b.total_deposits, 0);
     assert_eq!(score_b.missed_rounds, 1);
