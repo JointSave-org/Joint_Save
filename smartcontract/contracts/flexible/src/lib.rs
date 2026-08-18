@@ -26,6 +26,8 @@ pub enum DataKey {
     MigratedFrom,
     /// Optional address of the on-chain ReputationTracker contract.
     ReputationTracker,
+    /// Optional allowlist of accepted token addresses (empty = unrestricted).
+    SupportedTokens,
 }
 
 const LEDGER_THRESHOLD: u32 = 518400;
@@ -514,6 +516,9 @@ impl FlexiblePool {
         if storage.has(&DataKey::ReputationTracker) {
             storage.extend_ttl(&DataKey::ReputationTracker, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
+        if storage.has(&DataKey::SupportedTokens) {
+            storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
     }
 
     /// Point this pool at a deployed ReputationTracker contract so deposits
@@ -599,6 +604,13 @@ impl FlexiblePool {
 
     pub fn reputation_tracker(env: Env) -> Option<Address> {
         env.storage().persistent().get(&DataKey::ReputationTracker)
+    }
+
+    pub fn get_supported_tokens(env: Env) -> Vec<Address> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::SupportedTokens)
+            .unwrap_or(Vec::new(&env))
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
