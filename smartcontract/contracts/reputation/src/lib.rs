@@ -458,12 +458,8 @@ impl ReputationTracker {
     }
 
     /// Recency bonus based on seconds elapsed since last_activity.
-    /// Note: this is called with `last_activity` set to `now` for fresh events,
-    /// which always returns 1000.  The decay kicks in when re-reading a stale score.
+    /// When called with last_activity == now (fresh event), elapsed is 0 → max bonus.
     fn compute_recency_bonus(now: u64, last_activity: u64) -> u32 {
-        if last_activity == 0 {
-            return 0;
-        }
         let elapsed_secs = if now > last_activity { now - last_activity } else { 0 };
         let days = elapsed_secs / SECS_PER_DAY;
         if days < 30 {
