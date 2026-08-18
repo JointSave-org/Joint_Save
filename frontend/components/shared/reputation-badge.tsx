@@ -150,9 +150,7 @@ export function ReputationBadge({
         >
           <TierIcon tier={tier} className="h-3 w-3" />
           {display.label}
-          {!data.isProvisional && (
-            <span className="opacity-70 font-normal">{data.totalScore}</span>
-          )}
+          {!data.isProvisional && <span className="opacity-70 font-normal">{data.totalScore}</span>}
         </Badge>
       </TooltipTrigger>
       <TooltipContent
