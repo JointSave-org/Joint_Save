@@ -38,6 +38,12 @@ jobs:
         working-directory: frontend
         run: pnpm format:check
 
+      - name: Build Next.js & Check Performance Budget
+        working-directory: frontend
+        run: |
+          pnpm build
+          pnpm check-budget
+
   build:
     name: Build Soroban Contracts
     runs-on: ubuntu-latest

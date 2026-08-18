@@ -134,7 +134,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Pool not found" }, { status: 404 })
       }
 
-      return NextResponse.json(data)
+      return NextResponse.json(data, {
+        headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+      })
     } else if (contractAddress) {
       // Fetch single pool by contract address
       const { data, error } = await supabase
@@ -166,7 +168,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Pool not found" }, { status: 404 })
       }
 
-      return NextResponse.json(data)
+      return NextResponse.json(data, {
+        headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+      })
     } else if (creatorAddress) {
       const PAGE_SIZE = 6
       const page = Math.max(0, parseInt(req.nextUrl.searchParams.get("page") || "0", 10))
@@ -184,7 +188,10 @@ export async function GET(req: NextRequest) {
         throw error
       }
 
-      return NextResponse.json({ data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE })
+      return NextResponse.json(
+        { data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE },
+        { headers: { "Cache-Control": "private, no-cache" } }
+      )
     } else if (req.nextUrl.searchParams.get("explore") !== null) {
       // Explore feed — all pools, paginated, newest first, for prospective members.
       const PAGE_SIZE = 6
@@ -202,7 +209,10 @@ export async function GET(req: NextRequest) {
         throw error
       }
 
-      return NextResponse.json({ data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE })
+      return NextResponse.json(
+        { data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE },
+        { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }
+      )
     } else {
       // Fetch all pools
       const { data, error } = await supabase
@@ -215,7 +225,9 @@ export async function GET(req: NextRequest) {
         throw error
       }
 
-      return NextResponse.json(data || [])
+      return NextResponse.json(data || [], {
+        headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+      })
     }
   } catch (error) {
     console.error("Pool fetch error:", error)

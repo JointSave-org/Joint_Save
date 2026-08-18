@@ -29,5 +29,8 @@ export async function GET(req: NextRequest) {
     byPool[row.pool_id].push(row.total_balance)
   }
 
-  return NextResponse.json({ history: byPool })
+  return NextResponse.json(
+    { history: byPool },
+    { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }
+  )
 }

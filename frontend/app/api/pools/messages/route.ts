@@ -92,7 +92,10 @@ export async function GET(req: NextRequest) {
 
   // Return in chronological order so the UI can simply append.
   const messages = (data ?? []).reverse()
-  return NextResponse.json({ messages, hasMore: (data ?? []).length === PAGE_SIZE })
+  return NextResponse.json(
+    { messages, hasMore: (data ?? []).length === PAGE_SIZE },
+    { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }
+  )
 }
 
 // ── POST ──────────────────────────────────────────────────────────────────────
