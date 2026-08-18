@@ -1,6 +1,5 @@
 "use client"
 
-
 import Link from "next/link"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Card } from "@/components/ui/card"
@@ -163,9 +162,6 @@ export function GroupActions({
   const isAdmin = !!address && !!poolAdmin && address.toUpperCase() === poolAdmin.toUpperCase()
   const [depositAmount, setDepositAmount] = useState("")
   const [withdrawAmount, setWithdrawAmount] = useState("")
-  // Used by the transaction preview / leave-pool dialogs below.
-  const [, setError] = useState("")
-  const [, setSuccessMsg] = useState("")
 
   // Pool metadata from Supabase
   const [poolData, setPoolData] = useState<Record<string, unknown> | null>(null)
@@ -620,32 +616,32 @@ export function GroupActions({
           <div className="space-y-6">
             {/* Deposit / Contribute */}
 
-        <div ref={depositButtonRef} className="space-y-3">
-          {highlightDeposit && (
-            <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/40 px-3 py-2 text-sm font-medium text-primary animate-pulse">
-              <ArrowUpRight className="h-4 w-4" />
-              Make your first deposit to get the cycle going!
-            </div>
-          )}
-          <div className="flex items-center justify-between">
-            <Label htmlFor="deposit">
-              {isRotational
-                ? "Deposit Fixed Amount"
-                : isTarget
-                  ? `Contribute Amount (${tokenSymbol})`
-                  : `Deposit Amount (${tokenSymbol})`}
-            </Label>
-            {address &&
-              (balanceLoading ? (
-                <Skeleton className="h-3 w-24" />
-              ) : (
-                walletBalance !== null && (
-                  <span className="text-xs text-muted-foreground">
-                    Balance: {walletBalance.toFixed(2)} {tokenSymbol}
-                  </span>
-                )
-              ))}
-          </div>
+            <div ref={depositButtonRef} className="space-y-3">
+              {highlightDeposit && (
+                <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/40 px-3 py-2 text-sm font-medium text-primary animate-pulse">
+                  <ArrowUpRight className="h-4 w-4" />
+                  Make your first deposit to get the cycle going!
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="deposit">
+                  {isRotational
+                    ? "Deposit Fixed Amount"
+                    : isTarget
+                      ? `Contribute Amount (${tokenSymbol})`
+                      : `Deposit Amount (${tokenSymbol})`}
+                </Label>
+                {address &&
+                  (balanceLoading ? (
+                    <Skeleton className="h-3 w-24" />
+                  ) : (
+                    walletBalance !== null && (
+                      <span className="text-xs text-muted-foreground">
+                        Balance: {walletBalance.toFixed(2)} {tokenSymbol}
+                      </span>
+                    )
+                  ))}
+              </div>
               {!isRotational && (
                 <Input
                   id="deposit"
