@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -47,9 +47,7 @@ function ReputationTooltipContent({
 }) {
   const reliabilityPct = (data.depositReliability / 10).toFixed(1)
   const completionPct =
-    data.poolsJoined > 0
-      ? ((data.poolsCompleted / data.poolsJoined) * 100).toFixed(0)
-      : "—"
+    data.poolsJoined > 0 ? ((data.poolsCompleted / data.poolsJoined) * 100).toFixed(0) : "—"
 
   return (
     <div className="space-y-2 min-w-[200px]">
@@ -95,15 +93,21 @@ function ReputationTooltipContent({
  * - Compact mode: single colored dot with tooltip on hover
  * - Hidden when `data` is null (contract unavailable) — never errors
  */
-export function ReputationBadge({ data, isLoading, compact = false, className }: ReputationBadgeProps) {
-  // Hide completely when data is unavailable — don't show skeleton either,
-  // because the layout should degrade gracefully.
+export function ReputationBadge({
+  data,
+  isLoading,
+  compact = false,
+  className,
+}: ReputationBadgeProps) {
   if (!data && !isLoading) return null
   if (isLoading) {
     return compact ? (
       <span className="inline-block h-2 w-2 rounded-full bg-muted animate-pulse" aria-hidden />
     ) : (
-      <span className="inline-flex items-center h-5 w-16 rounded-full bg-muted animate-pulse" aria-hidden />
+      <span
+        className="inline-flex items-center h-5 w-16 rounded-full bg-muted animate-pulse"
+        aria-hidden
+      />
     )
   }
   if (!data) return null
@@ -121,7 +125,10 @@ export function ReputationBadge({ data, isLoading, compact = false, className }:
             aria-label={`Reputation: ${display.label} (${data.totalScore}/1000)`}
           />
         </TooltipTrigger>
-        <TooltipContent side="top" className="p-3 bg-popover text-popover-foreground border shadow-md">
+        <TooltipContent
+          side="top"
+          className="p-3 bg-popover text-popover-foreground border shadow-md"
+        >
           <ReputationTooltipContent data={data} display={display} />
         </TooltipContent>
       </Tooltip>
@@ -133,7 +140,12 @@ export function ReputationBadge({ data, isLoading, compact = false, className }:
       <TooltipTrigger asChild>
         <Badge
           variant="outline"
-          className={`gap-1 text-xs font-medium cursor-help select-none ${display.colorClass} ${display.textClass} border-current/20 ${className ?? ""}`}
+          className={[
+            "gap-1 text-xs font-medium cursor-help select-none border-current/20",
+            display.colorClass,
+            display.textClass,
+            className ?? "",
+          ].join(" ")}
           aria-label={`Reputation: ${display.label} (${data.totalScore}/1000)`}
         >
           <TierIcon tier={tier} className="h-3 w-3" />
@@ -143,7 +155,10 @@ export function ReputationBadge({ data, isLoading, compact = false, className }:
           )}
         </Badge>
       </TooltipTrigger>
-      <TooltipContent side="top" className="p-3 bg-popover text-popover-foreground border shadow-md">
+      <TooltipContent
+        side="top"
+        className="p-3 bg-popover text-popover-foreground border shadow-md"
+      >
         <ReputationTooltipContent data={data} display={display} />
       </TooltipContent>
     </Tooltip>

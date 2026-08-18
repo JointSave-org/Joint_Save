@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import {
@@ -1456,8 +1456,7 @@ export async function fetchMemberReputationData(address: string): Promise<Reputa
       viewCall(REPUTATION_ID, "is_provisional", addressVal(address)),
     ])
 
-    const isProvisional =
-      provisionalVal.switch().name === "scvBool" ? provisionalVal.b() : true
+    const isProvisional = provisionalVal.switch().name === "scvBool" ? provisionalVal.b() : true
 
     const toU64 = (v?: xdr.ScVal): number => {
       if (!v) return 0

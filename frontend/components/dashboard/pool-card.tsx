@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -227,25 +227,26 @@ export function PoolCard({ pool }: { pool: Pool }) {
             </span>
             <span className="font-medium">{pool.frequency || pool.status}</span>
           </div>
-          {avgScore !== null && (() => {
-            const tier = getTierFromScore(avgScore, avgScore === 500)
-            const display = TIER_DISPLAY[tier]
-            return (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  Avg. Member Score
-                </span>
-                <span className={`font-medium flex items-center gap-1 ${display.textClass}`}>
-                  <span
-                    className="inline-block h-2 w-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: display.dotColor }}
-                  />
-                  {avgScore}
-                </span>
-              </div>
-            )
-          })()}
+          {avgScore !== null &&
+            (() => {
+              const tier = getTierFromScore(avgScore, avgScore === 500)
+              const display = TIER_DISPLAY[tier]
+              return (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Avg. Member Score
+                  </span>
+                  <span className={`font-medium flex items-center gap-1 ${display.textClass}`}>
+                    <span
+                      className="inline-block h-2 w-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: display.dotColor }}
+                    />
+                    {avgScore}
+                  </span>
+                </div>
+              )
+            })()}
         </div>
         <div className="mb-4">
           <div className="flex items-center justify-between text-sm mb-2">

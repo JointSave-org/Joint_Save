@@ -181,12 +181,12 @@ impl ReputationTracker {
 
         data.last_activity = now;
 
-        // Recompute score
+        // Recompute score — recency uses `now` directly since we just recorded activity
         data.deposit_reliability = Self::compute_deposit_reliability(
             data.total_deposits,
             data.missed_deposits,
         );
-        let recency = Self::compute_recency_bonus(now, data.last_activity);
+        let recency = Self::compute_recency_bonus(now, now);
         let pools_completed_ratio_score = if data.pools_joined > 0 {
             let ratio = (data.pools_completed as u64 * 1000) / data.pools_joined as u64;
             ratio.min(1000) as u32
@@ -407,11 +407,18 @@ impl ReputationTracker {
         }
         // Fall back to synthesising from new data
         let data = Self::load_data(&env, &address);
+        let total_rounds = data.total_deposits + data.missed_deposits;
+        let on_time_rate = if total_rounds == 0 {
+            // No history yet — default to 100% (10000 basis points)
+            10000u32
+        } else {
+            ((data.total_deposits as u64 * 10000) / total_rounds as u64).min(10000) as u32
+        };
         ReputationScore {
             total_deposits: data.total_deposits as i128,
             pools_completed: data.pools_completed,
             missed_rounds: data.missed_deposits,
-            on_time_rate: (data.deposit_reliability * 10).min(10000), // reliability/1000*10000
+            on_time_rate,
         }
     }
 

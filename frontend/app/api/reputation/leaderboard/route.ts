@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { readLimiter } from "@/lib/rate-limit"
 import {
   Address,
@@ -94,10 +94,7 @@ export async function GET(req: NextRequest) {
   if (limited) return limited
 
   if (!REPUTATION_ID) {
-    return NextResponse.json(
-      { error: "Reputation contract not configured" },
-      { status: 503 }
-    )
+    return NextResponse.json({ error: "Reputation contract not configured" }, { status: 503 })
   }
 
   const topParam = req.nextUrl.searchParams.get("top")
@@ -116,7 +113,6 @@ export async function GET(req: NextRequest) {
 
     for (let i = 0; i < vec.length; i++) {
       const pair = vec[i]
-      // Each element is a tuple: [address_scval, data_scmap]
       const pairVec = pair.vec()
       if (!pairVec || pairVec.length < 2) continue
 
@@ -130,9 +126,7 @@ export async function GET(req: NextRequest) {
         continue
       }
 
-      // Fetch is_provisional separately — included in ReputationData as total_deposits < 10
       const totalDeposits = scValToU32(structField(dataVal, "total_deposits"))
-      const isProvisional = totalDeposits < 10
 
       entries.push({
         address,
@@ -144,7 +138,7 @@ export async function GET(req: NextRequest) {
         missedDeposits: scValToU32(structField(dataVal, "missed_deposits")),
         lastActivity: scValToU64(structField(dataVal, "last_activity")),
         scoreUpdatedAt: scValToU64(structField(dataVal, "score_updated_at")),
-        isProvisional,
+        isProvisional: totalDeposits < 10,
         rank: i + 1,
       })
     }

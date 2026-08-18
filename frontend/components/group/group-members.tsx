@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -282,10 +282,7 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
                     </>
                   )}
                   {reputations[member.member_address] && (
-                    <ReputationBadge
-                      data={reputations[member.member_address]}
-                      compact={false}
-                    />
+                    <ReputationBadge data={reputations[member.member_address]} compact={false} />
                   )}
                 </div>
               </div>
