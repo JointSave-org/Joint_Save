@@ -130,6 +130,9 @@ export type Database = {
           token_amount: number | null
           description: string | null
           tx_hash: string | null
+          on_chain_timestamp: string | null
+          block_number: number | null
+          fee_charged: number | null
           created_at: string
         }
         Insert: {
@@ -140,6 +143,9 @@ export type Database = {
           token_amount?: number | null
           description?: string | null
           tx_hash?: string | null
+          on_chain_timestamp?: string | null
+          block_number?: number | null
+          fee_charged?: number | null
         }
         Update: {
           pool_id?: string
@@ -149,6 +155,9 @@ export type Database = {
           token_amount?: number | null
           description?: string | null
           tx_hash?: string | null
+          on_chain_timestamp?: string | null
+          block_number?: number | null
+          fee_charged?: number | null
         }
         Relationships: []
       }
@@ -385,6 +394,25 @@ export type Database = {
           retry_count?: number
           next_retry_at?: string | null
           created_at?: string
+        }
+        Relationships: []
+      }
+      event_index_log: {
+        Row: {
+          id: number
+          pool_id: string
+          last_indexed_ledger: number
+          indexed_at: string
+        }
+        Insert: {
+          pool_id: string
+          last_indexed_ledger: number
+          indexed_at?: string
+        }
+        Update: {
+          pool_id?: string
+          last_indexed_ledger?: number
+          indexed_at?: string
         }
         Relationships: []
       }
