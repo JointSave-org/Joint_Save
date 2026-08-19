@@ -1,17 +1,20 @@
 "use client"
 
-import { use, useMemo } from "react"
-import { useSearchParams } from "next/navigation"
+import { use, useMemo, useEffect, useState } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { RotationalForm } from "@/components/create-group/rotational-form"
 import { TargetForm } from "@/components/create-group/target-form"
 import { FlexibleForm } from "@/components/create-group/flexible-form"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, LayoutTemplate, Loader2, CopyPlus } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { useStellar } from "@/components/web3-provider"
+import { UseTemplateDialog } from "@/components/templates/use-template-dialog"
+import type { PoolTemplateConfig } from "@/lib/templates"
 
 const validTypes = ["rotational", "target", "flexible"]
 
@@ -25,13 +28,38 @@ export interface DuplicatePrefill {
   /** Flexible pool: minimum deposit per transaction */
   minimumDeposit: string
   frequency: string
+  /** Target pool: deadline in days from creation */
+  deadlineDays?: string
+  /** Flexible pool: withdrawal fee percent */
+  withdrawalFee?: string
+  /** Flexible pool: yield generation toggle */
+  enableYield?: boolean
   members: string[]
   token: string
+}
+
+/** Map a template's stored config onto the form prefill shape. */
+function configToPrefill(config: PoolTemplateConfig): DuplicatePrefill {
+  return {
+    name: config.name || "",
+    description: config.description || "",
+    amount: config.amount || "",
+    targetAmount: config.targetAmount || "",
+    minimumDeposit: config.minimumDeposit || "",
+    frequency: config.frequency || "",
+    deadlineDays: config.deadlineDays || "",
+    withdrawalFee: config.withdrawalFee || "",
+    enableYield: config.enableYield ?? false,
+    members: config.members || [],
+    token: config.token || "XLM",
+  }
 }
 
 export default function CreateGroupPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = use(params)
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const { address } = useStellar()
 
   if (!validTypes.includes(type)) {
     redirect("/dashboard")
@@ -39,8 +67,47 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
 
   const isOnboarding = searchParams.get("onboarding") === "1"
   const isDuplicate = searchParams.get("duplicate") === "1"
+  const isCreateTemplate = searchParams.get("createTemplate") === "1"
+  const templateId = searchParams.get("template")
+
+  const [useTemplateOpen, setUseTemplateOpen] = useState(false)
+  const [templatePrefill, setTemplatePrefill] = useState<DuplicatePrefill | null>(null)
+  const [templateLoading, setTemplateLoading] = useState(false)
+  const [templateError, setTemplateError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!templateId) {
+      setTemplatePrefill(null)
+      setTemplateError(null)
+      return
+    }
+    let cancelled = false
+    setTemplateLoading(true)
+    setTemplateError(null)
+    fetch(`/api/templates?id=${encodeURIComponent(templateId)}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Template not found")
+        const template = await res.json()
+        if (cancelled) return
+        if (template.pool_type !== type) {
+          router.replace(`/dashboard/create/${template.pool_type}?template=${template.id}`)
+          return
+        }
+        setTemplatePrefill(configToPrefill(template.config))
+      })
+      .catch((error) => {
+        if (!cancelled) setTemplateError((error as Error).message || "Failed to load template")
+      })
+      .finally(() => {
+        if (!cancelled) setTemplateLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [templateId, type, router])
 
   const prefill: DuplicatePrefill | undefined = useMemo(() => {
+    if (templateId) return templatePrefill ?? undefined
     if (!isDuplicate && !isOnboarding) return undefined
     try {
       const membersRaw = searchParams.get("members")
@@ -58,7 +125,7 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
     } catch {
       return undefined
     }
-  }, [searchParams, isDuplicate, isOnboarding])
+  }, [searchParams, isDuplicate, isOnboarding, templateId, templatePrefill])
 
   const titles = {
     rotational: "Create Rotational Savings Group",
@@ -80,27 +147,108 @@ export default function CreateGroupPage({ params }: { params: Promise<{ type: st
             </Button>
 
             <Card className="p-8">
-              <h1 className="text-3xl font-bold mb-2">
-                {isDuplicate && prefill
-                  ? `New Cycle: ${prefill.name}`
-                  : isOnboarding
-                    ? `Create your ${type} pool`
-                    : titles[type as keyof typeof titles]}
-              </h1>
-              <p className="text-muted-foreground mb-8">
-                {isDuplicate
-                  ? "Pre-filled from the original pool. Edit any values before creating."
-                  : isOnboarding
-                    ? "Smart defaults pre-filled from the onboarding wizard — review and edit before creating."
-                    : "Fill in the details to create your savings group"}
-              </p>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h1 className="text-3xl font-bold mb-2">
+                    {templateId && templatePrefill
+                      ? `New Pool from Template: ${templatePrefill.name}`
+                      : isDuplicate && prefill
+                        ? `New Cycle: ${prefill.name}`
+                        : isOnboarding
+                          ? `Create your ${type} pool`
+                          : titles[type as keyof typeof titles]}
+                  </h1>
+                  <p className="text-muted-foreground mb-4">
+                    {templateId && templatePrefill
+                      ? "Pre-filled from a template. Edit any values before creating."
+                      : isCreateTemplate
+                        ? "Fill in the details below, then use \u201CSave as Template\u201D to store this configuration for reuse."
+                        : isDuplicate
+                          ? "Pre-filled from the original pool. Edit any values before creating."
+                          : isOnboarding
+                            ? "Smart defaults pre-filled from the onboarding wizard — review and edit before creating."
+                            : "Fill in the details to create your savings group"}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => setUseTemplateOpen(true)}
+                >
+                  <LayoutTemplate className="h-4 w-4 mr-1" />
+                  Use Template
+                </Button>
+              </div>
 
-              {type === "rotational" && <RotationalForm prefill={prefill} />}
-              {type === "target" && <TargetForm prefill={prefill} />}
-              {type === "flexible" && <FlexibleForm prefill={prefill} />}
+              {templateId && templateLoading && (
+                <div className="flex items-center gap-2 text-muted-foreground mb-6">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading template…
+                </div>
+              )}
+
+              {templateId && templateError && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 mb-6">
+                  <p className="text-sm text-destructive">
+                    {templateError}.{" "}
+                    <Link href="/dashboard/templates" className="underline">
+                      Browse templates
+                    </Link>{" "}
+                    instead.
+                  </p>
+                </div>
+              )}
+
+              {isCreateTemplate && !templateId && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground mb-6">
+                  <CopyPlus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                  <span>
+                    You're building a reusable template. Fill in the configuration below and click{" "}
+                    <strong>"Save as Template"</strong> to store it — no pool contract is deployed.
+                  </span>
+                </div>
+              )}
+
+              {templateId && templatePrefill && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground mb-6">
+                  <CopyPlus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                  <span>
+                    Pre-filled from template "{templatePrefill.name}" — all values are editable.
+                    Submitting will deploy a <strong>new, independent contract</strong>.
+                  </span>
+                </div>
+              )}
+
+              {templateLoading ? (
+                <div className="space-y-4">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="h-12 rounded-lg bg-muted/40 animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {type === "rotational" && (
+                    <RotationalForm key={templateId ?? "default"} prefill={prefill} />
+                  )}
+                  {type === "target" && (
+                    <TargetForm key={templateId ?? "default"} prefill={prefill} />
+                  )}
+                  {type === "flexible" && (
+                    <FlexibleForm key={templateId ?? "default"} prefill={prefill} />
+                  )}
+                </>
+              )}
             </Card>
           </div>
         </main>
+
+        <UseTemplateDialog
+          open={useTemplateOpen}
+          onOpenChange={setUseTemplateOpen}
+          poolType={type as "rotational" | "target" | "flexible"}
+          address={address}
+        />
       </div>
     </ErrorBoundary>
   )

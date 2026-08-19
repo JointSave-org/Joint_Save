@@ -416,6 +416,42 @@ export type Database = {
         }
         Relationships: []
       }
+      pool_templates: {
+        Row: {
+          id: string
+          creator_address: string
+          name: string
+          description: string | null
+          pool_type: "rotational" | "target" | "flexible"
+          config: Record<string, unknown>
+          is_public: boolean
+          use_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          creator_address: string
+          name: string
+          description?: string | null
+          pool_type: "rotational" | "target" | "flexible"
+          config: Record<string, unknown>
+          is_public?: boolean
+          use_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          pool_type?: "rotational" | "target" | "flexible"
+          config?: Record<string, unknown>
+          is_public?: boolean
+          use_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     // supabase-js v2 requires these keys on the schema type; without them the
     // client can't match GenericSchema and every table degrades to `never`.
