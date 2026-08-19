@@ -40,10 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!/^[GC][A-Z0-9]{55}$/.test(userAddress)) {
-      return NextResponse.json(
-        { error: "Invalid Stellar address format" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Invalid Stellar address format" }, { status: 400 })
     }
 
     // ── Check sponsor configuration ─────────────────────────────────────────
@@ -80,10 +77,7 @@ export async function POST(req: NextRequest) {
     // ── Eligibility check ───────────────────────────────────────────────────
     const eligibility = await checkEligibility(userAddress, FACTORY_ID)
     if (!eligibility.eligible) {
-      return NextResponse.json(
-        { error: eligibility.reason },
-        { status: 403 }
-      )
+      return NextResponse.json({ error: eligibility.reason }, { status: 403 })
     }
 
     // ── Sponsor balance circuit breaker ──────────────────────────────────────

@@ -73,7 +73,8 @@ export function SponsorshipBanner({
         {status === "idle" && "First deposit? Transaction fees are on us!"}
         {status === "loading" && "Sponsoring your transaction fee..."}
         {status === "sponsored" && "Your first deposit transaction fee is sponsored by JointSave!"}
-        {status === "failed" && (message || "Sponsorship unavailable. You will pay the standard fee.")}
+        {status === "failed" &&
+          (message || "Sponsorship unavailable. You will pay the standard fee.")}
       </span>
     </div>
   )

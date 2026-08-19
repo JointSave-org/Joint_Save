@@ -17,18 +17,12 @@ export async function GET(req: NextRequest) {
 
     const wallet = req.nextUrl.searchParams.get("wallet")
     if (!wallet) {
-      return NextResponse.json(
-        { error: "Missing required query param: wallet" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Missing required query param: wallet" }, { status: 400 })
     }
 
     // Basic Stellar address validation (starts with G or C, 56 chars)
     if (!/^[GC][A-Z0-9]{55}$/.test(wallet)) {
-      return NextResponse.json(
-        { error: "Invalid Stellar address format" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Invalid Stellar address format" }, { status: 400 })
     }
 
     const result = await checkEligibility(wallet, FACTORY_ID)
@@ -38,9 +32,6 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     console.error("[sponsor/eligible] Error:", error)
-    return NextResponse.json(
-      { eligible: false, reason: "Internal server error" },
-      { status: 500 }
-    )
+    return NextResponse.json({ eligible: false, reason: "Internal server error" }, { status: 500 })
   }
 }

@@ -8,12 +8,7 @@
  * Server-side only — never import from client components.
  */
 
-import {
-  Keypair,
-  Transaction,
-  TransactionBuilder,
-  Horizon,
-} from "@stellar/stellar-sdk"
+import { Keypair, Transaction, TransactionBuilder, Horizon } from "@stellar/stellar-sdk"
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
