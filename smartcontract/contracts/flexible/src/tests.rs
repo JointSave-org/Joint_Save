@@ -615,6 +615,84 @@ fn test_migrate_rejects_version_skip() {
     client.migrate(&admin, &3);
 }
 
+// ── Supported-token allowlist (USDC bridge deposits, issue #209) ──────────────
+
+#[test]
+fn test_supported_tokens_empty_by_default() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, _admin, _treasury, _a, _b) = setup_pool(&env, false);
+    assert_eq!(client.get_supported_tokens().len(), 0);
+}
+
+#[test]
+fn test_set_supported_tokens_by_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token, admin, _treasury, _a, _b) = setup_pool(&env, false);
+
+    let usdc = Address::generate(&env);
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(token.clone());
+    tokens.push_back(usdc.clone());
+
+    client.set_supported_tokens(&admin, &tokens);
+
+    let stored = client.get_supported_tokens();
+    assert_eq!(stored.len(), 2);
+    assert_eq!(stored.get(0).unwrap(), token);
+    assert_eq!(stored.get(1).unwrap(), usdc);
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn test_set_supported_tokens_rejects_non_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token, _admin, _treasury, member_a, _b) = setup_pool(&env, false);
+
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(token);
+    client.set_supported_tokens(&member_a, &tokens);
+}
+
+#[test]
+fn test_deposit_succeeds_when_pool_token_is_in_allowlist() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token, admin, _treasury, member_a, _b) = setup_pool(&env, false);
+
+    let usdc = Address::generate(&env);
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(token.clone());
+    tokens.push_back(usdc);
+    client.set_supported_tokens(&admin, &tokens);
+
+    let token_client = token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&member_a, &100i128);
+
+    client.deposit(&member_a, &20i128);
+    assert_eq!(client.balance_of(&member_a), 20i128);
+}
+
+#[test]
+#[should_panic(expected = "token not supported")]
+fn test_deposit_fails_when_pool_token_not_in_allowlist() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, member_a, _b) = setup_pool(&env, false);
+
+    // Allowlist that deliberately excludes this pool's own token — simulates
+    // an admin restricting the pool to a different SEP-41 token (e.g. USDC)
+    // after initialization.
+    let usdc = Address::generate(&env);
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(usdc);
+    client.set_supported_tokens(&admin, &tokens);
+
+    client.deposit(&member_a, &20i128);
+}
+
 mod mock_strategy {
     use soroban_sdk::{contract, contractimpl, Env};
 

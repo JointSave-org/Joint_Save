@@ -38,6 +38,8 @@ export const ledgerToEstimatedDate = (_ledger: number, _current = 1000) => new D
 
 export const fetchTokenMetadata = vi.fn().mockResolvedValue(NATIVE_TOKEN_METADATA)
 
+export const fetchTokenBalance = vi.fn().mockResolvedValue(1000000000n)
+
 export const fetchRotationalState = vi.fn().mockResolvedValue({
   currentRound: 0,
   roundDuration: 86400,

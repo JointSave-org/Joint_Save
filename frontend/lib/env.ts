@@ -30,6 +30,9 @@ export const env = {
   NEXT_PUBLIC_FACTORY_CONTRACT_ID: readRequiredEnv("NEXT_PUBLIC_FACTORY_CONTRACT_ID"),
   NEXT_PUBLIC_TOKEN_CONTRACT_ID: readRequiredEnv("NEXT_PUBLIC_TOKEN_CONTRACT_ID"),
   NEXT_PUBLIC_REPUTATION_CONTRACT_ID: process.env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID?.trim() ?? "",
+  // Optional — falls back to Circle's testnet USDC SAC (see lib/token-utils.ts)
+  // when unset, so this doesn't need to be configured for local dev.
+  NEXT_PUBLIC_USDC_CONTRACT_ID: process.env.NEXT_PUBLIC_USDC_CONTRACT_ID?.trim() ?? "",
   NEXT_PUBLIC_ROTATIONAL_WASM_HASH: readRequiredEnv("NEXT_PUBLIC_ROTATIONAL_WASM_HASH"),
   NEXT_PUBLIC_TARGET_WASM_HASH: readRequiredEnv("NEXT_PUBLIC_TARGET_WASM_HASH"),
   NEXT_PUBLIC_FLEXIBLE_WASM_HASH: readRequiredEnv("NEXT_PUBLIC_FLEXIBLE_WASM_HASH"),

@@ -178,6 +178,8 @@ stellar contract invoke \
 | `members` | — | `Vec<Address>` | None | Returns the ordered member list. |
 | `has_deposited` | `member: Address` | `bool` | None | Returns whether `member` has deposited for the current round. |
 | `next_payout_time` | — | `u64` | None | Returns the Unix timestamp after which `trigger_payout` may be called. |
+| `set_supported_tokens` | `admin: Address`, `tokens: Vec<Address>` | `()` | `admin` | Sets the allowed token allowlist. Once non-empty, `deposit` requires the pool's `Token` to be on this list (e.g. native XLM's SAC or USDC's SAC on Stellar). |
+| `get_supported_tokens` | — | `Vec<Address>` | None | Returns the configured token allowlist. Empty by default (unrestricted). |
 
 ### Events
 
@@ -202,6 +204,7 @@ stellar contract invoke \
 | `NextPayoutTime` | `u64` | Persistent | Unix timestamp when next payout becomes eligible. |
 | `Active` | `bool` | Persistent | Whether the pool is accepting deposits and payouts. |
 | `HasDeposited(Address)` | `bool` | Persistent (cleared each round) | Per-member deposit flag. Removed from storage after each `trigger_payout`. |
+| `SupportedTokens` | `Vec<Address>` | Persistent | Allowlist of token contract addresses `deposit` will accept once set via `set_supported_tokens`. |
 
 ### Error Conditions
 
@@ -215,6 +218,7 @@ stellar contract invoke \
 | `"already deposited this round"` | `deposit` called by a member who already deposited this round. |
 | `"too early"` | `trigger_payout` called before `NextPayoutTime` has elapsed. |
 | `"no deposits this round"` | `trigger_payout` called when no member deposited this round. |
+| `"token not supported"` | `deposit` called while `SupportedTokens` is non-empty and the pool's `Token` is not on the list. |
 
 ### Example CLI Invocations
 
@@ -290,6 +294,8 @@ stellar contract invoke \
 | `total_deposited` | — | `i128` | None | Returns total tokens deposited across all members. |
 | `is_unlocked` | — | `bool` | None | Returns whether the target has been reached and withdrawals are open. |
 | `target_amount` | — | `i128` | None | Returns the savings target in stroops. |
+| `set_supported_tokens` | `admin: Address`, `tokens: Vec<Address>` | `()` | `admin` | Sets the allowed token allowlist. Once non-empty, `deposit` requires the pool's `Token` to be on this list (e.g. native XLM's SAC or USDC's SAC on Stellar). |
+| `get_supported_tokens` | — | `Vec<Address>` | None | Returns the configured token allowlist. Empty by default (unrestricted). |
 
 ### Events
 
@@ -313,6 +319,7 @@ stellar contract invoke \
 | `Active` | `bool` | Persistent | Whether the pool accepts deposits (set to `false` on `refund`). |
 | `Unlocked` | `bool` | Persistent | Whether the target has been reached; gates `withdraw`. |
 | `Balance(Address)` | `i128` | Persistent | Individual member deposit balance. |
+| `SupportedTokens` | `Vec<Address>` | Persistent | Allowlist of token contract addresses `deposit` will accept once set via `set_supported_tokens`. |
 
 ### Error Conditions
 
@@ -324,6 +331,7 @@ stellar contract invoke \
 | `"not a member"` | `deposit` called by an address not in the members list. |
 | `"amount must be > 0"` | `deposit` called with `amount <= 0`. |
 | `"deadline passed"` | `deposit` called after `ledger.sequence() > deadline`. |
+| `"token not supported"` | `deposit` called while `SupportedTokens` is non-empty and the pool's `Token` is not on the list. |
 | `"target not reached yet"` | `withdraw` called before `Unlocked == true`. |
 | `"nothing to withdraw"` | `withdraw` called by a member with zero balance. |
 | `"not admin"` | `refund` called by an address other than the stored admin. |
@@ -411,6 +419,8 @@ stellar contract invoke \
 | `total_balance` | — | `i128` | None | Returns the total tokens held by the pool. |
 | `members` | — | `Vec<Address>` | None | Returns the list of authorized members. |
 | `is_active` | — | `bool` | None | Returns whether the pool is active. |
+| `set_supported_tokens` | `admin: Address`, `tokens: Vec<Address>` | `()` | `admin` | Sets the allowed token allowlist. Once non-empty, `deposit` requires the pool's `Token` to be on this list (e.g. native XLM's SAC or USDC's SAC on Stellar). |
+| `get_supported_tokens` | — | `Vec<Address>` | None | Returns the configured token allowlist. Empty by default (unrestricted). |
 
 ### Events
 
@@ -434,6 +444,7 @@ stellar contract invoke \
 | `TotalBalance` | `i128` | Persistent | Sum of all member balances. |
 | `Active` | `bool` | Persistent | Whether the pool is active. |
 | `Balance(Address)` | `i128` | Persistent | Individual member balance including yield. |
+| `SupportedTokens` | `Vec<Address>` | Persistent | Allowlist of token contract addresses `deposit` will accept once set via `set_supported_tokens`. |
 
 ### Error Conditions
 
@@ -446,6 +457,7 @@ stellar contract invoke \
 | `"below minimum deposit"` | `deposit` called with `amount < MinimumDeposit`. |
 | `"amount must be > 0"` | `withdraw` called with `amount <= 0`. |
 | `"insufficient balance"` | `withdraw` called with `amount > member's balance`. |
+| `"token not supported"` | `deposit` called while `SupportedTokens` is non-empty and the pool's `Token` is not on the list. |
 | `"yield disabled"` | `distribute_yield` called when `YieldEnabled == false`. |
 | `"yield must be > 0"` | `distribute_yield` called with `yield_amount <= 0`. |
 | `"no balance"` | `distribute_yield` called when `TotalBalance == 0`. |
