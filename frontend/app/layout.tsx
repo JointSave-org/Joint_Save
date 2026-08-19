@@ -14,6 +14,7 @@ import { TxQueueBadge } from "@/components/tx-queue-badge"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
 import { TransactionRecoveryProvider } from "@/components/transaction-recovery-provider"
 import { PendingTxBanner } from "@/components/shared/pending-tx-banner"
+import { WebVitals } from "@/components/web-vitals"
 
 export const metadata: Metadata = {
   title: "JointSave — Decentralized Community Savings on Stellar",
@@ -61,6 +62,7 @@ export default function RootLayout({
           </Suspense>
         </ThemeProvider>
         <Analytics />
+        <WebVitals />
         <Toaster />
         <TxQueueBadge />
       </body>

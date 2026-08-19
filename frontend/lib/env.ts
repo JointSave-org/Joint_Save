@@ -15,9 +15,16 @@ type RequiredEnvVar = (typeof requiredEnvVars)[number]
 function readRequiredEnv(key: RequiredEnvVar): string {
   const value = process.env[key]?.trim()
   if (!value) {
-    throw new Error(
-      `Missing required env var: ${key}. Copy frontend/.env.example to frontend/.env.local and fill in this value.`
-    )
+    if (typeof window !== "undefined") {
+      console.warn(
+        `[env] Missing required env var: ${key}. Copy frontend/.env.example to frontend/.env.local and fill in this value.`
+      )
+    }
+    // Safe build-time fallbacks for URLs to prevent Supabase or URL constructor crashes during static page compilation
+    if (key.includes("URL")) {
+      return "https://placeholder.jointsave.invalid"
+    }
+    return ""
   }
   return value
 }

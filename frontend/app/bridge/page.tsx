@@ -78,10 +78,13 @@ export default function BridgePage() {
             <Link href="/" className="flex items-center gap-2">
               <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl">
                 <Image
-                  src="/joint-save.jpg"
+                  src="/joint-save.webp"
                   alt="JointSave Logo"
                   width={40}
                   height={40}
+                  priority
+                  placeholder="blur"
+                  blurDataURL="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MCA4MCI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjMWUxZTJlIi8+PC9zdmc+"
                   className="object-cover"
                 />
               </div>

@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "analyze": "ANALYZE=true next build",
+    "check-budget": "node scripts/check-bundle-budget.js",
     "dev": "next dev --webpack",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
@@ -80,10 +82,12 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
+    "web-vitals": "^4.2.4",
     "zod": "3.25.76"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
+    "@next/bundle-analyzer": "^16.2.9",
     "@next/eslint-plugin-next": "^16.2.9",
     "@playwright/test": "^1.49.0",
     "@tailwindcss/postcss": "^4.1.9",
