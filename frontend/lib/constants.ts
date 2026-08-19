@@ -140,6 +140,31 @@ export const READ_RATE_LIMIT = 30 as const
  */
 export const WRITE_RATE_LIMIT = 10 as const
 
+/**
+ * Maximum number of activity exports allowed per key per export window.
+ */
+export const EXPORT_RATE_LIMIT = 5 as const
+
+/**
+ * Sliding-window size for the export rate limiter.
+ * Unit: **milliseconds** (1 hour).
+ */
+export const EXPORT_RATE_LIMIT_WINDOW_MS = 3_600_000 as const
+
+// ── Activity feed ─────────────────────────────────────────────────────────────
+
+/**
+ * Number of pool activity rows returned per page by
+ * GET /api/pools/[id]/activity.
+ */
+export const ACTIVITY_PAGE_SIZE = 50 as const
+
+/**
+ * Hard cap on rows returned by GET /api/pools/[id]/activity/export so a single
+ * export can never buffer an unbounded result set.
+ */
+export const ACTIVITY_EXPORT_MAX_ROWS = 5_000 as const
+
 // ── UI ────────────────────────────────────────────────────────────────────────
 
 /**

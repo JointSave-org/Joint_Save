@@ -13,11 +13,13 @@
 ### Task 1: Factory Contract TTL Bumping
 
 **Files:**
+
 - Modify: `smartcontract/contracts/factory/src/lib.rs`
 - Test: `smartcontract/contracts/factory/src/tests.rs`
 
 **Step 1: Write the failing test**
 In `smartcontract/contracts/factory/src/tests.rs`, add a test to verify `bump_state` exists and increases the TTL of the keys.
+
 ```rust
 #[test]
 fn test_bump_state() {
@@ -54,6 +56,7 @@ Expected: FAIL with "no method named `bump_state` found"
 
 **Step 3: Write minimal implementation**
 In `smartcontract/contracts/factory/src/lib.rs`, define the constants and implement `bump_state`:
+
 ```rust
 const LEDGER_THRESHOLD: u32 = 518400;  // ~30 days
 const LEDGER_BUMP: u32 = 2592000;       // ~150 days
@@ -76,7 +79,9 @@ const LEDGER_BUMP: u32 = 2592000;       // ~150 days
         }
     }
 ```
+
 And add `Self::bump_state(env.clone());` to the end of state-changing functions:
+
 - `initialize`
 - `register_rotational`
 - `register_target`
@@ -88,6 +93,7 @@ Run: `cargo test -p jointsave-factory`
 Expected: PASS
 
 **Step 5: Commit**
+
 ```bash
 git add smartcontract/contracts/factory/src/lib.rs smartcontract/contracts/factory/src/tests.rs
 git commit -m "feat(factory): implement storage TTL bump logic and bump_state"
@@ -98,18 +104,20 @@ git commit -m "feat(factory): implement storage TTL bump logic and bump_state"
 ### Task 2: Reputation Tracker TTL Bumping
 
 **Files:**
+
 - Modify: `smartcontract/contracts/reputation/src/lib.rs`
 - Test: `smartcontract/contracts/reputation/src/test.rs`
 
 **Step 1: Write the failing test**
 In `smartcontract/contracts/reputation/src/test.rs`, add a test to verify `bump_state` extends TTL.
+
 ```rust
 #[test]
 fn test_bump_state() {
     let env = Env::default();
     let contract_id = env.register_contract(None, ReputationTracker);
     let client = ReputationTrackerClient::new(&env, &contract_id);
-    
+
     // Call bump_state (even if empty, should compile and run)
     client.bump_state();
 }
@@ -121,6 +129,7 @@ Expected: FAIL with "no method named `bump_state` found"
 
 **Step 3: Write minimal implementation**
 In `smartcontract/contracts/reputation/src/lib.rs`, update `DataKey` to include `Members`:
+
 ```rust
 #[contracttype]
 pub enum DataKey {
@@ -130,12 +139,16 @@ pub enum DataKey {
     Members,
 }
 ```
+
 Define constants:
+
 ```rust
 const LEDGER_THRESHOLD: u32 = 518400;  // ~30 days
 const LEDGER_BUMP: u32 = 2592000;       // ~150 days
 ```
+
 Implement `track_member` helper and `bump_state`:
+
 ```rust
     fn track_member(env: &Env, member: &Address) {
         let storage = env.storage().persistent();
@@ -179,7 +192,9 @@ Implement `track_member` helper and `bump_state`:
         }
     }
 ```
+
 Add `Self::track_member(&env, &member);` and `Self::bump_state(env.clone());` at the end of:
+
 - `record_deposit`
 - `record_payout_received`
 - `record_missed_round`
@@ -189,6 +204,7 @@ Run: `cargo test -p jointsave-reputation`
 Expected: PASS
 
 **Step 5: Commit**
+
 ```bash
 git add smartcontract/contracts/reputation/src/lib.rs smartcontract/contracts/reputation/src/test.rs
 git commit -m "feat(reputation): implement storage TTL bump logic and track_member"
@@ -199,11 +215,13 @@ git commit -m "feat(reputation): implement storage TTL bump logic and track_memb
 ### Task 3: Rotational Pool TTL Bumping
 
 **Files:**
+
 - Modify: `smartcontract/contracts/rotational/src/lib.rs`
 - Test: `smartcontract/contracts/rotational/src/tests.rs`
 
 **Step 1: Write the failing test**
 In `smartcontract/contracts/rotational/src/tests.rs` (or `test.rs`), add a test verifying `bump_state` compiles and extends TTL.
+
 ```rust
 #[test]
 fn test_bump_state() {
@@ -221,11 +239,14 @@ Expected: FAIL with "no method named `bump_state` found"
 
 **Step 3: Write minimal implementation**
 In `smartcontract/contracts/rotational/src/lib.rs`, add constants:
+
 ```rust
 const LEDGER_THRESHOLD: u32 = 518400;  // ~30 days
 const LEDGER_BUMP: u32 = 2592000;       // ~150 days
 ```
+
 Implement `bump_state`:
+
 ```rust
     pub fn bump_state(env: Env) {
         let storage = env.storage().persistent();
@@ -259,7 +280,9 @@ Implement `bump_state`:
         }
     }
 ```
+
 Add `Self::bump_state(env.clone());` to the end of state-changing functions:
+
 - `initialize`, `deposit`, `trigger_payout`, `add_member`, `remove_member`, `pause`, `unpause`, `emergency_withdraw`, `set_reputation_tracker`.
 
 **Step 4: Run test to verify it passes**
@@ -267,6 +290,7 @@ Run: `cargo test -p jointsave-rotational`
 Expected: PASS
 
 **Step 5: Commit**
+
 ```bash
 git add smartcontract/contracts/rotational/src/lib.rs smartcontract/contracts/rotational/src/tests.rs
 git commit -m "feat(rotational): implement storage TTL bump logic"
@@ -277,11 +301,13 @@ git commit -m "feat(rotational): implement storage TTL bump logic"
 ### Task 4: Target Pool TTL Bumping
 
 **Files:**
+
 - Modify: `smartcontract/contracts/target/src/lib.rs`
 - Test: `smartcontract/contracts/target/src/tests.rs`
 
 **Step 1: Write the failing test**
 In `smartcontract/contracts/target/src/tests.rs` (or `test.rs`), add a test for `bump_state`.
+
 ```rust
 #[test]
 fn test_bump_state() {
@@ -298,11 +324,14 @@ Expected: FAIL with "no method named `bump_state` found"
 
 **Step 3: Write minimal implementation**
 In `smartcontract/contracts/target/src/lib.rs`, add constants:
+
 ```rust
 const LEDGER_THRESHOLD: u32 = 518400;  // ~30 days
 const LEDGER_BUMP: u32 = 2592000;       // ~150 days
 ```
+
 Implement `bump_state`:
+
 ```rust
     pub fn bump_state(env: Env) {
         let storage = env.storage().persistent();
@@ -332,7 +361,9 @@ Implement `bump_state`:
         }
     }
 ```
+
 Add `Self::bump_state(env.clone());` to the end of state-changing functions:
+
 - `initialize`, `deposit`, `withdraw`, `refund`, `add_member`, `remove_member`, `pause`, `unpause`, `emergency_withdraw`.
 
 **Step 4: Run test to verify it passes**
@@ -340,6 +371,7 @@ Run: `cargo test -p jointsave-target`
 Expected: PASS
 
 **Step 5: Commit**
+
 ```bash
 git add smartcontract/contracts/target/src/lib.rs smartcontract/contracts/target/src/tests.rs
 git commit -m "feat(target): implement storage TTL bump logic"
@@ -350,11 +382,13 @@ git commit -m "feat(target): implement storage TTL bump logic"
 ### Task 5: Flexible Pool TTL Bumping
 
 **Files:**
+
 - Modify: `smartcontract/contracts/flexible/src/lib.rs`
 - Test: `smartcontract/contracts/flexible/src/tests.rs`
 
 **Step 1: Write the failing test**
 In `smartcontract/contracts/flexible/src/tests.rs` (or `test.rs`), add a test for `bump_state`.
+
 ```rust
 #[test]
 fn test_bump_state() {
@@ -371,11 +405,14 @@ Expected: FAIL with "no method named `bump_state` found"
 
 **Step 3: Write minimal implementation**
 In `smartcontract/contracts/flexible/src/lib.rs`, add constants:
+
 ```rust
 const LEDGER_THRESHOLD: u32 = 518400;  // ~30 days
 const LEDGER_BUMP: u32 = 2592000;       // ~150 days
 ```
+
 Implement `bump_state`:
+
 ```rust
     pub fn bump_state(env: Env) {
         let storage = env.storage().persistent();
@@ -409,7 +446,9 @@ Implement `bump_state`:
         }
     }
 ```
+
 Add `Self::bump_state(env.clone());` to the end of state-changing functions:
+
 - `initialize`, `deposit`, `withdraw`, `distribute_yield`, `add_member`, `remove_member`, `pause`, `unpause`, `emergency_withdraw`, `set_yield_strategy`, `deploy_to_yield`, `harvest_yield`.
 
 **Step 4: Run test to verify it passes**
@@ -417,6 +456,7 @@ Run: `cargo test -p jointsave-flexible`
 Expected: PASS
 
 **Step 5: Commit**
+
 ```bash
 git add smartcontract/contracts/flexible/src/lib.rs smartcontract/contracts/flexible/src/tests.rs
 git commit -m "feat(flexible): implement storage TTL bump logic"
@@ -427,75 +467,78 @@ git commit -m "feat(flexible): implement storage TTL bump logic"
 ### Task 6: Frontend Hooks & API Updates
 
 **Files:**
+
 - Modify: `frontend/hooks/useJointSaveContracts.ts`
 - Modify: `frontend/lib/data-layer/PoolDataProvider.tsx`
 
 **Step 1: Implement fetchPoolTtl and useBumpPoolState in useJointSaveContracts.ts**
 Open `frontend/hooks/useJointSaveContracts.ts` and add `fetchPoolTtl` and `useBumpPoolState`:
+
 ```typescript
 export async function fetchPoolTtl(contractId: string): Promise<number | null> {
   try {
-    const server = getRpc()
+    const server = getRpc();
     const ledgerKey = xdr.LedgerKey.contractData(
       new xdr.LedgerKeyContractData({
         contract: Address.fromString(normalizeId(contractId)).toScAddress(),
         key: xdr.ScVal.scvVec([xdr.ScVal.scvSymbol("Admin")]),
         durability: xdr.ContractDataDurability.persistent(),
-      })
-    )
-    const response = await server.getLedgerEntries(ledgerKey)
+      }),
+    );
+    const response = await server.getLedgerEntries(ledgerKey);
     if (response.entries && response.entries.length > 0) {
-      const entry = response.entries[0]
+      const entry = response.entries[0];
       if (entry && "liveUntilLedger" in entry) {
-        const liveUntilLedger = entry.liveUntilLedger as number
-        const latestLedgerResponse = await server.getLatestLedger()
-        const currentLedger = latestLedgerResponse.sequence
-        const ttlLedgers = liveUntilLedger - currentLedger
+        const liveUntilLedger = entry.liveUntilLedger as number;
+        const latestLedgerResponse = await server.getLatestLedger();
+        const currentLedger = latestLedgerResponse.sequence;
+        const ttlLedgers = liveUntilLedger - currentLedger;
         // ~17280 ledgers per day (5 seconds per ledger)
-        const days = Math.max(0, Math.floor(ttlLedgers / 17280))
-        return days
+        const days = Math.max(0, Math.floor(ttlLedgers / 17280));
+        return days;
       }
     }
   } catch (err) {
-    console.error("Error fetching pool TTL:", err)
+    console.error("Error fetching pool TTL:", err);
   }
-  return null
+  return null;
 }
 
 export function useBumpPoolState(contractId: string) {
-  const { kit, address } = useStellar()
-  const [isLoading, setIsLoading] = useState(false)
+  const { kit, address } = useStellar();
+  const [isLoading, setIsLoading] = useState(false);
 
   const bumpPoolState = async (): Promise<string | undefined> => {
-    if (!kit || !address || !contractId) return
-    setIsLoading(true)
+    if (!kit || !address || !contractId) return;
+    setIsLoading(true);
     try {
-      const account = await getRpc().getAccount(address)
+      const account = await getRpc().getAccount(address);
       const tx = new TransactionBuilder(account, {
         fee: BASE_FEE,
         networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
       })
         .addOperation(new Contract(normalizeId(contractId)).call("bump_state"))
         .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+        .build();
+      return await submitTx(kit, tx);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  return { bumpPoolState, isLoading }
+  return { bumpPoolState, isLoading };
 }
 ```
 
 **Step 2: Update PoolDataProvider cache interface and state fetcher**
 In `frontend/lib/data-layer/PoolDataProvider.tsx`:
+
 - Import `fetchPoolTtl` from `@/hooks/useJointSaveContracts`.
 - Add `ttlDays: number | null` to `PoolStateCache` interface.
 - Add `ttlDays: number | null` to the default cached object in `setEntry` and `seedCache`.
 - In `fetchPool`, push `fetchPoolTtl(contractAddr)` to `promises` and unpack it:
   ```typescript
-  const [stateVal, pausedVal, adminVal, ttlVal] = await Promise.all(promises)
+  const [stateVal, pausedVal, adminVal, ttlVal] = await Promise.all(promises);
   // ...
   cacheRef.current[contractId] = {
     db: dbData,
@@ -507,11 +550,12 @@ In `frontend/lib/data-layer/PoolDataProvider.tsx`:
     isLoading: false,
     isStale: false,
     error: null,
-  }
+  };
   ```
 - Expose `ttlDays` in `usePoolData` return values.
 
 **Step 3: Commit**
+
 ```bash
 git add frontend/hooks/useJointSaveContracts.ts frontend/lib/data-layer/PoolDataProvider.tsx
 git commit -m "feat(frontend): implement fetchPoolTtl and useBumpPoolState hooks"
@@ -522,41 +566,59 @@ git commit -m "feat(frontend): implement fetchPoolTtl and useBumpPoolState hooks
 ### Task 7: Show TTL Status and Expose Manual Bump Action in Frontend
 
 **Files:**
+
 - Modify: `frontend/components/group/group-details.tsx`
 
 **Step 1: Extract and display TTL Badge in group details**
 In `frontend/components/group/group-details.tsx`, import `useBumpPoolState` and retrieve `ttlDays` from `usePoolData`:
+
 ```typescript
-  const { data, isLoading, isStale, isPaused, ttlDays, error, refetch } =
-    usePoolData(cacheKey);
+const { data, isLoading, isStale, isPaused, ttlDays, error, refetch } =
+  usePoolData(cacheKey);
 ```
+
 Add a badge under the group name showing the TTL expiration status:
+
 ```tsx
-              {ttlDays !== null && (
-                <Badge variant="outline" className={`text-xs ${ttlDays < 7 ? "text-destructive border-destructive/40 bg-destructive/10" : ""}`}>
-                  State expires in {ttlDays} days
-                </Badge>
-              )}
+{
+  ttlDays !== null && (
+    <Badge
+      variant="outline"
+      className={`text-xs ${ttlDays < 7 ? "text-destructive border-destructive/40 bg-destructive/10" : ""}`}
+    >
+      State expires in {ttlDays} days
+    </Badge>
+  );
+}
 ```
 
 **Step 2: Show Warning Banner and "Extend Storage" Button when TTL < 7 days**
 Add the warning banner next to the pausing banner:
+
 ```tsx
-        {ttlDays !== null && ttlDays < 7 && !isPending(group.contract_address) && (
-          <div className="flex items-center justify-between gap-4 p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 mb-4 text-sm font-medium border border-amber-500/20">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-              <span>
-                ⚠️ Pool storage is expiring soon (less than 7 days remaining). Please extend its storage life.
-              </span>
-            </div>
-            <ExtendStorageButton contractId={group.contract_address} onSuccess={refetch} />
-          </div>
-        )}
+{
+  ttlDays !== null && ttlDays < 7 && !isPending(group.contract_address) && (
+    <div className="flex items-center justify-between gap-4 p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 mb-4 text-sm font-medium border border-amber-500/20">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+        <span>
+          ⚠️ Pool storage is expiring soon (less than 7 days remaining). Please
+          extend its storage life.
+        </span>
+      </div>
+      <ExtendStorageButton
+        contractId={group.contract_address}
+        onSuccess={refetch}
+      />
+    </div>
+  );
+}
 ```
+
 Implement `ExtendStorageButton` using the `useBumpPoolState` hook to submit the transaction.
 
 **Step 3: Commit**
+
 ```bash
 git add frontend/components/group/group-details.tsx
 git commit -m "feat(frontend): show TTL warnings and add Extend Storage action"
@@ -567,12 +629,14 @@ git commit -m "feat(frontend): show TTL warnings and add Extend Storage action"
 ### Task 8: Update Architecture Documentation
 
 **Files:**
+
 - Modify: `ARCHITECTURE.md`
 
 **Step 1: Document TTL Strategy in ARCHITECTURE.md**
 Add a new subsection under `## Smart Contract Layer` explaining the TTL bumping logic, the threshold of ~30 days (`518400` ledgers) and bump of ~150 days (`2592000` ledgers), and how the frontend displays warnings and allows manual triggers of `bump_state`.
 
 **Step 2: Commit**
+
 ```bash
 git add ARCHITECTURE.md
 git commit -m "docs: document Storage TTL Strategy in ARCHITECTURE.md"
