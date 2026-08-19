@@ -15,6 +15,7 @@ import { getAdminClient } from "@/lib/supabase-admin"
 import { NextRequest, NextResponse } from "next/server"
 import { readLimiter } from "@/lib/rate-limit"
 import { CHAT_MESSAGE_MAX_LENGTH, CHAT_RATE_LIMIT_MS } from "@/lib/constants"
+import { jsonPublic } from "@/lib/cache-headers"
 
 const PAGE_SIZE = 50
 
@@ -92,10 +93,7 @@ export async function GET(req: NextRequest) {
 
   // Return in chronological order so the UI can simply append.
   const messages = (data ?? []).reverse()
-  return NextResponse.json(
-    { messages, hasMore: (data ?? []).length === PAGE_SIZE },
-    { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }
-  )
+  return jsonPublic({ messages, hasMore: (data ?? []).length === PAGE_SIZE })
 }
 
 // ── POST ──────────────────────────────────────────────────────────────────────
