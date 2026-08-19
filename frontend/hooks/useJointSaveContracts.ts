@@ -658,9 +658,7 @@ export function useTargetRefund(contractId: string) {
             fee: BASE_FEE,
             networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
           })
-            .addOperation(
-              new Contract(normalizeId(contractId)).call("refund", addressVal(address))
-            )
+            .addOperation(new Contract(normalizeId(contractId)).call("refund", addressVal(address)))
             .setTimeout(TX_TIMEOUT)
             .build(),
         {
@@ -1368,9 +1366,7 @@ export function usePausePool(contractId: string) {
           fee: BASE_FEE,
           networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
         })
-          .addOperation(
-            new Contract(normalizeId(contractId)).call("pause", addressVal(address))
-          )
+          .addOperation(new Contract(normalizeId(contractId)).call("pause", addressVal(address)))
           .setTimeout(TX_TIMEOUT)
           .build()
       )
@@ -1395,9 +1391,7 @@ export function useUnpausePool(contractId: string) {
           fee: BASE_FEE,
           networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
         })
-          .addOperation(
-            new Contract(normalizeId(contractId)).call("unpause", addressVal(address))
-          )
+          .addOperation(new Contract(normalizeId(contractId)).call("unpause", addressVal(address)))
           .setTimeout(TX_TIMEOUT)
           .build()
       )

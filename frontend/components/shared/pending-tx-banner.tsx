@@ -12,22 +12,13 @@
 import { useEffect, useRef, useState } from "react"
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react"
 import { useStellar } from "@/components/web3-provider"
-import {
-  pendingTxLabel,
-  usePendingTransactions,
-} from "@/hooks/usePendingTransactions"
+import { pendingTxLabel, usePendingTransactions } from "@/hooks/usePendingTransactions"
 import { TxRecoveryDialog } from "@/components/shared/tx-recovery-dialog"
 
 export function PendingTxBanner() {
   const { isConnected } = useStellar()
-  const {
-    pending,
-    failed,
-    retryingHash,
-    canRetry,
-    retryTransaction,
-    dismissFailed,
-  } = usePendingTransactions()
+  const { pending, failed, retryingHash, canRetry, retryTransaction, dismissFailed } =
+    usePendingTransactions()
 
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)

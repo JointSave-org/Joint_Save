@@ -84,8 +84,7 @@ function makeFakeServer(opts: FakeServerOptions = {}) {
       if (opts.sendError) throw opts.sendError
       const results = opts.sendResults ?? []
       const idx = calls.send - 1
-      const result =
-        idx < results.length ? results[idx] : { status: "PENDING", hash: "hash-final" }
+      const result = idx < results.length ? results[idx] : { status: "PENDING", hash: "hash-final" }
       if (result.status === "ERROR" && !result.errorResult) {
         result.errorResult = { result: { code: "txBadSeq" } }
       }
@@ -100,10 +99,7 @@ function makeFakeServer(opts: FakeServerOptions = {}) {
   return { server, calls, sequences }
 }
 
-function makeOptions(
-  server: RpcLike,
-  overrides: Partial<TxRetryOptions> = {}
-): TxRetryOptions {
+function makeOptions(server: RpcLike, overrides: Partial<TxRetryOptions> = {}): TxRetryOptions {
   return {
     address: ADDRESS,
     networkPassphrase: NETWORK,
@@ -221,7 +217,10 @@ test("cleanupPendingTxs removes entries older than one hour", () => {
     storage
   )
   const kept = cleanupPendingTxs(now, storage)
-  assert.deepEqual(kept.map((r) => r.hash), ["fresh"])
+  assert.deepEqual(
+    kept.map((r) => r.hash),
+    ["fresh"]
+  )
   assert.equal(readPendingTxs(storage).length, 1)
 })
 
@@ -233,11 +232,21 @@ test("findRecentPendingTx matches only recent pending records for the same pool 
     storage
   )
   addPendingTx(
-    pendingRecord({ hash: "old", poolId: "CPOOL1", type: "deposit", submittedAt: now - 10 * 60_000 }),
+    pendingRecord({
+      hash: "old",
+      poolId: "CPOOL1",
+      type: "deposit",
+      submittedAt: now - 10 * 60_000,
+    }),
     storage
   )
   addPendingTx(
-    pendingRecord({ hash: "other-type", poolId: "CPOOL1", type: "withdraw", submittedAt: now - 60_000 }),
+    pendingRecord({
+      hash: "other-type",
+      poolId: "CPOOL1",
+      type: "withdraw",
+      submittedAt: now - 60_000,
+    }),
     storage
   )
 

@@ -21,11 +21,7 @@
  * transaction that actually landed.
  */
 
-import {
-  Account,
-  Transaction,
-  rpc,
-} from "@stellar/stellar-sdk"
+import { Account, Transaction, rpc } from "@stellar/stellar-sdk"
 import {
   TX_RETRY_MAX_ATTEMPTS,
   TX_RETRY_BACKOFF_MS,
@@ -45,13 +41,7 @@ import {
 // ── Pending transaction tracker types ────────────────────────────────────────
 
 export type PendingTxType =
-  | "deposit"
-  | "withdraw"
-  | "payout"
-  | "emergency_withdraw"
-  | "pause"
-  | "join"
-  | "create"
+  "deposit" | "withdraw" | "payout" | "emergency_withdraw" | "pause" | "join" | "create"
 
 export interface PendingTransaction {
   hash: string
@@ -350,9 +340,7 @@ function defaultPrepare(tx: Transaction, server: RpcLike): Promise<Transaction> 
     if (rpc.Api.isSimulationError(simResult as rpc.Api.SimulateTransactionResponse)) {
       throw new Error(`Simulation failed: ${(simResult as { error: string }).error}`)
     }
-    return rpc
-      .assembleTransaction(tx, simResult as rpc.Api.SimulateTransactionResponse)
-      .build()
+    return rpc.assembleTransaction(tx, simResult as rpc.Api.SimulateTransactionResponse).build()
   })
 }
 
@@ -542,9 +530,7 @@ export async function submitWithRetry(options: TxRetryOptions): Promise<TxResult
     // 4. Send.
     let sendResult: SendTransactionResult
     try {
-      sendResult = await rpcServer.sendTransaction(
-        new Transaction(signedTxXdr, networkPassphrase)
-      )
+      sendResult = await rpcServer.sendTransaction(new Transaction(signedTxXdr, networkPassphrase))
     } catch (error) {
       const classified = classifySubmissionError(error)
       if (classified instanceof TxRetryableError) {

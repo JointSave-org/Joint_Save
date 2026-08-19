@@ -76,9 +76,7 @@ export function TxRecoveryDialog({
             </p>
           </div>
 
-          {record.error && (
-            <p className="text-destructive text-xs">{record.error}</p>
-          )}
+          {record.error && <p className="text-destructive text-xs">{record.error}</p>}
 
           {wasDropped && (
             <p className="text-xs text-muted-foreground">
@@ -96,11 +94,7 @@ export function TxRecoveryDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={() => onDismiss(record.hash)}
-            disabled={isRetrying}
-          >
+          <Button variant="outline" onClick={() => onDismiss(record.hash)} disabled={isRetrying}>
             Dismiss
           </Button>
           <Button
@@ -111,10 +105,7 @@ export function TxRecoveryDialog({
             <ExternalLink className="mr-2 h-4 w-4" />
             View on Explorer
           </Button>
-          <Button
-            onClick={() => onRetry(record.hash)}
-            disabled={isRetrying || !retryAvailable}
-          >
+          <Button onClick={() => onRetry(record.hash)} disabled={isRetrying || !retryAvailable}>
             {isRetrying ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
