@@ -5,11 +5,11 @@ Deno Edge Functions (`functions/`).
 
 ## Edge Functions
 
-| Function | Trigger | Purpose |
-| --- | --- | --- |
-| `notify-pool-event` | DB webhook on `pool_activity` INSERT | Emails members about deposits/payouts/rounds |
-| `send-deposit-reminders` | Scheduled (cron) | Reminds members who haven't deposited before a round deadline |
-| `cron/auto-trigger-payouts` | pg_cron, every 15 minutes | Auto-triggers `trigger_payout` for expired rotational pool rounds |
+| Function                    | Trigger                              | Purpose                                                           |
+| --------------------------- | ------------------------------------ | ----------------------------------------------------------------- |
+| `notify-pool-event`         | DB webhook on `pool_activity` INSERT | Emails members about deposits/payouts/rounds                      |
+| `send-deposit-reminders`    | Scheduled (cron)                     | Reminds members who haven't deposited before a round deadline     |
+| `cron/auto-trigger-payouts` | pg_cron, every 15 minutes            | Auto-triggers `trigger_payout` for expired rotational pool rounds |
 
 Deploy a function with:
 

@@ -23,11 +23,13 @@ migrate(admin: Address, to_version: u32)
 ```
 
 **Requirements:**
+
 - Caller must be the admin
 - Target version must be exactly `current_version + 1`
 - No version skipping allowed
 
 **Properties:**
+
 - Idempotent — running `migrate(current_version)` is a safe no-op
 - Admin-only — unauthorized callers are rejected
 - Event-emitting — emits `migrated` event on successful upgrade
@@ -105,6 +107,7 @@ cargo test
 ### Steps
 
 1. **Verify current version:**
+
    ```bash
    soroban contract invoke \
      --id <CONTRACT_ID> \
@@ -114,6 +117,7 @@ cargo test
    ```
 
 2. **Upload new WASM:**
+
    ```bash
    soroban contract upload \
      --wasm target/wasm32-unknown-unknown/release/jointsave_rotational.wasm \
@@ -123,6 +127,7 @@ cargo test
    ```
 
 3. **Upgrade the contract:**
+
    ```bash
    soroban contract upgrade \
      --id <CONTRACT_ID> \
@@ -150,12 +155,14 @@ See `migrations/migrate_rotational_v1_to_v2.sh` for a complete migration script.
 After migration, verify:
 
 1. **Version updated:**
+
    ```bash
    soroban contract invoke --id <ID> --fn get_version ...
    # Should return 2
    ```
 
 2. **Existing state preserved:**
+
    ```bash
    soroban contract invoke --id <ID> --fn is_active ...
    soroban contract invoke --id <ID> --fn members ...
@@ -163,6 +170,7 @@ After migration, verify:
    ```
 
 3. **New features work:**
+
    ```bash
    soroban contract invoke --id <ID> --fn new_function ...
    # Should work without errors
@@ -199,25 +207,31 @@ See `frontend/lib/constants.ts` for version constants and `frontend/hooks/useJoi
 ## Contract-Specific Notes
 
 ### Factory
+
 - `register_migration(admin, old_factory)` — records migration lineage
 - `migrate(admin, to_version)` — upgrades factory logic
 
 ### Rotational Pool
+
 - `migrate(admin, to_version)` — upgrades pool logic
 - State: members, rounds, deposits preserved across migration
 
 ### Target Pool
+
 - `migrate(admin, to_version)` — upgrades pool logic
 - State: members, balances, target preserved across migration
 
 ### Flexible Pool
+
 - `migrate(admin, to_version)` — upgrades pool logic
 - State: members, balances, yield config preserved across migration
 
 ### Reputation Tracker
+
 - No `migrate()` function — read-only tracking contract
 - Version tracked via `get_version()` only
 
 ### Yield Strategy
+
 - No `migrate()` function — standalone strategy contract
 - Version tracked via `get_version()` only

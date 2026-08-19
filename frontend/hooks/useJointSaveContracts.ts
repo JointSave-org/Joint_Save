@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import {
@@ -22,6 +22,7 @@ import {
   type PendingTransactionType,
 } from "@/lib/pending-transactions"
 import { TX_TIMEOUT } from "@/lib/constants"
+import { mapSorobanEvent } from "@/lib/soroban-event-mapping"
 import { isContractVersionUnknown } from "@/lib/contract-version"
 export { isContractVersionUnknown }
 
@@ -802,6 +803,36 @@ const DEFAULT_REPUTATION: ReputationScore = {
   onTimeRate: 10000,
 }
 
+/** Full reputation dataset from the v2 scoring system. */
+export interface ReputationData {
+  /** Normalized score 0–1000 */
+  totalScore: number
+  /** (successful_deposits / total_rounds) * 1000 */
+  depositReliability: number
+  poolsCompleted: number
+  poolsJoined: number
+  totalDeposits: number
+  missedDeposits: number
+  /** Unix timestamp of last recorded activity */
+  lastActivity: number
+  /** Unix timestamp the score was last computed */
+  scoreUpdatedAt: number
+  /** True when member has fewer than 10 deposits */
+  isProvisional: boolean
+}
+
+const DEFAULT_REPUTATION_DATA: ReputationData = {
+  totalScore: 500,
+  depositReliability: 500,
+  poolsCompleted: 0,
+  poolsJoined: 0,
+  totalDeposits: 0,
+  missedDeposits: 0,
+  lastActivity: 0,
+  scoreUpdatedAt: 0,
+  isProvisional: true,
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Convert a token amount in base units to a human number, given its decimals. */
@@ -1093,56 +1124,19 @@ export async function fetchContractEvents(
   const events: ActivityEvent[] = []
 
   for (const ev of response.events) {
-    const topics = ev.topic
-    if (!topics.length) continue
-
-    // First topic is always the event name symbol
-    const topicName = topics[0].switch().name === "scvSymbol" ? topics[0].sym().toString() : null
-    if (!topicName) continue
-
-    // Second topic (optional) is the address
-    let userAddress: string | null = null
-    if (topics[1]?.switch().name === "scvAddress") {
-      try {
-        userAddress = Address.fromScVal(topics[1]).toString()
-      } catch {}
-    }
-
-    // Value is the amount (i128) for deposit/payout/withdraw
-    let amount: number | null = null
-    try {
-      const val = ev.value
-      const sw = val.switch().name
-      if (sw === "scvI128" || sw === "scvU128" || sw === "scvU64" || sw === "scvI64") {
-        amount = Number(scValToBigInt(val)) / 10_000_000
-      }
-    } catch {}
-
-    const typeMap: Record<string, string> = {
-      deposit: "deposit",
-      payout: "payout",
-      withdraw: "withdraw",
-      complete: "complete",
-      unlocked: "complete",
-      refunded: "withdraw",
-      yield: "yield",
-    }
-
-    const activity_type = typeMap[topicName]
-    if (!activity_type) continue
-
-    // Derive a stable id from txHash + topic
-    const id = `${ev.txHash}-${topicName}`
+    const mapped = mapSorobanEvent(ev)
+    if (!mapped) continue
 
     events.push({
-      id,
-      activity_type,
-      user_address: userAddress,
-      amount,
+      // Derive a stable id from txHash + activity type
+      id: `${mapped.tx_hash}-${mapped.activity_type}`,
+      activity_type: mapped.activity_type,
+      user_address: mapped.user_address,
+      amount: mapped.amount,
       description: null,
       // Soroban events don't carry a timestamp; use ledger close time if available
-      created_at: ev.ledgerClosedAt ?? new Date(0).toISOString(),
-      tx_hash: ev.txHash,
+      created_at: mapped.ledgerClosedAt ?? new Date(0).toISOString(),
+      tx_hash: mapped.tx_hash,
       source: "onchain",
     })
   }
@@ -1425,6 +1419,65 @@ export async function fetchReputation(address: string): Promise<ReputationScore>
   } catch {
     return DEFAULT_REPUTATION
   }
+}
+
+/**
+ * Fetch full v2 ReputationData for a single address.
+ * Returns a provisional default when the contract is unconfigured or unreachable.
+ */
+export async function fetchMemberReputationData(address: string): Promise<ReputationData> {
+  if (!REPUTATION_ID || !address) return DEFAULT_REPUTATION_DATA
+  try {
+    const [dataVal, provisionalVal] = await Promise.all([
+      viewCall(REPUTATION_ID, "get_member_score", addressVal(address)),
+      viewCall(REPUTATION_ID, "is_provisional", addressVal(address)),
+    ])
+
+    const isProvisional = provisionalVal.switch().name === "scvBool" ? provisionalVal.b() : true
+
+    const toU64 = (v?: xdr.ScVal): number => {
+      if (!v) return 0
+      const n = v.switch().name
+      if (n === "scvU64") return Number(v.u64().toBigInt())
+      if (n === "scvU32") return v.u32()
+      return 0
+    }
+
+    return {
+      totalScore: scValToU32(structField(dataVal, "total_score")),
+      depositReliability: scValToU32(structField(dataVal, "deposit_reliability")),
+      poolsCompleted: scValToU32(structField(dataVal, "pools_completed")),
+      poolsJoined: scValToU32(structField(dataVal, "pools_joined")),
+      totalDeposits: scValToU32(structField(dataVal, "total_deposits")),
+      missedDeposits: scValToU32(structField(dataVal, "missed_deposits")),
+      lastActivity: toU64(structField(dataVal, "last_activity")),
+      scoreUpdatedAt: toU64(structField(dataVal, "score_updated_at")),
+      isProvisional,
+    }
+  } catch {
+    return DEFAULT_REPUTATION_DATA
+  }
+}
+
+/**
+ * Batch-fetch ReputationData for multiple addresses in parallel.
+ * Failures are silently dropped — the caller gets whatever resolved.
+ */
+export async function fetchMembersReputationData(
+  addresses: string[]
+): Promise<Record<string, ReputationData>> {
+  if (!REPUTATION_ID || addresses.length === 0) return {}
+  const results = await Promise.allSettled(
+    addresses.map(async (addr) => ({ addr, data: await fetchMemberReputationData(addr) }))
+  )
+  return Object.fromEntries(
+    results
+      .filter(
+        (r): r is PromiseFulfilledResult<{ addr: string; data: ReputationData }> =>
+          r.status === "fulfilled"
+      )
+      .map((r) => [r.value.addr, r.value.data])
+  )
 }
 
 export async function fetchPoolTtl(contractId: string): Promise<number | null> {
