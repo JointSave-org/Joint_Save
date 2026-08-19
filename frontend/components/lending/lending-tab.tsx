@@ -33,17 +33,13 @@ import {
   WalletMinimal,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useMicroloans, type Loan } from "@/hooks/useMicroloans"
+import { useMicroloans } from "@/hooks/useMicroloans"
 import { LoanRequestCard } from "./loan-request-card"
 import { ActiveLoanCard } from "./active-loan-card"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function validateLoanForm(
-  amount: string,
-  rate: string,
-  term: string
-): Record<string, string> {
+function validateLoanForm(amount: string, rate: string, term: string): Record<string, string> {
   const errors: Record<string, string> = {}
 
   const amtNum = parseFloat(amount)
@@ -152,9 +148,7 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
               }}
               className={cn(errors.amount && "border-destructive")}
             />
-            {errors.amount && (
-              <p className="text-xs text-destructive">{errors.amount}</p>
-            )}
+            {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
           </div>
 
           {/* Rate + Term — side by side on sm+ */}
@@ -175,9 +169,7 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
                 }}
                 className={cn(errors.rate && "border-destructive")}
               />
-              {errors.rate && (
-                <p className="text-xs text-destructive">{errors.rate}</p>
-              )}
+              {errors.rate && <p className="text-xs text-destructive">{errors.rate}</p>}
               <p className="text-xs text-muted-foreground">0% – 50%</p>
             </div>
 
@@ -197,9 +189,7 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
                 }}
                 className={cn(errors.term && "border-destructive")}
               />
-              {errors.term && (
-                <p className="text-xs text-destructive">{errors.term}</p>
-              )}
+              {errors.term && <p className="text-xs text-destructive">{errors.term}</p>}
               <p className="text-xs text-muted-foreground">1 – 365 days</p>
             </div>
           </div>
@@ -217,20 +207,13 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">You repay</span>
                 <span className="font-medium">
-                  {(
-                    parseFloat(amount) * (1 + parseFloat(rate) / 100)
-                  ).toFixed(7)}{" "}
-                  XLM
+                  {(parseFloat(amount) * (1 + parseFloat(rate) / 100)).toFixed(7)} XLM
                 </span>
               </div>
             </div>
           )}
 
-          <Button
-            type="submit"
-            className="w-full gap-1.5"
-            disabled={isMutating || isSubmitting}
-          >
+          <Button type="submit" className="w-full gap-1.5" disabled={isMutating || isSubmitting}>
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -297,15 +280,11 @@ export function LendingTab({
   // Split loans by status for display
   const pendingLoans = poolLoans.filter((l) => l.status === "Pending")
   const activeLoans = myLoans.filter((l) => l.status === "Active")
-  const historicalLoans = myLoans.filter(
-    (l) => l.status === "Repaid" || l.status === "Defaulted"
-  )
+  const historicalLoans = myLoans.filter((l) => l.status === "Repaid" || l.status === "Defaulted")
 
   // Pending count excluding own requests
   const fundableCount = pendingLoans.filter(
-    (l) =>
-      !walletAddress ||
-      l.borrower.toLowerCase() !== walletAddress.toLowerCase()
+    (l) => !walletAddress || l.borrower.toLowerCase() !== walletAddress.toLowerCase()
   ).length
 
   // ── Handlers ───────────────────────────────────────────────────────────
@@ -344,8 +323,8 @@ export function LendingTab({
         <Info className="h-4 w-4" />
         <AlertTitle>Members only</AlertTitle>
         <AlertDescription>
-          The lending marketplace is only visible to pool members.
-          Join this pool to access peer-to-peer loans.
+          The lending marketplace is only visible to pool members. Join this pool to access
+          peer-to-peer loans.
         </AlertDescription>
       </Alert>
     )
@@ -359,8 +338,8 @@ export function LendingTab({
         <Info className="h-4 w-4" />
         <AlertTitle>Microloan contract not configured</AlertTitle>
         <AlertDescription>
-          Set <code className="font-mono text-xs">NEXT_PUBLIC_MICROLOAN_CONTRACT_ID</code> in
-          your environment variables to enable P2P lending.
+          Set <code className="font-mono text-xs">NEXT_PUBLIC_MICROLOAN_CONTRACT_ID</code> in your
+          environment variables to enable P2P lending.
         </AlertDescription>
       </Alert>
     )
@@ -374,12 +353,7 @@ export function LendingTab({
         <AlertTitle>Failed to load loans</AlertTitle>
         <AlertDescription className="flex items-center justify-between gap-2">
           <span>{error}</span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={refetch}
-            className="flex-shrink-0 gap-1"
-          >
+          <Button size="sm" variant="outline" onClick={refetch} className="flex-shrink-0 gap-1">
             <RefreshCw className="h-3 w-3" />
             Retry
           </Button>

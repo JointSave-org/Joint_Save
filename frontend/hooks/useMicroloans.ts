@@ -21,11 +21,8 @@ import {
   BASE_FEE,
   nativeToScVal,
   Address,
-  Account,
   xdr,
   rpc,
-  Operation,
-  StrKey,
 } from "@stellar/stellar-sdk"
 import { useStellar, STELLAR_RPC_URL, STELLAR_NETWORK_PASSPHRASE } from "@/components/web3-provider"
 import { enqueueSign } from "@/lib/tx-queue"
@@ -146,13 +143,15 @@ function decodeLoan(scVal: xdr.ScVal): Loan {
     // Struct fields come back as ScvMap with string keys
     const map = scVal.map()!
     const get = (key: string): xdr.ScVal | undefined =>
-      map.find((entry) => {
-        try {
-          return entry.key().sym() === key || entry.key().str()?.toString() === key
-        } catch {
-          return false
-        }
-      })?.val()
+      map
+        .find((entry) => {
+          try {
+            return entry.key().sym() === key || entry.key().str()?.toString() === key
+          } catch {
+            return false
+          }
+        })
+        ?.val()
 
     const idVal = get("id")
     const id = idVal ? Buffer.from(idVal.bytes()).toString("hex") : ""
@@ -220,26 +219,6 @@ function decodeLoanIdList(scVal: xdr.ScVal): string[] {
 
 // ── RPC helpers ───────────────────────────────────────────────────────────────
 
-async function buildAndSimulate(
-  server: rpc.Server,
-  walletAddress: string,
-  contractId: string,
-  method: string,
-  args: xdr.ScVal[]
-): Promise<rpc.Api.SimulateTransactionResponse> {
-  const account = await server.getAccount(walletAddress)
-  const contract = new Contract(contractId)
-  const tx = new TransactionBuilder(account, {
-    fee: BASE_FEE,
-    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-  })
-    .addOperation(contract.call(method, ...args))
-    .setTimeout(TX_TIMEOUT)
-    .build()
-
-  return server.simulateTransaction(tx)
-}
-
 async function submitTransaction(
   server: rpc.Server,
   walletAddress: string,
@@ -297,8 +276,7 @@ async function viewCall(
   walletAddress?: string
 ): Promise<xdr.ScVal> {
   const server = new rpc.Server(STELLAR_RPC_URL)
-  const fakeAddress =
-    walletAddress ?? "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7"
+  const fakeAddress = walletAddress ?? "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7"
   const account = await server.getAccount(fakeAddress)
   const contract = new Contract(contractId)
   const tx = new TransactionBuilder(account, {
@@ -369,12 +347,9 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
       // Fetch individual loan records in parallel
       const loanResults = await Promise.allSettled(
         poolLoanIds.map((id) =>
-          viewCall(
-            MICROLOAN_CONTRACT_ID,
-            "get_loan",
-            [bytesN32Val(id)],
-            address ?? undefined
-          ).then(decodeLoan)
+          viewCall(MICROLOAN_CONTRACT_ID, "get_loan", [bytesN32Val(id)], address ?? undefined).then(
+            decodeLoan
+          )
         )
       )
       const loans = loanResults

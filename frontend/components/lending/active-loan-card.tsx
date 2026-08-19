@@ -30,11 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   AlertTriangle,
   ArrowDownToLine,
@@ -146,14 +142,10 @@ export function ActiveLoanCard({
   const [isDefaulting, setIsDefaulting] = useState(false)
   const [inputError, setInputError] = useState<string | null>(null)
 
-  const isBorrower =
-    !!walletAddress &&
-    loan.borrower.toLowerCase() === walletAddress.toLowerCase()
+  const isBorrower = !!walletAddress && loan.borrower.toLowerCase() === walletAddress.toLowerCase()
 
   const isLender =
-    !!walletAddress &&
-    !!loan.lender &&
-    loan.lender.toLowerCase() === walletAddress.toLowerCase()
+    !!walletAddress && !!loan.lender && loan.lender.toLowerCase() === walletAddress.toLowerCase()
 
   const totalOwed = computeTotalOwed(loan)
   const remaining = computeRemaining(loan)
@@ -221,7 +213,10 @@ export function ActiveLoanCard({
       {/* Status badge */}
       <div className="absolute top-3 right-3 flex gap-1.5">
         {overdue && loan.status === "Active" && (
-          <Badge variant="outline" className="text-xs font-medium text-destructive border-destructive/40 bg-destructive/5">
+          <Badge
+            variant="outline"
+            className="text-xs font-medium text-destructive border-destructive/40 bg-destructive/5"
+          >
             <AlertTriangle className="h-3 w-3 mr-1" />
             Overdue
           </Badge>
@@ -295,11 +290,17 @@ export function ActiveLoanCard({
             />
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">
-                Repaid: <span className="text-foreground font-medium">{formatTokenAmount(loan.repaidAmount)} XLM</span>
+                Repaid:{" "}
+                <span className="text-foreground font-medium">
+                  {formatTokenAmount(loan.repaidAmount)} XLM
+                </span>
               </span>
               {loan.status === "Active" && (
                 <span className="text-muted-foreground">
-                  Remaining: <span className="text-foreground font-medium">{formatTokenAmount(remaining)} XLM</span>
+                  Remaining:{" "}
+                  <span className="text-foreground font-medium">
+                    {formatTokenAmount(remaining)} XLM
+                  </span>
                 </span>
               )}
             </div>
@@ -358,11 +359,7 @@ export function ActiveLoanCard({
           {canRepay && (
             <Dialog open={repayDialogOpen} onOpenChange={handleRepayDialogOpen}>
               <DialogTrigger asChild>
-                <Button
-                  size="sm"
-                  className="flex-1 gap-1.5"
-                  disabled={isMutating || isRepaying}
-                >
+                <Button size="sm" className="flex-1 gap-1.5" disabled={isMutating || isRepaying}>
                   {isRepaying ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
@@ -375,8 +372,8 @@ export function ActiveLoanCard({
                 <DialogHeader>
                   <DialogTitle>Repay Loan</DialogTitle>
                   <DialogDescription>
-                    Enter the amount you want to repay. You can make partial or full repayments.
-                    A full repayment will award +10 reputation points.
+                    Enter the amount you want to repay. You can make partial or full repayments. A
+                    full repayment will award +10 reputation points.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -389,7 +386,9 @@ export function ActiveLoanCard({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Already repaid</span>
-                      <span className="font-medium">{formatTokenAmount(loan.repaidAmount)} XLM</span>
+                      <span className="font-medium">
+                        {formatTokenAmount(loan.repaidAmount)} XLM
+                      </span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-semibold">
@@ -411,9 +410,7 @@ export function ActiveLoanCard({
                       onChange={(e) => handleRepayInputChange(e.target.value)}
                       className={cn(inputError && "border-destructive")}
                     />
-                    {inputError && (
-                      <p className="text-xs text-destructive">{inputError}</p>
-                    )}
+                    {inputError && <p className="text-xs text-destructive">{inputError}</p>}
                   </div>
 
                   {/* Quick-fill buttons */}
@@ -423,9 +420,7 @@ export function ActiveLoanCard({
                       size="sm"
                       variant="outline"
                       className="flex-1 text-xs"
-                      onClick={() => handleRepayInputChange(
-                        formatTokenAmount(remaining / 2n)
-                      )}
+                      onClick={() => handleRepayInputChange(formatTokenAmount(remaining / 2n))}
                     >
                       50%
                     </Button>
@@ -451,12 +446,7 @@ export function ActiveLoanCard({
                   </Button>
                   <Button
                     onClick={handleRepay}
-                    disabled={
-                      isRepaying ||
-                      !!inputError ||
-                      !repayInput ||
-                      !parseAmount(repayInput)
-                    }
+                    disabled={isRepaying || !!inputError || !repayInput || !parseAmount(repayInput)}
                     className="gap-1.5"
                   >
                     {isRepaying && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -489,10 +479,10 @@ export function ActiveLoanCard({
                 <DialogHeader>
                   <DialogTitle>Mark Loan as Defaulted?</DialogTitle>
                   <DialogDescription>
-                    This loan is past its due date. Marking it as defaulted will apply a
-                    reputation penalty of <strong>−200 points</strong> to the borrower
-                    (<span className="font-mono">{shortAddress(loan.borrower)}</span>).
-                    This action cannot be undone.
+                    This loan is past its due date. Marking it as defaulted will apply a reputation
+                    penalty of <strong>−200 points</strong> to the borrower (
+                    <span className="font-mono">{shortAddress(loan.borrower)}</span>). This action
+                    cannot be undone.
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2">

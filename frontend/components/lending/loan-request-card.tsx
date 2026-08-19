@@ -25,18 +25,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Loader2, HandCoins, X, Clock, TrendingUp, Calendar } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Loan } from "@/hooks/useMicroloans"
-import {
-  computeTotalOwed,
-  shortAddress,
-} from "@/hooks/useMicroloans"
+import { computeTotalOwed, shortAddress } from "@/hooks/useMicroloans"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -91,8 +84,7 @@ export function LoanRequestCard({
   const [isCancelling, setIsCancelling] = useState(false)
 
   const isOwnRequest =
-    !!walletAddress &&
-    loan.borrower.toLowerCase() === walletAddress.toLowerCase()
+    !!walletAddress && loan.borrower.toLowerCase() === walletAddress.toLowerCase()
 
   const totalOwed = computeTotalOwed(loan)
   const netEarnings = totalOwed - loan.amount // lender's expected interest income
@@ -127,7 +119,10 @@ export function LoanRequestCard({
     >
       {/* Pending badge */}
       <div className="absolute top-3 right-3">
-        <Badge variant="outline" className="text-xs font-medium text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+        <Badge
+          variant="outline"
+          className="text-xs font-medium text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30"
+        >
           Pending
         </Badge>
       </div>
@@ -198,9 +193,7 @@ export function LoanRequestCard({
         {/* Total repayment row */}
         <div className="flex justify-between items-center text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
           <span>Total repayment</span>
-          <span className="font-medium text-foreground">
-            {formatTokenAmount(totalOwed)} XLM
-          </span>
+          <span className="font-medium text-foreground">{formatTokenAmount(totalOwed)} XLM</span>
         </div>
       </CardContent>
 
@@ -226,8 +219,7 @@ export function LoanRequestCard({
               <DialogHeader>
                 <DialogTitle>Confirm Loan Funding</DialogTitle>
                 <DialogDescription>
-                  You are about to lend{" "}
-                  <strong>{formatTokenAmount(loan.amount)} XLM</strong> to{" "}
+                  You are about to lend <strong>{formatTokenAmount(loan.amount)} XLM</strong> to{" "}
                   <span className="font-mono">{shortAddress(loan.borrower)}</span> for{" "}
                   <strong>{loan.termDays} days</strong> at{" "}
                   <strong>{formatInterestRate(loan.interestRateBps)}</strong> interest.
@@ -251,16 +243,14 @@ export function LoanRequestCard({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Due date</span>
-                  <span className="font-medium">
-                    {loan.termDays} days from acceptance
-                  </span>
+                  <span className="font-medium">{loan.termDays} days from acceptance</span>
                 </div>
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Tokens will be transferred immediately from your wallet to the borrower.
-                Repayment is tracked on-chain. If the borrower defaults, their pool
-                reputation is penalised by 200 points.
+                Tokens will be transferred immediately from your wallet to the borrower. Repayment
+                is tracked on-chain. If the borrower defaults, their pool reputation is penalised by
+                200 points.
               </p>
 
               <DialogFooter className="gap-2">
@@ -302,9 +292,9 @@ export function LoanRequestCard({
               <DialogHeader>
                 <DialogTitle>Cancel Loan Request?</DialogTitle>
                 <DialogDescription>
-                  Your pending request for{" "}
-                  <strong>{formatTokenAmount(loan.amount)} XLM</strong> will be cancelled.
-                  No funds have been moved. You can create a new request at any time.
+                  Your pending request for <strong>{formatTokenAmount(loan.amount)} XLM</strong>{" "}
+                  will be cancelled. No funds have been moved. You can create a new request at any
+                  time.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="gap-2">

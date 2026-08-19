@@ -141,13 +141,10 @@ export default function GroupPage({
       : pool.id
 
   // Derive membership and member list from pool_members array
-  const poolMemberAddresses: string[] =
-    pool.pool_members?.map((m) => m.member_address) ?? []
+  const poolMemberAddresses: string[] = pool.pool_members?.map((m) => m.member_address) ?? []
   const isMember =
     !!address &&
-    (poolMemberAddresses.some(
-      (m) => m.toLowerCase() === address.toLowerCase()
-    ) ||
+    (poolMemberAddresses.some((m) => m.toLowerCase() === address.toLowerCase()) ||
       pool.creator_address?.toLowerCase() === address.toLowerCase())
 
   const isAdmin =
