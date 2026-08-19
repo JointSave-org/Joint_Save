@@ -1,14 +1,11 @@
 "use client"
 
 import { use, useCallback, useEffect, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { GroupDetails } from "@/components/group/group-details"
 import { GroupMembers } from "@/components/group/group-members"
-import { GroupActivity } from "@/components/group/group-activity"
 import { GroupActions } from "@/components/group/group-actions"
-import { YieldDashboard } from "@/components/group/yield-dashboard"
-import { AdminAuditLog } from "@/components/group/admin-audit-log"
-import { AdminActionsLog } from "@/components/group/admin-actions-log"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -16,6 +13,42 @@ import { fetchIsPaused, fetchPoolAdmin } from "@/hooks/useJointSaveContracts"
 import { useStellar } from "@/components/web3-provider"
 import { useRecentPools } from "@/hooks/useRecentPools"
 import { ErrorBoundary, SectionErrorBoundary } from "@/components/error-boundary"
+import {
+  GroupActivitySkeleton,
+  YieldDashboardSkeleton,
+  GroupPageSkeleton,
+} from "@/components/ui/loading-skeletons"
+
+// Heavy components dynamic lazy loading with skeleton fallbacks
+const GroupActivity = dynamic(
+  () => import("@/components/group/group-activity").then((mod) => mod.GroupActivity),
+  { ssr: false, loading: () => <GroupActivitySkeleton /> }
+)
+
+const YieldDashboard = dynamic(
+  () => import("@/components/group/yield-dashboard").then((mod) => mod.YieldDashboard),
+  { ssr: false, loading: () => <YieldDashboardSkeleton /> }
+)
+
+const AdminAuditLog = dynamic(
+  () => import("@/components/group/admin-audit-log").then((mod) => mod.AdminAuditLog),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-4 bg-muted/20 animate-pulse rounded-lg h-32">Loading Audit Log...</div>
+    ),
+  }
+)
+
+const AdminActionsLog = dynamic(
+  () => import("@/components/group/admin-actions-log").then((mod) => mod.AdminActionsLog),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-4 bg-muted/20 animate-pulse rounded-lg h-32">Loading Admin Actions...</div>
+    ),
+  }
+)
 
 interface Pool {
   id: string
@@ -86,8 +119,8 @@ export default function GroupPage({
     refreshPoolState()
   }, [refreshPoolState])
 
-  if (loading) return <div>Loading...</div>
-  if (!pool) return <div>Pool not found</div>
+  if (loading) return <GroupPageSkeleton />
+  if (!pool) return <div className="p-8 text-center text-muted-foreground">Pool not found</div>
 
   const cacheKey =
     pool.contract_address && pool.contract_address !== "pending_deployment"

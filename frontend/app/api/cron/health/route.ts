@@ -52,10 +52,13 @@ export async function GET(req: NextRequest) {
   const neverRun = !lastSuccessfulRun
   const isDegraded = !neverRun && now - new Date(lastSuccessfulRun!).getTime() > DEGRADED_AFTER_MS
 
-  return NextResponse.json({
-    status: neverRun ? "pending" : isDegraded ? "degraded" : "healthy",
-    lastSuccessfulRun,
-    failuresLast24h: failures?.length ?? 0,
-    failures: failures ?? [],
-  })
+  return NextResponse.json(
+    {
+      status: neverRun ? "pending" : isDegraded ? "degraded" : "healthy",
+      lastSuccessfulRun,
+      failuresLast24h: failures?.length ?? 0,
+      failures: failures ?? [],
+    },
+    { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }
+  )
 }

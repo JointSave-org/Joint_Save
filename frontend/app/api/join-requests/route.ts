@@ -73,7 +73,9 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error
 
-    return NextResponse.json(data || [])
+    return NextResponse.json(data || [], {
+      headers: { "Cache-Control": "private, no-cache" },
+    })
   } catch (error) {
     console.error("Fetch join requests error:", error)
     return NextResponse.json(

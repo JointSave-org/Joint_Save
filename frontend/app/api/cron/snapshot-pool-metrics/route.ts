@@ -74,5 +74,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ updated, total: pools.length, errors })
+  return NextResponse.json(
+    { updated, total: pools.length, errors },
+    { headers: { "Cache-Control": "private, no-cache" } }
+  )
 }

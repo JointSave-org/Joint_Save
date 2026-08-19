@@ -1,15 +1,26 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import dynamic from "next/dynamic"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MyGroups } from "@/components/dashboard/my-groups"
 import { Explore } from "@/components/dashboard/explore"
 import { CreateGroup } from "@/components/dashboard/create-group"
-import { Transactions } from "@/components/dashboard/transactions"
-import { Profile } from "@/components/dashboard/profile"
-import { AnalyticsDashboard } from "@/components/dashboard/analytics"
 import { Portfolio } from "@/components/dashboard/portfolio"
+import { Profile } from "@/components/dashboard/profile"
 import { Home, PlusCircle, Receipt, User, TrendingUp, Compass, BarChart3 } from "lucide-react"
+import { TransactionsSkeleton, AnalyticsSkeleton } from "@/components/ui/loading-skeletons"
+
+// Heavy components lazy loaded on demand
+const Transactions = dynamic(
+  () => import("@/components/dashboard/transactions").then((mod) => mod.Transactions),
+  { ssr: false, loading: () => <TransactionsSkeleton /> }
+)
+
+const AnalyticsDashboard = dynamic(
+  () => import("@/components/dashboard/analytics").then((mod) => mod.AnalyticsDashboard),
+  { ssr: false, loading: () => <AnalyticsSkeleton /> }
+)
 
 export function DashboardTabs({
   activeTab: controlledActiveTab,
@@ -24,7 +35,7 @@ export function DashboardTabs({
 
   const handleCreateClick = useCallback(() => {
     setActiveTab("create")
-  }, [])
+  }, [setActiveTab])
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

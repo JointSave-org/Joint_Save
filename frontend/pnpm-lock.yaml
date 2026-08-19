@@ -193,6 +193,9 @@ importers:
       vaul:
         specifier: ^1.1.2
         version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      web-vitals:
+        specifier: ^4.2.4
+        version: 4.2.4
       zod:
         specifier: 3.25.76
         version: 3.25.76
@@ -200,6 +203,9 @@ importers:
       "@eslint/eslintrc":
         specifier: ^3.3.5
         version: 3.3.5
+      "@next/bundle-analyzer":
+        specifier: ^16.2.9
+        version: 16.2.9
       "@next/eslint-plugin-next":
         specifier: ^16.2.9
         version: 16.2.9
@@ -1768,6 +1774,12 @@ packages:
       }
     peerDependencies:
       near-api-js: ^4.0.0 || ^5.0.0
+
+  "@next/bundle-analyzer@16.2.9":
+    resolution:
+      {
+        integrity: sha512-yGWyLbC8MMn+hk9j6l6GammpbUz5S3yZzl3lpoWfVXhIpJfh6kAWG7JwF4WoG3f0VnYRY959yo1QQEI8mV/+jg==,
+      }
 
   "@next/env@16.2.4":
     resolution:
@@ -11395,6 +11407,12 @@ packages:
         integrity: sha512-ts/8E8l5b7kY0vlWLewOkDXMmPdLcVV4GmOQLyxuSswIJsweeFZtAsMF7k1Nszz+TYBQrlYRmzOnr398y1JemQ==,
       }
 
+  web-vitals@4.2.4:
+    resolution:
+      {
+        integrity: sha512-r4DIlprAGwJ7YM11VZp4R884m0Vmgr6EAKe3P+kO0PPj3Unqyvv59rczf6UiGcb9Z8QxZVcqKNwv/g0WNdWwsw==,
+      }
+
   webidl-conversions@3.0.1:
     resolution:
       {
@@ -12585,6 +12603,8 @@ snapshots:
       js-sha256: 0.9.0
       near-api-js: 5.1.1
       rxjs: 7.8.1
+
+  "@next/bundle-analyzer@16.2.9": {}
 
   "@next/env@16.2.4": {}
 
@@ -19402,6 +19422,8 @@ snapshots:
   walker@1.0.8:
     dependencies:
       makeerror: 1.0.12
+
+  web-vitals@4.2.4: {}
 
   webidl-conversions@3.0.1: {}
 
