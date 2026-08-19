@@ -79,10 +79,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const startLedger = (indexLog?.last_indexed_ledger ?? 0) + 1
 
     // ── 1. Pull new events from the RPC and enrich via Horizon ───────────────
-    const { events, latestLedger, warning } = await fetchEventsSince(
-      contractAddress,
-      startLedger
-    )
+    const { events, latestLedger, warning } = await fetchEventsSince(contractAddress, startLedger)
     const horizonByHash = await fetchHorizonTxBatch(events.map((ev) => ev.tx_hash))
 
     let updated = 0

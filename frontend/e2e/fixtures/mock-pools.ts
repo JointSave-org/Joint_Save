@@ -94,7 +94,9 @@ export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<P
     // /api/pools/:id/activity, /api/pools/:id/activity/export,
     // /api/pools/:id/index-events — must be handled before the query-param
     // branches because the **/api/pools** glob captures them too.
-    const nested = url.pathname.match(/\/api\/pools\/([^/]+)\/(activity\/export|activity|index-events)$/)
+    const nested = url.pathname.match(
+      /\/api\/pools\/([^/]+)\/(activity\/export|activity|index-events)$/
+    )
     if (nested) {
       const [, poolId, endpoint] = nested
       const pool = pools.find((p) => p.id === poolId || p.contract_address === poolId)

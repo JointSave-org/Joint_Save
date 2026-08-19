@@ -34,7 +34,12 @@ function presetRange(days: number): { from: string; to: string } {
  * Simple two-field date range selector with quick presets.
  * Fully controlled: the parent owns the from/to strings.
  */
-export function DateRangePicker({ from, to, onChange, idPrefix = "date-range" }: DateRangePickerProps) {
+export function DateRangePicker({
+  from,
+  to,
+  onChange,
+  idPrefix = "date-range",
+}: DateRangePickerProps) {
   const isFiltered = from !== "" || to !== ""
 
   const isPresetActive = (days: number) => {

@@ -65,9 +65,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     if (query.dateToExclusiveIso) q = q.lt("created_at", query.dateToExclusiveIso)
 
     const [activityRes, indexLogRes] = await Promise.all([
-      q
-        .order("created_at", { ascending: query.ascending })
-        .range(query.rangeFrom, query.rangeTo),
+      q.order("created_at", { ascending: query.ascending }).range(query.rangeFrom, query.rangeTo),
       admin
         .from("event_index_log")
         .select("last_indexed_ledger, indexed_at")

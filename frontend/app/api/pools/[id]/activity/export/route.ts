@@ -58,10 +58,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   }
 
   try {
-    let q = getAdminClient()
-      .from("pool_activity")
-      .select(ACTIVITY_SELECT_COLUMNS)
-      .eq("pool_id", id)
+    let q = getAdminClient().from("pool_activity").select(ACTIVITY_SELECT_COLUMNS).eq("pool_id", id)
 
     if (query.search) {
       const orClause = buildSearchOrClause(query.search)

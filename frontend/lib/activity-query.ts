@@ -65,7 +65,10 @@ export function isActivityQueryError(
  * alias.
  */
 export function sanitizeSearchTerm(term: string): string {
-  return term.replace(/[,()%_\\*]/g, " ").replace(/\s+/g, " ").trim()
+  return term
+    .replace(/[,()%_\\*]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 /**
