@@ -5,6 +5,7 @@ import {
   Contract,
   TransactionBuilder,
   Transaction,
+  FeeBumpTransaction,
   BASE_FEE,
   nativeToScVal,
   Address,
@@ -246,6 +247,152 @@ async function submitTx(
   }
 
   return result.hash
+}
+
+// ── Sponsored transaction submission ──────────────────────────────────────────
+
+/**
+ * Check whether the current wallet is eligible for a sponsored first deposit.
+ * Calls the server-side eligibility endpoint which checks Horizon for prior
+ * JointSave interactions.
+ */
+export async function checkSponsorshipEligibility(
+  walletAddress: string
+): Promise<{ eligible: boolean; reason: string }> {
+  try {
+    const res = await fetch(`/api/sponsor/eligible?wallet=${encodeURIComponent(walletAddress)}`)
+    if (!res.ok) return { eligible: false, reason: "Unable to check eligibility." }
+    return await res.json()
+  } catch {
+    return { eligible: false, reason: "Unable to check eligibility." }
+  }
+}
+
+/**
+ * Simulate → assemble → request sponsorship → user signs → submit fee-bump.
+ * Returns tx hash. Falls back to normal submission if sponsorship fails.
+ */
+async function submitTxWithSponsorship(
+  kit: {
+    signTransaction: (
+      xdr: string,
+      opts: { networkPassphrase: string }
+    ) => Promise<{ signedTxXdr: string }>
+  },
+  tx: Transaction,
+  userAddress: string,
+  pendingTx?: {
+    address: string
+    type: PendingTransactionType
+    poolId: string
+    amount?: string
+  }
+): Promise<string> {
+  if (IS_E2E) return E2E_TX_HASH
+  const server = getRpc()
+
+  const simResult = await server.simulateTransaction(tx)
+  if (rpc.Api.isSimulationError(simResult)) {
+    throw new Error(`Simulation failed: ${simResult.error}`)
+  }
+
+  const preparedTx = rpc.assembleTransaction(tx, simResult).build()
+
+  // Request fee-bump from sponsor server
+  const sponsorRes = await fetch("/api/sponsor/fee-bump", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      txXdr: preparedTx.toXDR(),
+      userAddress,
+    }),
+  })
+
+  if (!sponsorRes.ok) {
+    const err = await sponsorRes.json().catch(() => ({}))
+    throw new Error(err.error || "Sponsorship failed")
+  }
+
+  const { sponsoredTxXdr } = await sponsorRes.json()
+
+  // User signs the fee-bump (wallet signs the inner transaction)
+  const { signedTxXdr } = await enqueueSign(sponsoredTxXdr, {
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+  })
+
+  // Submit the signed fee-bump transaction
+  const result = await server.sendTransaction(
+    new FeeBumpTransaction(signedTxXdr, STELLAR_NETWORK_PASSPHRASE)
+  )
+
+  if (result.status === "ERROR") {
+    throw new Error(`Send failed: ${JSON.stringify(result.errorResult)}`)
+  }
+
+  if (pendingTx) {
+    addPendingTransactionRecord(pendingTx.address, {
+      hash: result.hash,
+      type: pendingTx.type,
+      poolId: pendingTx.poolId,
+      submittedAt: Date.now(),
+      amount: pendingTx.amount,
+    })
+  }
+
+  // Poll for confirmation
+  let getResult = await server.getTransaction(result.hash)
+  let attempts = 0
+  while (getResult.status === rpc.Api.GetTransactionStatus.NOT_FOUND && attempts < 30) {
+    await new Promise((r) => setTimeout(r, 1500))
+    getResult = await server.getTransaction(result.hash)
+    attempts++
+  }
+
+  if (getResult.status === rpc.Api.GetTransactionStatus.FAILED) {
+    if (pendingTx) {
+      removePendingTransactionRecord(pendingTx.address, result.hash)
+    }
+    throw new Error("Sponsored transaction failed on-chain")
+  }
+
+  if (getResult.status === rpc.Api.GetTransactionStatus.SUCCESS && pendingTx) {
+    removePendingTransactionRecord(pendingTx.address, result.hash)
+  }
+
+  return result.hash
+}
+
+/**
+ * Build, optionally sponsor, and submit a deposit transaction.
+ * If `sponsored` is true, uses fee-bump sponsorship; falls back to normal on failure.
+ */
+async function buildAndSubmitDeposit(
+  kit: {
+    signTransaction: (
+      xdr: string,
+      opts: { networkPassphrase: string }
+    ) => Promise<{ signedTxXdr: string }>
+  },
+  tx: Transaction,
+  userAddress: string,
+  sponsored: boolean,
+  pendingTx?: {
+    address: string
+    type: PendingTransactionType
+    poolId: string
+    amount?: string
+  }
+): Promise<string> {
+  if (!sponsored) {
+    return submitTx(kit, tx, pendingTx)
+  }
+
+  try {
+    return await submitTxWithSponsorship(kit, tx, userAddress, pendingTx)
+  } catch (sponsorErr) {
+    console.warn("[sponsorship] Falling back to normal submission:", sponsorErr)
+    return submitTx(kit, tx, pendingTx)
+  }
 }
 
 // ── Deploy pool from WASM hash ────────────────────────────────────────────────
@@ -533,7 +680,7 @@ export function useRotationalDeposit(contractId: string) {
   const { kit, address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)
 
-  const deposit = async (): Promise<string | undefined> => {
+  const deposit = async (sponsored = false): Promise<string | undefined> => {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
@@ -545,7 +692,7 @@ export function useRotationalDeposit(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("deposit", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx, {
+      return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
         address,
         type: "deposit",
         poolId: contractId,
@@ -595,7 +742,7 @@ export function useTargetContribute(contractId: string, amount: string, decimals
   const { kit, address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)
 
-  const contribute = async (): Promise<string | undefined> => {
+  const contribute = async (sponsored = false): Promise<string | undefined> => {
     if (!kit || !address || !contractId || !amount) return
     setIsLoading(true)
     try {
@@ -613,7 +760,7 @@ export function useTargetContribute(contractId: string, amount: string, decimals
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx, {
+      return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
         address,
         type: "deposit",
         poolId: contractId,
@@ -691,7 +838,7 @@ export function useFlexibleDeposit(contractId: string, amount: string, decimals 
   const { kit, address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)
 
-  const deposit = async (): Promise<string | undefined> => {
+  const deposit = async (sponsored = false): Promise<string | undefined> => {
     if (!kit || !address || !contractId || !amount) return
     setIsLoading(true)
     try {
@@ -709,7 +856,7 @@ export function useFlexibleDeposit(contractId: string, amount: string, decimals 
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitTx(kit, tx, {
+      return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
         address,
         type: "deposit",
         poolId: contractId,
