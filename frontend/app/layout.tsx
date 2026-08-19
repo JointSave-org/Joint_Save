@@ -13,6 +13,7 @@ import { Suspense } from "react"
 import { TxQueueBadge } from "@/components/tx-queue-badge"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
 import { TransactionRecoveryProvider } from "@/components/transaction-recovery-provider"
+import { PendingTxBanner } from "@/components/shared/pending-tx-banner"
 
 export const metadata: Metadata = {
   title: "JointSave — Decentralized Community Savings on Stellar",
@@ -51,7 +52,10 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <Web3Provider>
               <TransactionRecoveryProvider>
-                <PoolDataProvider>{children}</PoolDataProvider>
+                <PoolDataProvider>
+                  {children}
+                  <PendingTxBanner />
+                </PoolDataProvider>
               </TransactionRecoveryProvider>
             </Web3Provider>
           </Suspense>
