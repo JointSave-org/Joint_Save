@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import {
@@ -803,6 +803,36 @@ const DEFAULT_REPUTATION: ReputationScore = {
   onTimeRate: 10000,
 }
 
+/** Full reputation dataset from the v2 scoring system. */
+export interface ReputationData {
+  /** Normalized score 0–1000 */
+  totalScore: number
+  /** (successful_deposits / total_rounds) * 1000 */
+  depositReliability: number
+  poolsCompleted: number
+  poolsJoined: number
+  totalDeposits: number
+  missedDeposits: number
+  /** Unix timestamp of last recorded activity */
+  lastActivity: number
+  /** Unix timestamp the score was last computed */
+  scoreUpdatedAt: number
+  /** True when member has fewer than 10 deposits */
+  isProvisional: boolean
+}
+
+const DEFAULT_REPUTATION_DATA: ReputationData = {
+  totalScore: 500,
+  depositReliability: 500,
+  poolsCompleted: 0,
+  poolsJoined: 0,
+  totalDeposits: 0,
+  missedDeposits: 0,
+  lastActivity: 0,
+  scoreUpdatedAt: 0,
+  isProvisional: true,
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Convert a token amount in base units to a human number, given its decimals. */
@@ -1389,6 +1419,65 @@ export async function fetchReputation(address: string): Promise<ReputationScore>
   } catch {
     return DEFAULT_REPUTATION
   }
+}
+
+/**
+ * Fetch full v2 ReputationData for a single address.
+ * Returns a provisional default when the contract is unconfigured or unreachable.
+ */
+export async function fetchMemberReputationData(address: string): Promise<ReputationData> {
+  if (!REPUTATION_ID || !address) return DEFAULT_REPUTATION_DATA
+  try {
+    const [dataVal, provisionalVal] = await Promise.all([
+      viewCall(REPUTATION_ID, "get_member_score", addressVal(address)),
+      viewCall(REPUTATION_ID, "is_provisional", addressVal(address)),
+    ])
+
+    const isProvisional = provisionalVal.switch().name === "scvBool" ? provisionalVal.b() : true
+
+    const toU64 = (v?: xdr.ScVal): number => {
+      if (!v) return 0
+      const n = v.switch().name
+      if (n === "scvU64") return Number(v.u64().toBigInt())
+      if (n === "scvU32") return v.u32()
+      return 0
+    }
+
+    return {
+      totalScore: scValToU32(structField(dataVal, "total_score")),
+      depositReliability: scValToU32(structField(dataVal, "deposit_reliability")),
+      poolsCompleted: scValToU32(structField(dataVal, "pools_completed")),
+      poolsJoined: scValToU32(structField(dataVal, "pools_joined")),
+      totalDeposits: scValToU32(structField(dataVal, "total_deposits")),
+      missedDeposits: scValToU32(structField(dataVal, "missed_deposits")),
+      lastActivity: toU64(structField(dataVal, "last_activity")),
+      scoreUpdatedAt: toU64(structField(dataVal, "score_updated_at")),
+      isProvisional,
+    }
+  } catch {
+    return DEFAULT_REPUTATION_DATA
+  }
+}
+
+/**
+ * Batch-fetch ReputationData for multiple addresses in parallel.
+ * Failures are silently dropped — the caller gets whatever resolved.
+ */
+export async function fetchMembersReputationData(
+  addresses: string[]
+): Promise<Record<string, ReputationData>> {
+  if (!REPUTATION_ID || addresses.length === 0) return {}
+  const results = await Promise.allSettled(
+    addresses.map(async (addr) => ({ addr, data: await fetchMemberReputationData(addr) }))
+  )
+  return Object.fromEntries(
+    results
+      .filter(
+        (r): r is PromiseFulfilledResult<{ addr: string; data: ReputationData }> =>
+          r.status === "fulfilled"
+      )
+      .map((r) => [r.value.addr, r.value.data])
+  )
 }
 
 export async function fetchPoolTtl(contractId: string): Promise<number | null> {
