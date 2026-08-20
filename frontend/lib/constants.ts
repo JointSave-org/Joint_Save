@@ -140,6 +140,22 @@ export const KNOWN_CONTRACT_VERSIONS = {
   factory: 1,
 } as const
 
+// ── Transaction Simulation ───────────────────────────────────────────────────
+
+/**
+ * How long a simulation result is cached (keyed by XDR hash).
+ * Prevents duplicate RPC calls when the user re-triggers the same action
+ * within a short window. Unit: **milliseconds** (30 seconds).
+ */
+export const SIMULATION_CACHE_TTL_MS = 30_000 as const
+
+/**
+ * Maximum time to wait for a Soroban RPC simulateTransaction response
+ * before falling back to "simulation unavailable" behaviour. Unit:
+ * **milliseconds** (10 seconds).
+ */
+export const SIMULATION_TIMEOUT_MS = 10_000 as const
+
 // ── Chat ──────────────────────────────────────────────────────────────────────
 
 /**
