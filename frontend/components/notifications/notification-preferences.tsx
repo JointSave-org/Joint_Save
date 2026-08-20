@@ -7,14 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Bell,
-  BellOff,
-  ShieldCheck,
-  AlertCircle,
-  Loader2,
-  BellRing,
-} from "lucide-react"
+import { Bell, BellOff, ShieldCheck, AlertCircle, Loader2, BellRing } from "lucide-react"
 import {
   useNotificationPreferences,
   type NotificationPreferences,
@@ -58,11 +51,7 @@ function EventToggle({
 
 // ─── Permission status badge ──────────────────────────────────────────────────
 
-function PermissionBadge({
-  permission,
-}: {
-  permission: NotificationPermission | "unsupported"
-}) {
+function PermissionBadge({ permission }: { permission: NotificationPermission | "unsupported" }) {
   if (permission === "unsupported") {
     return (
       <Badge variant="secondary" className="gap-1 text-xs">
@@ -217,8 +206,8 @@ export function NotificationPreferencesPanel({
             <PermissionBadge permission={pushPermission} />
           </div>
           <CardDescription>
-            Get browser notifications even when the app is not open. Works on desktop and
-            supported mobile browsers.
+            Get browser notifications even when the app is not open. Works on desktop and supported
+            mobile browsers.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

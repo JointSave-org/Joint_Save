@@ -122,7 +122,10 @@ export async function POST(req: NextRequest) {
   for (const pref of prefs) {
     if (pref.pool_id === null) {
       resolvedPushEnabled.set(pref.wallet_address, pref.push_enabled ?? false)
-      resolvedEventEnabled.set(pref.wallet_address, (pref[event_type as keyof PrefRow] as boolean) ?? true)
+      resolvedEventEnabled.set(
+        pref.wallet_address,
+        (pref[event_type as keyof PrefRow] as boolean) ?? true
+      )
     }
   }
   // Second pass: pool-specific overrides
@@ -134,9 +137,9 @@ export async function POST(req: NextRequest) {
       )
       resolvedEventEnabled.set(
         pref.wallet_address,
-        ((pref[event_type as keyof PrefRow] as boolean) ??
+        (pref[event_type as keyof PrefRow] as boolean) ??
           resolvedEventEnabled.get(pref.wallet_address) ??
-          true)
+          true
       )
     }
   }

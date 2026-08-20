@@ -10,7 +10,10 @@ export async function POST(req: NextRequest) {
   const limited = writeLimiter(req)
   if (limited) return limited
 
-  let body: { wallet?: string; subscription?: { endpoint: string; keys: { p256dh: string; auth: string } } }
+  let body: {
+    wallet?: string
+    subscription?: { endpoint: string; keys: { p256dh: string; auth: string } }
+  }
   try {
     body = await req.json()
   } catch {
@@ -23,7 +26,10 @@ export async function POST(req: NextRequest) {
   if (!wallet) return NextResponse.json({ error: "wallet required" }, { status: 400 })
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) {
     return NextResponse.json(
-      { error: "subscription.endpoint, subscription.keys.p256dh and subscription.keys.auth are required" },
+      {
+        error:
+          "subscription.endpoint, subscription.keys.p256dh and subscription.keys.auth are required",
+      },
       { status: 400 }
     )
   }
@@ -44,12 +50,15 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Also flip push_enabled on the global preference row so the toggle stays in sync.
-  await supabase
-    .from("notification_preferences")
-    .upsert(
-      { wallet_address: wallet, pool_id: null, push_enabled: true, updated_at: new Date().toISOString() },
-      { onConflict: "wallet_address,pool_id" }
-    )
+  await supabase.from("notification_preferences").upsert(
+    {
+      wallet_address: wallet,
+      pool_id: null,
+      push_enabled: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "wallet_address,pool_id" }
+  )
 
   return NextResponse.json({ ok: true }, { status: 201 })
 }

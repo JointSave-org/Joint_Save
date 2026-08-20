@@ -42,20 +42,18 @@ self.addEventListener("notificationclick", (event) => {
   const targetUrl = event.notification.data?.url ?? "/dashboard"
 
   event.waitUntil(
-    clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clientList) => {
-        // Focus an existing window on the target URL if possible.
-        for (const client of clientList) {
-          if (client.url.includes(targetUrl) && "focus" in client) {
-            return client.focus()
-          }
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // Focus an existing window on the target URL if possible.
+      for (const client of clientList) {
+        if (client.url.includes(targetUrl) && "focus" in client) {
+          return client.focus()
         }
-        // Otherwise open a new tab.
-        if (clients.openWindow) {
-          return clients.openWindow(targetUrl)
-        }
-      })
+      }
+      // Otherwise open a new tab.
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl)
+      }
+    })
   )
 })
 
