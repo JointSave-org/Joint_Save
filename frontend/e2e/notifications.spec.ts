@@ -1,10 +1,4 @@
-import {
-  test,
-  expect,
-  connectWallet,
-  seedChainState,
-  E2E_ADDRESS,
-} from "./fixtures/test-base"
+import { test, expect, connectWallet, seedChainState, E2E_ADDRESS } from "./fixtures/test-base"
 
 /**
  * notifications.spec — visit the notifications page, verify empty state,

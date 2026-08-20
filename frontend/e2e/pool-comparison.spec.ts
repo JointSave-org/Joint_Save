@@ -58,9 +58,7 @@ test("compare bar appears when pools are selected", async ({ page }) => {
 
 test("compare page shows comparison table via URL", async ({ page }) => {
   // Navigate directly to compare page with pools in query string
-  await page.goto(
-    `/explore/compare?pools=${POOL_A.contract_address},${POOL_B.contract_address}`
-  )
+  await page.goto(`/explore/compare?pools=${POOL_A.contract_address},${POOL_B.contract_address}`)
 
   // Compare page heading
   await expect(page.getByRole("heading", { name: "Compare Pools" })).toBeVisible()

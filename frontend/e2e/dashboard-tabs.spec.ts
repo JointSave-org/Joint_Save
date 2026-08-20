@@ -100,8 +100,5 @@ test("Profile tab renders", async ({ page }) => {
   await page.getByRole("tab", { name: /profile/i }).click()
 
   // Profile tab content is present
-  await expect(page.getByRole("tab", { name: /profile/i })).toHaveAttribute(
-    "aria-selected",
-    "true"
-  )
+  await expect(page.getByRole("tab", { name: /profile/i })).toHaveAttribute("aria-selected", "true")
 })
