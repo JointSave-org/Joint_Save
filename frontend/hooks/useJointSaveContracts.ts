@@ -1,10 +1,11 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import {
   Contract,
   TransactionBuilder,
   Transaction,
+  FeeBumpTransaction,
   BASE_FEE,
   nativeToScVal,
   Address,
@@ -22,6 +23,7 @@ import {
   type PendingTransactionType,
 } from "@/lib/pending-transactions"
 import { TX_TIMEOUT } from "@/lib/constants"
+import { mapSorobanEvent } from "@/lib/soroban-event-mapping"
 import { isContractVersionUnknown } from "@/lib/contract-version"
 export { isContractVersionUnknown }
 
@@ -268,6 +270,152 @@ export async function submitContractTx(
   onPhase?.("confirmed", result.hash)
 
   return result.hash
+}
+
+// ── Sponsored transaction submission ──────────────────────────────────────────
+
+/**
+ * Check whether the current wallet is eligible for a sponsored first deposit.
+ * Calls the server-side eligibility endpoint which checks Horizon for prior
+ * JointSave interactions.
+ */
+export async function checkSponsorshipEligibility(
+  walletAddress: string
+): Promise<{ eligible: boolean; reason: string }> {
+  try {
+    const res = await fetch(`/api/sponsor/eligible?wallet=${encodeURIComponent(walletAddress)}`)
+    if (!res.ok) return { eligible: false, reason: "Unable to check eligibility." }
+    return await res.json()
+  } catch {
+    return { eligible: false, reason: "Unable to check eligibility." }
+  }
+}
+
+/**
+ * Simulate → assemble → request sponsorship → user signs → submit fee-bump.
+ * Returns tx hash. Falls back to normal submission if sponsorship fails.
+ */
+async function submitTxWithSponsorship(
+  kit: {
+    signTransaction: (
+      xdr: string,
+      opts: { networkPassphrase: string }
+    ) => Promise<{ signedTxXdr: string }>
+  },
+  tx: Transaction,
+  userAddress: string,
+  pendingTx?: {
+    address: string
+    type: PendingTransactionType
+    poolId: string
+    amount?: string
+  }
+): Promise<string> {
+  if (IS_E2E) return E2E_TX_HASH
+  const server = getRpc()
+
+  const simResult = await server.simulateTransaction(tx)
+  if (rpc.Api.isSimulationError(simResult)) {
+    throw new Error(`Simulation failed: ${simResult.error}`)
+  }
+
+  const preparedTx = rpc.assembleTransaction(tx, simResult).build()
+
+  // Request fee-bump from sponsor server
+  const sponsorRes = await fetch("/api/sponsor/fee-bump", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      txXdr: preparedTx.toXDR(),
+      userAddress,
+    }),
+  })
+
+  if (!sponsorRes.ok) {
+    const err = await sponsorRes.json().catch(() => ({}))
+    throw new Error(err.error || "Sponsorship failed")
+  }
+
+  const { sponsoredTxXdr } = await sponsorRes.json()
+
+  // User signs the fee-bump (wallet signs the inner transaction)
+  const { signedTxXdr } = await enqueueSign(sponsoredTxXdr, {
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+  })
+
+  // Submit the signed fee-bump transaction
+  const result = await server.sendTransaction(
+    new FeeBumpTransaction(signedTxXdr, STELLAR_NETWORK_PASSPHRASE)
+  )
+
+  if (result.status === "ERROR") {
+    throw new Error(`Send failed: ${JSON.stringify(result.errorResult)}`)
+  }
+
+  if (pendingTx) {
+    addPendingTransactionRecord(pendingTx.address, {
+      hash: result.hash,
+      type: pendingTx.type,
+      poolId: pendingTx.poolId,
+      submittedAt: Date.now(),
+      amount: pendingTx.amount,
+    })
+  }
+
+  // Poll for confirmation
+  let getResult = await server.getTransaction(result.hash)
+  let attempts = 0
+  while (getResult.status === rpc.Api.GetTransactionStatus.NOT_FOUND && attempts < 30) {
+    await new Promise((r) => setTimeout(r, 1500))
+    getResult = await server.getTransaction(result.hash)
+    attempts++
+  }
+
+  if (getResult.status === rpc.Api.GetTransactionStatus.FAILED) {
+    if (pendingTx) {
+      removePendingTransactionRecord(pendingTx.address, result.hash)
+    }
+    throw new Error("Sponsored transaction failed on-chain")
+  }
+
+  if (getResult.status === rpc.Api.GetTransactionStatus.SUCCESS && pendingTx) {
+    removePendingTransactionRecord(pendingTx.address, result.hash)
+  }
+
+  return result.hash
+}
+
+/**
+ * Build, optionally sponsor, and submit a deposit transaction.
+ * If `sponsored` is true, uses fee-bump sponsorship; falls back to normal on failure.
+ */
+async function buildAndSubmitDeposit(
+  kit: {
+    signTransaction: (
+      xdr: string,
+      opts: { networkPassphrase: string }
+    ) => Promise<{ signedTxXdr: string }>
+  },
+  tx: Transaction,
+  userAddress: string,
+  sponsored: boolean,
+  pendingTx?: {
+    address: string
+    type: PendingTransactionType
+    poolId: string
+    amount?: string
+  }
+): Promise<string> {
+  if (!sponsored) {
+    return submitContractTx(tx, { pendingTx })
+  }
+
+  try {
+    return await submitTxWithSponsorship(kit, tx, userAddress, pendingTx)
+  } catch (sponsorErr) {
+    console.warn("[sponsorship] Falling back to normal submission:", sponsorErr)
+    return submitContractTx(tx, { pendingTx })
+  }
 }
 
 // ── Deploy pool from WASM hash ────────────────────────────────────────────────
@@ -555,7 +703,7 @@ export function useRotationalDeposit(contractId: string) {
   const { kit, address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)
 
-  const deposit = async (): Promise<string | undefined> => {
+  const deposit = async (sponsored = false): Promise<string | undefined> => {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
@@ -567,12 +715,10 @@ export function useRotationalDeposit(contractId: string) {
         .addOperation(new Contract(normalizeId(contractId)).call("deposit", addressVal(address)))
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitContractTx(tx, {
-        pendingTx: {
-          address,
-          type: "deposit",
-          poolId: contractId,
-        },
+      return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
+        address,
+        type: "deposit",
+        poolId: contractId,
       })
     } finally {
       setIsLoading(false)
@@ -621,7 +767,7 @@ export function useTargetContribute(contractId: string, amount: string, decimals
   const { kit, address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)
 
-  const contribute = async (): Promise<string | undefined> => {
+  const contribute = async (sponsored = false): Promise<string | undefined> => {
     if (!kit || !address || !contractId || !amount) return
     setIsLoading(true)
     try {
@@ -639,13 +785,11 @@ export function useTargetContribute(contractId: string, amount: string, decimals
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitContractTx(tx, {
-        pendingTx: {
-          address,
-          type: "deposit",
-          poolId: contractId,
-          amount,
-        },
+      return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
+        address,
+        type: "deposit",
+        poolId: contractId,
+        amount,
       })
     } finally {
       setIsLoading(false)
@@ -723,7 +867,7 @@ export function useFlexibleDeposit(contractId: string, amount: string, decimals 
   const { kit, address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)
 
-  const deposit = async (): Promise<string | undefined> => {
+  const deposit = async (sponsored = false): Promise<string | undefined> => {
     if (!kit || !address || !contractId || !amount) return
     setIsLoading(true)
     try {
@@ -741,13 +885,11 @@ export function useFlexibleDeposit(contractId: string, amount: string, decimals 
         )
         .setTimeout(TX_TIMEOUT)
         .build()
-      return await submitContractTx(tx, {
-        pendingTx: {
-          address,
-          type: "deposit",
-          poolId: contractId,
-          amount,
-        },
+      return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
+        address,
+        type: "deposit",
+        poolId: contractId,
+        amount,
       })
     } finally {
       setIsLoading(false)
@@ -837,6 +979,36 @@ const DEFAULT_REPUTATION: ReputationScore = {
   poolsCompleted: 0,
   missedRounds: 0,
   onTimeRate: 10000,
+}
+
+/** Full reputation dataset from the v2 scoring system. */
+export interface ReputationData {
+  /** Normalized score 0–1000 */
+  totalScore: number
+  /** (successful_deposits / total_rounds) * 1000 */
+  depositReliability: number
+  poolsCompleted: number
+  poolsJoined: number
+  totalDeposits: number
+  missedDeposits: number
+  /** Unix timestamp of last recorded activity */
+  lastActivity: number
+  /** Unix timestamp the score was last computed */
+  scoreUpdatedAt: number
+  /** True when member has fewer than 10 deposits */
+  isProvisional: boolean
+}
+
+const DEFAULT_REPUTATION_DATA: ReputationData = {
+  totalScore: 500,
+  depositReliability: 500,
+  poolsCompleted: 0,
+  poolsJoined: 0,
+  totalDeposits: 0,
+  missedDeposits: 0,
+  lastActivity: 0,
+  scoreUpdatedAt: 0,
+  isProvisional: true,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1130,56 +1302,19 @@ export async function fetchContractEvents(
   const events: ActivityEvent[] = []
 
   for (const ev of response.events) {
-    const topics = ev.topic
-    if (!topics.length) continue
-
-    // First topic is always the event name symbol
-    const topicName = topics[0].switch().name === "scvSymbol" ? topics[0].sym().toString() : null
-    if (!topicName) continue
-
-    // Second topic (optional) is the address
-    let userAddress: string | null = null
-    if (topics[1]?.switch().name === "scvAddress") {
-      try {
-        userAddress = Address.fromScVal(topics[1]).toString()
-      } catch {}
-    }
-
-    // Value is the amount (i128) for deposit/payout/withdraw
-    let amount: number | null = null
-    try {
-      const val = ev.value
-      const sw = val.switch().name
-      if (sw === "scvI128" || sw === "scvU128" || sw === "scvU64" || sw === "scvI64") {
-        amount = Number(scValToBigInt(val)) / 10_000_000
-      }
-    } catch {}
-
-    const typeMap: Record<string, string> = {
-      deposit: "deposit",
-      payout: "payout",
-      withdraw: "withdraw",
-      complete: "complete",
-      unlocked: "complete",
-      refunded: "withdraw",
-      yield: "yield",
-    }
-
-    const activity_type = typeMap[topicName]
-    if (!activity_type) continue
-
-    // Derive a stable id from txHash + topic
-    const id = `${ev.txHash}-${topicName}`
+    const mapped = mapSorobanEvent(ev)
+    if (!mapped) continue
 
     events.push({
-      id,
-      activity_type,
-      user_address: userAddress,
-      amount,
+      // Derive a stable id from txHash + activity type
+      id: `${mapped.tx_hash}-${mapped.activity_type}`,
+      activity_type: mapped.activity_type,
+      user_address: mapped.user_address,
+      amount: mapped.amount,
       description: null,
       // Soroban events don't carry a timestamp; use ledger close time if available
-      created_at: ev.ledgerClosedAt ?? new Date(0).toISOString(),
-      tx_hash: ev.txHash,
+      created_at: mapped.ledgerClosedAt ?? new Date(0).toISOString(),
+      tx_hash: mapped.tx_hash,
       source: "onchain",
     })
   }
@@ -1462,6 +1597,65 @@ export async function fetchReputation(address: string): Promise<ReputationScore>
   } catch {
     return DEFAULT_REPUTATION
   }
+}
+
+/**
+ * Fetch full v2 ReputationData for a single address.
+ * Returns a provisional default when the contract is unconfigured or unreachable.
+ */
+export async function fetchMemberReputationData(address: string): Promise<ReputationData> {
+  if (!REPUTATION_ID || !address) return DEFAULT_REPUTATION_DATA
+  try {
+    const [dataVal, provisionalVal] = await Promise.all([
+      viewCall(REPUTATION_ID, "get_member_score", addressVal(address)),
+      viewCall(REPUTATION_ID, "is_provisional", addressVal(address)),
+    ])
+
+    const isProvisional = provisionalVal.switch().name === "scvBool" ? provisionalVal.b() : true
+
+    const toU64 = (v?: xdr.ScVal): number => {
+      if (!v) return 0
+      const n = v.switch().name
+      if (n === "scvU64") return Number(v.u64().toBigInt())
+      if (n === "scvU32") return v.u32()
+      return 0
+    }
+
+    return {
+      totalScore: scValToU32(structField(dataVal, "total_score")),
+      depositReliability: scValToU32(structField(dataVal, "deposit_reliability")),
+      poolsCompleted: scValToU32(structField(dataVal, "pools_completed")),
+      poolsJoined: scValToU32(structField(dataVal, "pools_joined")),
+      totalDeposits: scValToU32(structField(dataVal, "total_deposits")),
+      missedDeposits: scValToU32(structField(dataVal, "missed_deposits")),
+      lastActivity: toU64(structField(dataVal, "last_activity")),
+      scoreUpdatedAt: toU64(structField(dataVal, "score_updated_at")),
+      isProvisional,
+    }
+  } catch {
+    return DEFAULT_REPUTATION_DATA
+  }
+}
+
+/**
+ * Batch-fetch ReputationData for multiple addresses in parallel.
+ * Failures are silently dropped — the caller gets whatever resolved.
+ */
+export async function fetchMembersReputationData(
+  addresses: string[]
+): Promise<Record<string, ReputationData>> {
+  if (!REPUTATION_ID || addresses.length === 0) return {}
+  const results = await Promise.allSettled(
+    addresses.map(async (addr) => ({ addr, data: await fetchMemberReputationData(addr) }))
+  )
+  return Object.fromEntries(
+    results
+      .filter(
+        (r): r is PromiseFulfilledResult<{ addr: string; data: ReputationData }> =>
+          r.status === "fulfilled"
+      )
+      .map((r) => [r.value.addr, r.value.data])
+  )
 }
 
 export async function fetchPoolTtl(contractId: string): Promise<number | null> {

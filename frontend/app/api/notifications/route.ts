@@ -29,7 +29,10 @@ export async function GET(req: NextRequest) {
       .range(from, to)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ data: data ?? [], total: count ?? 0, page, pageSize: PAGE_SIZE })
+    return NextResponse.json(
+      { data: data ?? [], total: count ?? 0, page, pageSize: PAGE_SIZE },
+      { headers: { "Cache-Control": "private, no-cache" } }
+    )
   }
 
   // Default mode (used by the notification bell dropdown): most recent 10.
@@ -41,7 +44,7 @@ export async function GET(req: NextRequest) {
     .limit(10)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? [])
+  return NextResponse.json(data ?? [], { headers: { "Cache-Control": "private, no-cache" } })
 }
 
 // POST /api/notifications  { wallet_address }  — mark all read

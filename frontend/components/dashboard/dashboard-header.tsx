@@ -56,10 +56,13 @@ export function DashboardHeader() {
           <Link href="/" className="flex shrink-0 items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
               <Image
-                src="/joint-save.jpg"
+                src="/joint-save.webp"
                 alt="JointSave Logo"
                 width={40}
                 height={40}
+                priority
+                placeholder="blur"
+                blurDataURL="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMWUxZTJlIi8+PC9zdmc+"
                 className="object-cover"
               />
             </div>

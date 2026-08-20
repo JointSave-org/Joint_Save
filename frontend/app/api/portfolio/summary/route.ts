@@ -164,19 +164,22 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    return NextResponse.json({
-      total_saved,
-      total_saved_by_token,
-      total_pools: { ...poolsByType, total: userPools.length },
-      total_yield_earned,
-      upcoming_commitments,
-      reputation_summary: {
-        total_deposits: deposits,
-        average_on_time_rate: 100,
-        pools_completed: userPools.filter((p) => p.status === "completed").length,
+    return NextResponse.json(
+      {
+        total_saved,
+        total_saved_by_token,
+        total_pools: { ...poolsByType, total: userPools.length },
+        total_yield_earned,
+        upcoming_commitments,
+        reputation_summary: {
+          total_deposits: deposits,
+          average_on_time_rate: 100,
+          pools_completed: userPools.filter((p) => p.status === "completed").length,
+        },
+        pools,
       },
-      pools,
-    })
+      { headers: { "Cache-Control": "private, no-cache" } }
+    )
   } catch (error) {
     console.error("Portfolio summary error:", error)
     return NextResponse.json(

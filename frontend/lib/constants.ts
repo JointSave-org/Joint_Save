@@ -94,6 +94,31 @@ export const READ_RATE_LIMIT = 30 as const
  */
 export const WRITE_RATE_LIMIT = 10 as const
 
+/**
+ * Maximum number of activity exports allowed per key per export window.
+ */
+export const EXPORT_RATE_LIMIT = 5 as const
+
+/**
+ * Sliding-window size for the export rate limiter.
+ * Unit: **milliseconds** (1 hour).
+ */
+export const EXPORT_RATE_LIMIT_WINDOW_MS = 3_600_000 as const
+
+// ── Activity feed ─────────────────────────────────────────────────────────────
+
+/**
+ * Number of pool activity rows returned per page by
+ * GET /api/pools/[id]/activity.
+ */
+export const ACTIVITY_PAGE_SIZE = 50 as const
+
+/**
+ * Hard cap on rows returned by GET /api/pools/[id]/activity/export so a single
+ * export can never buffer an unbounded result set.
+ */
+export const ACTIVITY_EXPORT_MAX_ROWS = 5_000 as const
+
 // ── UI ────────────────────────────────────────────────────────────────────────
 
 /**
@@ -153,3 +178,21 @@ export const CHAT_MESSAGE_MAX_LENGTH = 500 as const
  * 3 seconds matches the requirement in issue #90.
  */
 export const CHAT_RATE_LIMIT_MS = 3_000 as const
+
+// ── Sponsorship ───────────────────────────────────────────────────────────────
+
+/**
+ * Maximum number of gasless transactions sponsored per day (global platform limit).
+ */
+export const MAX_DAILY_SPONSORSHIPS = 100 as const
+
+/**
+ * Maximum number of sponsored transactions per wallet (ever — one-time perk).
+ */
+export const MAX_PER_WALLET_SPONSORSHIPS = 1 as const
+
+/**
+ * Minimum XLM balance the sponsor account must maintain. Below this threshold
+ * sponsorship is disabled and a warning is shown (circuit breaker).
+ */
+export const MIN_SPONSOR_BALANCE_XLM = 10 as const
