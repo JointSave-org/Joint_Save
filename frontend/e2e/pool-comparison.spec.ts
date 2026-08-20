@@ -52,10 +52,9 @@ test.beforeEach(async ({ page }) => {
 })
 
 const waitForPools = (page: import("@playwright/test").Page) =>
-  page.waitForResponse(
-    (resp) => resp.url().includes("/api/pools") && resp.status() === 200,
-    { timeout: 15_000 }
-  )
+  page.waitForResponse((resp) => resp.url().includes("/api/pools") && resp.status() === 200, {
+    timeout: 15_000,
+  })
 
 test("compare bar appears when pools are selected", async ({ page }) => {
   await page.goto("/explore")

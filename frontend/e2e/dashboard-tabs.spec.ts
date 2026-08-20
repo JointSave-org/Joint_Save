@@ -86,10 +86,9 @@ test.beforeEach(async ({ page }) => {
 })
 
 const waitForPools = (page: import("@playwright/test").Page) =>
-  page.waitForResponse(
-    (resp) => resp.url().includes("/api/pools") && resp.status() === 200,
-    { timeout: 15_000 }
-  )
+  page.waitForResponse((resp) => resp.url().includes("/api/pools") && resp.status() === 200, {
+    timeout: 15_000,
+  })
 
 test("My Groups tab is default and shows pool list", async ({ page }) => {
   await page.goto("/dashboard")

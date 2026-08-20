@@ -53,10 +53,9 @@ test.beforeEach(async ({ page }) => {
 })
 
 const waitForPoolsResponse = (page: import("@playwright/test").Page) =>
-  page.waitForResponse(
-    (resp) => resp.url().includes("/api/pools") && resp.status() === 200,
-    { timeout: 15_000 }
-  )
+  page.waitForResponse((resp) => resp.url().includes("/api/pools") && resp.status() === 200, {
+    timeout: 15_000,
+  })
 
 test("shows pool preview and request to join", async ({ page }) => {
   await page.goto(`/join/${E2E_CONTRACT_ID}`)
