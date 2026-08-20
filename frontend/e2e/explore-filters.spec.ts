@@ -49,10 +49,21 @@ test.beforeEach(async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page, { isActive: true })
   await mockPoolsApi(page, POOLS)
+
+  // Mock /api/recommendations — the explore page fetches this for the
+  // "Recommended for You" section; without a mock the request hangs in CI.
+  await page.route("**/api/recommendations**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ pools: [] }),
+    })
+  )
 })
 
 test("search filters by pool name", async ({ page }) => {
   await page.goto("/explore")
+  await page.waitForLoadState("networkidle")
   await expect(page.getByRole("heading", { name: "Explore Pools" })).toBeVisible()
 
   // All three pools visible
@@ -71,6 +82,7 @@ test("search filters by pool name", async ({ page }) => {
 
 test("type filter shows only matching pools", async ({ page }) => {
   await page.goto("/explore")
+  await page.waitForLoadState("networkidle")
   await expect(page.getByText("Alpha Rotational")).toBeVisible()
 
   // Select "rotational" type filter
@@ -84,6 +96,7 @@ test("type filter shows only matching pools", async ({ page }) => {
 
 test("status filter shows only matching pools", async ({ page }) => {
   await page.goto("/explore")
+  await page.waitForLoadState("networkidle")
   await expect(page.getByText("Alpha Rotational")).toBeVisible()
 
   // Select "active" status filter (second combobox)
@@ -98,6 +111,7 @@ test("status filter shows only matching pools", async ({ page }) => {
 
 test("empty state when no pools match", async ({ page }) => {
   await page.goto("/explore")
+  await page.waitForLoadState("networkidle")
   await expect(page.getByText("Alpha Rotational")).toBeVisible()
 
   // Search for something that doesn't exist
@@ -109,6 +123,7 @@ test("empty state when no pools match", async ({ page }) => {
 
 test("pool cards have view and request to join buttons", async ({ page }) => {
   await page.goto("/explore")
+  await page.waitForLoadState("networkidle")
   await expect(page.getByText("Alpha Rotational")).toBeVisible()
 
   // Each pool card has View and Request to Join buttons

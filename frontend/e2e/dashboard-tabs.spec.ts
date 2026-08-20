@@ -31,10 +31,72 @@ test.beforeEach(async ({ page }) => {
       contract_address: E2E_CONTRACT_ID,
     }),
   ])
+
+  // Mock /api/recommendations — the dashboard Explore tab's underlying
+  // component may trigger this; without a mock the request hangs in CI.
+  await page.route("**/api/recommendations**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ pools: [] }),
+    })
+  )
+
+  // Mock /api/portfolio/summary — the Portfolio tab fetches this; without
+  // a mock the request hits the real Next API route which calls Supabase.
+  await page.route("**/api/portfolio/summary**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        total_saved: 0,
+        total_saved_by_token: {},
+        total_pools: { rotational: 0, target: 0, flexible: 0, total: 0 },
+        total_yield_earned: 0,
+        upcoming_commitments: [],
+        reputation_summary: {
+          total_deposits: 0,
+          average_on_time_rate: 0,
+          pools_completed: 0,
+        },
+        pools: [],
+      }),
+    })
+  )
+
+  // Mock /api/analytics — the Analytics tab fetches this; without a mock
+  // the request hits the real Next API route which calls Supabase.
+  await page.route("**/api/analytics**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        totalPools: 0,
+        totalSaved: 0,
+        totalDeposits: 0,
+        totalWithdrawals: 0,
+        averageHealthScore: 100,
+        poolsAnalytics: [],
+        globalChartData: [],
+      }),
+    })
+  )
+
+  // Mock Supabase REST API calls — the Transactions and Profile tabs make
+  // direct Supabase client queries (pool_activity, pool_members) which
+  // hit the placeholder Supabase URL and hang/fail in CI.
+  await page.route("**/rest/v1/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  )
 })
 
 test("My Groups tab is default and shows pool list", async ({ page }) => {
   await page.goto("/dashboard")
+  await page.waitForLoadState("networkidle")
 
   // Default tab is "My Groups"
   await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
@@ -43,9 +105,11 @@ test("My Groups tab is default and shows pool list", async ({ page }) => {
 
 test("Explore tab shows explore content", async ({ page }) => {
   await page.goto("/dashboard")
+  await page.waitForLoadState("networkidle")
 
   // Click Explore tab
   await page.getByRole("tab", { name: /explore/i }).click()
+  await page.waitForLoadState("networkidle")
 
   // Explore heading renders
   await expect(page.getByRole("heading", { name: "Explore Pools" })).toBeVisible()
@@ -53,9 +117,11 @@ test("Explore tab shows explore content", async ({ page }) => {
 
 test("Create tab shows create content", async ({ page }) => {
   await page.goto("/dashboard")
+  await page.waitForLoadState("networkidle")
 
   // Click Create tab
   await page.getByRole("tab", { name: /create/i }).click()
+  await page.waitForLoadState("networkidle")
 
   // Create heading renders
   await expect(page.getByRole("heading", { name: /create.*group/i })).toBeVisible()
@@ -63,8 +129,10 @@ test("Create tab shows create content", async ({ page }) => {
 
 test("Portfolio tab renders", async ({ page }) => {
   await page.goto("/dashboard")
+  await page.waitForLoadState("networkidle")
 
   await page.getByRole("tab", { name: /portfolio/i }).click()
+  await page.waitForLoadState("networkidle")
 
   // Portfolio renders — look for the heading or the card
   await expect(page.getByText(/portfolio/i).first()).toBeVisible()
@@ -72,8 +140,10 @@ test("Portfolio tab renders", async ({ page }) => {
 
 test("Transactions tab renders", async ({ page }) => {
   await page.goto("/dashboard")
+  await page.waitForLoadState("networkidle")
 
   await page.getByRole("tab", { name: /transactions/i }).click()
+  await page.waitForLoadState("networkidle")
 
   // Transactions tab content is present
   await expect(page.getByRole("tab", { name: /transactions/i })).toHaveAttribute(
@@ -84,8 +154,10 @@ test("Transactions tab renders", async ({ page }) => {
 
 test("Analytics tab renders", async ({ page }) => {
   await page.goto("/dashboard")
+  await page.waitForLoadState("networkidle")
 
   await page.getByRole("tab", { name: /analytics/i }).click()
+  await page.waitForLoadState("networkidle")
 
   // Analytics tab content is present
   await expect(page.getByRole("tab", { name: /analytics/i })).toHaveAttribute(
@@ -96,8 +168,10 @@ test("Analytics tab renders", async ({ page }) => {
 
 test("Profile tab renders", async ({ page }) => {
   await page.goto("/dashboard")
+  await page.waitForLoadState("networkidle")
 
   await page.getByRole("tab", { name: /profile/i }).click()
+  await page.waitForLoadState("networkidle")
 
   // Profile tab content is present
   await expect(page.getByRole("tab", { name: /profile/i })).toHaveAttribute("aria-selected", "true")

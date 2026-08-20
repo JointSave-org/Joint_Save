@@ -34,11 +34,31 @@ test.beforeEach(async ({ page }) => {
       members_count: 3,
     }),
   ])
+
+  // Mock /api/join-requests — the join page fetches existing request status
+  // on mount; without a mock the request hangs in CI.
+  await page.route("**/api/join-requests**", async (route) => {
+    const req = route.request()
+    if (req.method() === "POST") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true }),
+      })
+    }
+    // GET — return no existing requests
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  })
 })
 
 test("shows pool preview and request to join", async ({ page }) => {
   // Navigate to the join page using the contract address
   await page.goto(`/join/${E2E_CONTRACT_ID}`)
+  await page.waitForLoadState("networkidle")
   await expect(page.getByRole("heading", { name: "Join Test Pool" })).toBeVisible()
 
   // Pool type badge
@@ -57,24 +77,6 @@ test("shows pool preview and request to join", async ({ page }) => {
   const joinBtn = page.getByRole("button", { name: "Request to Join" })
   await expect(joinBtn).toBeVisible()
 
-  // Mock the join-requests API
-  await page.route("**/api/join-requests**", async (route) => {
-    const req = route.request()
-    if (req.method() === "POST") {
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true }),
-      })
-    }
-    // GET — return no existing requests
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    })
-  })
-
   // Click join
   await joinBtn.click()
 
@@ -87,6 +89,7 @@ test("shows pool preview and request to join", async ({ page }) => {
 
 test("shows pool not found for invalid contract", async ({ page }) => {
   await page.goto("/join/INVALIDCONTRACT123")
+  await page.waitForLoadState("networkidle")
 
   await expect(page.getByRole("heading", { name: "Pool Not Found" })).toBeVisible()
   await expect(page.getByText("Explore Pools")).toBeVisible()
@@ -113,6 +116,7 @@ test("member already in pool sees go to pool details", async ({ page }) => {
   ])
 
   await page.goto(`/join/${E2E_CONTRACT_ID}`)
+  await page.waitForLoadState("networkidle")
   await expect(page.getByRole("heading", { name: "Join Test Pool" })).toBeVisible()
 
   // Shows "You are already a member" message

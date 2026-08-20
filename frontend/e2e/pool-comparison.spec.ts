@@ -41,10 +41,21 @@ test.beforeEach(async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page, { isActive: true })
   await mockPoolsApi(page, [POOL_A, POOL_B])
+
+  // Mock /api/recommendations — the explore page fetches this for the
+  // "Recommended for You" section; without a mock the request hangs in CI.
+  await page.route("**/api/recommendations**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ pools: [] }),
+    })
+  )
 })
 
 test("compare bar appears when pools are selected", async ({ page }) => {
   await page.goto("/explore")
+  await page.waitForLoadState("networkidle")
   await expect(page.getByText("Compare Pool A")).toBeVisible()
   await expect(page.getByText("Compare Pool B")).toBeVisible()
 
@@ -59,6 +70,7 @@ test("compare bar appears when pools are selected", async ({ page }) => {
 test("compare page shows comparison table via URL", async ({ page }) => {
   // Navigate directly to compare page with pools in query string
   await page.goto(`/explore/compare?pools=${POOL_A.contract_address},${POOL_B.contract_address}`)
+  await page.waitForLoadState("networkidle")
 
   // Compare page heading
   await expect(page.getByRole("heading", { name: "Compare Pools" })).toBeVisible()
@@ -70,6 +82,7 @@ test("compare page shows comparison table via URL", async ({ page }) => {
 
 test("clear selection removes compare bar", async ({ page }) => {
   await page.goto("/explore")
+  await page.waitForLoadState("networkidle")
   await expect(page.getByText("Compare Pool A")).toBeVisible()
 
   // Select a pool
@@ -85,6 +98,7 @@ test("clear selection removes compare bar", async ({ page }) => {
 
 test("compare button is disabled with only one pool selected", async ({ page }) => {
   await page.goto("/explore")
+  await page.waitForLoadState("networkidle")
   await expect(page.getByText("Compare Pool A")).toBeVisible()
 
   // Select one pool
