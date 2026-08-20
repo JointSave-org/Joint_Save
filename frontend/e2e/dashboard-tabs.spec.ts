@@ -32,8 +32,6 @@ test.beforeEach(async ({ page }) => {
     }),
   ])
 
-  // Mock /api/recommendations — the dashboard Explore tab's underlying
-  // component may trigger this; without a mock the request hangs in CI.
   await page.route("**/api/recommendations**", (route) =>
     route.fulfill({
       status: 200,
@@ -42,8 +40,6 @@ test.beforeEach(async ({ page }) => {
     })
   )
 
-  // Mock /api/portfolio/summary — the Portfolio tab fetches this; without
-  // a mock the request hits the real Next API route which calls Supabase.
   await page.route("**/api/portfolio/summary**", (route) =>
     route.fulfill({
       status: 200,
@@ -64,8 +60,6 @@ test.beforeEach(async ({ page }) => {
     })
   )
 
-  // Mock /api/analytics — the Analytics tab fetches this; without a mock
-  // the request hits the real Next API route which calls Supabase.
   await page.route("**/api/analytics**", (route) =>
     route.fulfill({
       status: 200,
@@ -82,9 +76,6 @@ test.beforeEach(async ({ page }) => {
     })
   )
 
-  // Mock Supabase REST API calls — the Transactions and Profile tabs make
-  // direct Supabase client queries (pool_activity, pool_members) which
-  // hit the placeholder Supabase URL and hang/fail in CI.
   await page.route("**/rest/v1/**", (route) =>
     route.fulfill({
       status: 200,
@@ -94,58 +85,49 @@ test.beforeEach(async ({ page }) => {
   )
 })
 
+const waitForPools = (page: import("@playwright/test").Page) =>
+  page.waitForResponse(
+    (resp) => resp.url().includes("/api/pools") && resp.status() === 200,
+    { timeout: 15_000 }
+  )
+
 test("My Groups tab is default and shows pool list", async ({ page }) => {
   await page.goto("/dashboard")
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
 
-  // Default tab is "My Groups"
   await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
   await expect(page.getByText("Tab Pool")).toBeVisible()
 })
 
 test("Explore tab shows explore content", async ({ page }) => {
   await page.goto("/dashboard")
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
 
-  // Click Explore tab
   await page.getByRole("tab", { name: /explore/i }).click()
-  await page.waitForLoadState("networkidle")
-
-  // Explore heading renders
   await expect(page.getByRole("heading", { name: "Explore Pools" })).toBeVisible()
 })
 
 test("Create tab shows create content", async ({ page }) => {
   await page.goto("/dashboard")
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
 
-  // Click Create tab
   await page.getByRole("tab", { name: /create/i }).click()
-  await page.waitForLoadState("networkidle")
-
-  // Create heading renders
   await expect(page.getByRole("heading", { name: /create.*group/i })).toBeVisible()
 })
 
 test("Portfolio tab renders", async ({ page }) => {
   await page.goto("/dashboard")
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
 
   await page.getByRole("tab", { name: /portfolio/i }).click()
-  await page.waitForLoadState("networkidle")
-
-  // Portfolio renders — look for the heading or the card
   await expect(page.getByText(/portfolio/i).first()).toBeVisible()
 })
 
 test("Transactions tab renders", async ({ page }) => {
   await page.goto("/dashboard")
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
 
   await page.getByRole("tab", { name: /transactions/i }).click()
-  await page.waitForLoadState("networkidle")
-
-  // Transactions tab content is present
   await expect(page.getByRole("tab", { name: /transactions/i })).toHaveAttribute(
     "aria-selected",
     "true"
@@ -154,12 +136,9 @@ test("Transactions tab renders", async ({ page }) => {
 
 test("Analytics tab renders", async ({ page }) => {
   await page.goto("/dashboard")
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
 
   await page.getByRole("tab", { name: /analytics/i }).click()
-  await page.waitForLoadState("networkidle")
-
-  // Analytics tab content is present
   await expect(page.getByRole("tab", { name: /analytics/i })).toHaveAttribute(
     "aria-selected",
     "true"
@@ -168,11 +147,8 @@ test("Analytics tab renders", async ({ page }) => {
 
 test("Profile tab renders", async ({ page }) => {
   await page.goto("/dashboard")
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
 
   await page.getByRole("tab", { name: /profile/i }).click()
-  await page.waitForLoadState("networkidle")
-
-  // Profile tab content is present
   await expect(page.getByRole("tab", { name: /profile/i })).toHaveAttribute("aria-selected", "true")
 })

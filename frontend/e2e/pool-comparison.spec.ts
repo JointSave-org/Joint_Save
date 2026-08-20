@@ -42,8 +42,6 @@ test.beforeEach(async ({ page }) => {
   await seedChainState(page, { isActive: true })
   await mockPoolsApi(page, [POOL_A, POOL_B])
 
-  // Mock /api/recommendations — the explore page fetches this for the
-  // "Recommended for You" section; without a mock the request hangs in CI.
   await page.route("**/api/recommendations**", (route) =>
     route.fulfill({
       status: 200,
@@ -53,59 +51,57 @@ test.beforeEach(async ({ page }) => {
   )
 })
 
+const waitForPools = (page: import("@playwright/test").Page) =>
+  page.waitForResponse(
+    (resp) => resp.url().includes("/api/pools") && resp.status() === 200,
+    { timeout: 15_000 }
+  )
+
 test("compare bar appears when pools are selected", async ({ page }) => {
   await page.goto("/explore")
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
+
   await expect(page.getByText("Compare Pool A")).toBeVisible()
   await expect(page.getByText("Compare Pool B")).toBeVisible()
 
-  // Select first pool for comparison
   await page.getByRole("checkbox", { name: /compare compare pool a/i }).click()
 
-  // Floating compare bar appears
   await expect(page.getByText("1 pool selected")).toBeVisible()
   await expect(page.getByRole("button", { name: /compare \(1\)/i })).toBeVisible()
 })
 
 test("compare page shows comparison table via URL", async ({ page }) => {
-  // Navigate directly to compare page with pools in query string
   await page.goto(`/explore/compare?pools=${POOL_A.contract_address},${POOL_B.contract_address}`)
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
 
-  // Compare page heading
   await expect(page.getByRole("heading", { name: "Compare Pools" })).toBeVisible()
-
-  // Pool names appear in the page
   await expect(page.getByText("Compare Pool A")).toBeVisible()
   await expect(page.getByText("Compare Pool B")).toBeVisible()
 })
 
 test("clear selection removes compare bar", async ({ page }) => {
   await page.goto("/explore")
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
+
   await expect(page.getByText("Compare Pool A")).toBeVisible()
 
-  // Select a pool
   await page.getByRole("checkbox", { name: /compare compare pool a/i }).click()
   await expect(page.getByText("1 pool selected")).toBeVisible()
 
-  // Click Clear
   await page.getByRole("button", { name: "Clear" }).click()
 
-  // Compare bar disappears
   await expect(page.getByText("1 pool selected")).toBeHidden()
 })
 
 test("compare button is disabled with only one pool selected", async ({ page }) => {
   await page.goto("/explore")
-  await page.waitForLoadState("networkidle")
+  await waitForPools(page)
+
   await expect(page.getByText("Compare Pool A")).toBeVisible()
 
-  // Select one pool
   await page.getByRole("checkbox", { name: /compare compare pool a/i }).click()
   await expect(page.getByText("1 pool selected")).toBeVisible()
 
-  // Compare button exists but is disabled (< 2 pools)
   const compareBtn = page.getByRole("button", { name: /compare \(1\)/i })
   await expect(compareBtn).toBeVisible()
   await expect(compareBtn).toBeDisabled()
