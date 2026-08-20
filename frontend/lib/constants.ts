@@ -224,3 +224,21 @@ export const CHAT_MESSAGE_MAX_LENGTH = 500 as const
  * 3 seconds matches the requirement in issue #90.
  */
 export const CHAT_RATE_LIMIT_MS = 3_000 as const
+
+// ── Sponsorship ───────────────────────────────────────────────────────────────
+
+/**
+ * Maximum number of gasless transactions sponsored per day (global platform limit).
+ */
+export const MAX_DAILY_SPONSORSHIPS = 100 as const
+
+/**
+ * Maximum number of sponsored transactions per wallet (ever — one-time perk).
+ */
+export const MAX_PER_WALLET_SPONSORSHIPS = 1 as const
+
+/**
+ * Minimum XLM balance the sponsor account must maintain. Below this threshold
+ * sponsorship is disabled and a warning is shown (circuit breaker).
+ */
+export const MIN_SPONSOR_BALANCE_XLM = 10 as const
