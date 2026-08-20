@@ -59,9 +59,10 @@ test("admin can add a member", async ({ page }) => {
   ])
   await mockGroupApis(page)
 
-  await page.goto(`/dashboard/group/${POOL_ID}`)
-  await waitForPoolsResponse(page)
-  await expect(page.getByRole("heading", { name: /Member Pool/ })).toBeVisible()
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await poolsResponse
+  await expect(page.getByRole("heading", { name: /Member Pool/i })).toBeVisible()
 
   // Admin sees "Manage Members" section
   await expect(page.getByText("Manage Members")).toBeVisible()
@@ -93,8 +94,9 @@ test("admin can remove a member", async ({ page }) => {
   ])
   await mockGroupApis(page)
 
-  await page.goto(`/dashboard/group/${POOL_ID}`)
-  await waitForPoolsResponse(page)
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await poolsResponse
   await expect(page.getByText("Manage Members")).toBeVisible()
 
   // Find the remove button for the second member
@@ -131,9 +133,10 @@ test("non-admin sees leave pool button", async ({ page }) => {
   ])
   await mockGroupApis(page)
 
-  await page.goto(`/dashboard/group/${POOL_ID}`)
-  await waitForPoolsResponse(page)
-  await expect(page.getByRole("heading", { name: /Member Pool/ })).toBeVisible()
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await poolsResponse
+  await expect(page.getByRole("heading", { name: /Member Pool/i })).toBeVisible()
 
   // Non-admin sees Leave Pool section
   await expect(page.getByText("Leave Pool")).toBeVisible()

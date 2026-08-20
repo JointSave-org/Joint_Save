@@ -60,9 +60,10 @@ test("admin pauses an active pool", async ({ page }) => {
   ])
   await mockGroupApis(page)
 
-  await page.goto(`/dashboard/group/${POOL_ID}`)
-  await waitForPoolsResponse(page)
-  await expect(page.getByRole("heading", { name: /Pause Pool/ })).toBeVisible()
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await poolsResponse
+  await expect(page.getByRole("heading", { name: /Pause Pool/i })).toBeVisible()
 
   // Pause button is visible and enabled for admin
   const pauseBtn = page.getByRole("button", { name: "Pause Pool" })
@@ -94,9 +95,10 @@ test("admin unpauses a paused pool", async ({ page }) => {
   ])
   await mockGroupApis(page)
 
-  await page.goto(`/dashboard/group/${POOL_ID}`)
-  await waitForPoolsResponse(page)
-  await expect(page.getByRole("heading", { name: /Pause Pool/ })).toBeVisible()
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await poolsResponse
+  await expect(page.getByRole("heading", { name: /Pause Pool/i })).toBeVisible()
 
   // Pause banner is shown
   await expect(page.getByText(/pool is paused/i)).toBeVisible()
@@ -132,9 +134,10 @@ test("non-admin cannot see pause/unpause buttons", async ({ page }) => {
   ])
   await mockGroupApis(page)
 
-  await page.goto(`/dashboard/group/${POOL_ID}`)
-  await waitForPoolsResponse(page)
-  await expect(page.getByRole("heading", { name: /Pause Pool/ })).toBeVisible()
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await poolsResponse
+  await expect(page.getByRole("heading", { name: /Pause Pool/i })).toBeVisible()
 
   // Admin Controls section shows the "only admin" message
   await expect(page.getByText("Only the pool admin can pause or unpause")).toBeVisible()

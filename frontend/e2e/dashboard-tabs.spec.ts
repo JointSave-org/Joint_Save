@@ -87,32 +87,36 @@ test.beforeEach(async ({ page }) => {
 })
 
 test("My Groups tab is default and shows pool list", async ({ page }) => {
-  await page.goto("/dashboard")
-  await waitForPoolsResponse(page)
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await poolsResponse
 
-  await expect(page.getByRole("heading", { name: /My Groups/ })).toBeVisible()
-  await expect(page.getByText(/Tab Pool/)).toBeVisible()
+  await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
+  await expect(page.getByText(/Tab Pool/i)).toBeVisible()
 })
 
 test("Explore tab shows explore content", async ({ page }) => {
-  await page.goto("/dashboard")
-  await waitForPoolsResponse(page)
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await poolsResponse
 
   await page.getByRole("tab", { name: /explore/i }).click()
-  await expect(page.getByRole("heading", { name: /Explore Pools/ })).toBeVisible()
+  await expect(page.getByRole("heading", { name: /Explore Pools/i })).toBeVisible()
 })
 
 test("Create tab shows create content", async ({ page }) => {
-  await page.goto("/dashboard")
-  await waitForPoolsResponse(page)
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await poolsResponse
 
   await page.getByRole("tab", { name: /create/i }).click()
   await expect(page.getByRole("heading", { name: /create.*group/i })).toBeVisible()
 })
 
 test("Portfolio tab renders", async ({ page }) => {
-  await page.goto("/dashboard")
-  await waitForPoolsResponse(page)
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await poolsResponse
 
   await page.getByRole("tab", { name: /portfolio/i }).click()
   await expect(page.getByRole("tab", { name: /portfolio/i })).toHaveAttribute(
@@ -122,8 +126,9 @@ test("Portfolio tab renders", async ({ page }) => {
 })
 
 test("Transactions tab renders", async ({ page }) => {
-  await page.goto("/dashboard")
-  await waitForPoolsResponse(page)
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await poolsResponse
 
   await page.getByRole("tab", { name: /transactions/i }).click()
   await expect(page.getByRole("tab", { name: /transactions/i })).toHaveAttribute(
@@ -133,8 +138,9 @@ test("Transactions tab renders", async ({ page }) => {
 })
 
 test("Analytics tab renders", async ({ page }) => {
-  await page.goto("/dashboard")
-  await waitForPoolsResponse(page)
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await poolsResponse
 
   await page.getByRole("tab", { name: /analytics/i }).click()
   await expect(page.getByRole("tab", { name: /analytics/i })).toHaveAttribute(
@@ -144,8 +150,9 @@ test("Analytics tab renders", async ({ page }) => {
 })
 
 test("Profile tab renders", async ({ page }) => {
-  await page.goto("/dashboard")
-  await waitForPoolsResponse(page)
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await poolsResponse
 
   await page.getByRole("tab", { name: /profile/i }).click()
   await expect(page.getByRole("tab", { name: /profile/i })).toHaveAttribute("aria-selected", "true")

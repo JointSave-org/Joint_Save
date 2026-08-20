@@ -40,11 +40,12 @@ test.beforeEach(async ({ page }) => {
 })
 
 test("deposits into a flexible pool and reflects it in the UI", async ({ page }) => {
-  await page.goto(`/dashboard/group/${POOL_ID}`)
-  await waitForPoolsResponse(page)
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await poolsResponse
 
   // Pool detail loads with the user's starting balance
-  await expect(page.getByRole("heading", { name: /Deposit Pool/ })).toBeVisible()
+  await expect(page.getByRole("heading", { name: /Deposit Pool/i })).toBeVisible()
   await expect(page.getByText("Your Balance")).toBeVisible()
 
   // Submit a 25 XLM deposit

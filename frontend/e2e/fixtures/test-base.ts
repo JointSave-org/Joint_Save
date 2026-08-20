@@ -26,8 +26,8 @@ import type { Page } from "@playwright/test"
  * Call this right after `page.goto(...)` to eliminate the race where
  * assertions run before the mocked pool data is applied in the UI.
  */
-export async function waitForPoolsResponse(page: Page, timeout = 15_000) {
-  await page.waitForResponse((r) => r.url().includes("/api/pools") && r.status() === 200, {
+export function waitForPoolsResponse(page: Page, timeout = 15_000) {
+  return page.waitForResponse((r) => r.url().includes("/api/pools") && r.status() === 200, {
     timeout,
   })
 }

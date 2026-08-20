@@ -76,9 +76,10 @@ for (const c of cases) {
     await expect(page.getByText("Live onchain")).toBeVisible()
 
     // 3) Pool now appears in "My Groups"
-    await page.goto("/dashboard")
-    await waitForPoolsResponse(page)
-    await expect(page.getByRole("heading", { name: /My Groups/ })).toBeVisible()
+    const poolsResponse = waitForPoolsResponse(page)
+    await page.goto("/dashboard", { waitUntil: "networkidle" })
+    await poolsResponse
+    await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
     await expect(page.getByText(c.name)).toBeVisible()
   })
 }
