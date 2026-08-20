@@ -5,6 +5,7 @@ import {
   seedChainState,
   mockPoolsApi,
   makePool,
+  waitForPoolsResponse,
   E2E_ADDRESS,
   E2E_CONTRACT_ID,
 } from "./fixtures/test-base"
@@ -39,7 +40,8 @@ test.beforeEach(async ({ page }) => {
 
 test("withdraws from a flexible pool with fee preview", async ({ page }) => {
   await page.goto(`/dashboard/group/${POOL_ID}`)
-  await expect(page.getByRole("heading", { name: "Withdraw Pool" })).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByRole("heading", { name: /Withdraw Pool/ })).toBeVisible()
 
   // Enter withdrawal amount
   await page.locator("#withdraw").fill("20")
@@ -83,7 +85,8 @@ test("target pool withdraw sends directly", async ({ page }) => {
 
   // Navigate after re-mocking
   await page.goto(`/dashboard/group/${POOL_ID}`)
-  await expect(page.getByRole("heading", { name: "Target Pool" })).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByRole("heading", { name: /Target Pool/ })).toBeVisible()
 
   // Target pool has a direct withdraw button (no amount input)
   const withdrawBtn = page.getByRole("button", { name: /^withdraw$/i })
@@ -103,7 +106,8 @@ test("withdraw button disabled when paused", async ({ page }) => {
   })
 
   await page.goto(`/dashboard/group/${POOL_ID}`)
-  await expect(page.getByText("Pool is paused")).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByText(/Pool is paused/)).toBeVisible()
 
   // Withdraw button should be disabled
   const withdrawBtn = page.getByRole("button", { name: "Withdraw" })

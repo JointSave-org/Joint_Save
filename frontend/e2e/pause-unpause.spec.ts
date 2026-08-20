@@ -5,6 +5,7 @@ import {
   seedChainState,
   mockPoolsApi,
   makePool,
+  waitForPoolsResponse,
   E2E_ADDRESS,
   E2E_MEMBER_2,
   E2E_CONTRACT_ID,
@@ -60,7 +61,8 @@ test("admin pauses an active pool", async ({ page }) => {
   await mockGroupApis(page)
 
   await page.goto(`/dashboard/group/${POOL_ID}`)
-  await expect(page.getByRole("heading", { name: "Pause Pool" })).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByRole("heading", { name: /Pause Pool/ })).toBeVisible()
 
   // Pause button is visible and enabled for admin
   const pauseBtn = page.getByRole("button", { name: "Pause Pool" })
@@ -93,7 +95,8 @@ test("admin unpauses a paused pool", async ({ page }) => {
   await mockGroupApis(page)
 
   await page.goto(`/dashboard/group/${POOL_ID}`)
-  await expect(page.getByRole("heading", { name: "Pause Pool" })).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByRole("heading", { name: /Pause Pool/ })).toBeVisible()
 
   // Pause banner is shown
   await expect(page.getByText(/pool is paused/i)).toBeVisible()
@@ -130,7 +133,8 @@ test("non-admin cannot see pause/unpause buttons", async ({ page }) => {
   await mockGroupApis(page)
 
   await page.goto(`/dashboard/group/${POOL_ID}`)
-  await expect(page.getByRole("heading", { name: "Pause Pool" })).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByRole("heading", { name: /Pause Pool/ })).toBeVisible()
 
   // Admin Controls section shows the "only admin" message
   await expect(page.getByText("Only the pool admin can pause or unpause")).toBeVisible()

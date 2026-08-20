@@ -5,6 +5,7 @@ import {
   seedChainState,
   mockPoolsApi,
   makePool,
+  waitForPoolsResponse,
   E2E_CONTRACT_ID,
 } from "./fixtures/test-base"
 
@@ -61,44 +62,48 @@ test.beforeEach(async ({ page }) => {
 
 test("search filters by pool name", async ({ page }) => {
   await page.goto("/explore")
+  await waitForPoolsResponse(page)
 
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
-  await expect(page.getByText("Beta Target")).toBeVisible()
-  await expect(page.getByText("Gamma Flexible")).toBeVisible()
+  await expect(page.getByText(/Alpha Rotational/)).toBeVisible()
+  await expect(page.getByText(/Beta Target/)).toBeVisible()
+  await expect(page.getByText(/Gamma Flexible/)).toBeVisible()
 
   await page.getByPlaceholder(/search by pool name/i).fill("Alpha")
 
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
-  await expect(page.getByText("Beta Target")).toBeHidden()
-  await expect(page.getByText("Gamma Flexible")).toBeHidden()
+  await expect(page.getByText(/Alpha Rotational/)).toBeVisible()
+  await expect(page.getByText(/Beta Target/)).toBeHidden()
+  await expect(page.getByText(/Gamma Flexible/)).toBeHidden()
 })
 
 test("type filter shows only matching pools", async ({ page }) => {
   await page.goto("/explore")
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByText(/Alpha Rotational/)).toBeVisible()
 
   await page.locator('[role="combobox"]').first().click()
   await page.getByRole("option", { name: "Rotational" }).click()
 
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
-  await expect(page.getByText("Beta Target")).toBeHidden()
+  await expect(page.getByText(/Alpha Rotational/)).toBeVisible()
+  await expect(page.getByText(/Beta Target/)).toBeHidden()
 })
 
 test("status filter shows only matching pools", async ({ page }) => {
   await page.goto("/explore")
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByText(/Alpha Rotational/)).toBeVisible()
 
   await page.locator('[role="combobox"]').nth(1).click()
   await page.getByRole("option", { name: "Active" }).click()
 
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
-  await expect(page.getByText("Beta Target")).toBeVisible()
-  await expect(page.getByText("Gamma Flexible")).toBeHidden()
+  await expect(page.getByText(/Alpha Rotational/)).toBeVisible()
+  await expect(page.getByText(/Beta Target/)).toBeVisible()
+  await expect(page.getByText(/Gamma Flexible/)).toBeHidden()
 })
 
 test("empty state when no pools match", async ({ page }) => {
   await page.goto("/explore")
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByText(/Alpha Rotational/)).toBeVisible()
 
   await page.getByPlaceholder(/search by pool name/i).fill("Nonexistent Pool")
 
@@ -108,7 +113,8 @@ test("empty state when no pools match", async ({ page }) => {
 
 test("pool cards have view and request to join buttons", async ({ page }) => {
   await page.goto("/explore")
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByText(/Alpha Rotational/)).toBeVisible()
 
   const viewBtns = page.getByRole("link", { name: "View" })
   await expect(viewBtns.first()).toBeVisible()

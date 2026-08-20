@@ -5,6 +5,7 @@ import {
   seedChainState,
   mockPoolsApi,
   makePool,
+  waitForPoolsResponse,
   E2E_ADDRESS,
   E2E_CONTRACT_ID,
 } from "./fixtures/test-base"
@@ -55,7 +56,8 @@ test("landing → dashboard → group → back renders cleanly", async ({ page, 
   await expect(dashboardLink).toBeVisible()
   await dashboardLink.click()
   await page.waitForURL(/\/dashboard$/)
-  await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByRole("heading", { name: /My Groups/ })).toBeVisible()
 
   // → Group detail
   await page
@@ -63,12 +65,14 @@ test("landing → dashboard → group → back renders cleanly", async ({ page, 
     .first()
     .click()
   await expect(page).toHaveURL(new RegExp(`/dashboard/group/${POOL_ID}`))
-  await expect(page.getByRole("heading", { name: "Navigation Pool" })).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByRole("heading", { name: /Navigation Pool/ })).toBeVisible()
 
   // → Back to dashboard
   await page.getByRole("link", { name: /back to dashboard/i }).click()
   await expect(page).toHaveURL(/\/dashboard$/)
-  await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
+  await waitForPoolsResponse(page)
+  await expect(page.getByRole("heading", { name: /My Groups/ })).toBeVisible()
 
   // No real console errors accumulated across the journey
   const real = consoleErrors.filter((e) => !BENIGN.some((re) => re.test(e)))

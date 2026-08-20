@@ -5,6 +5,7 @@ import {
   seedChainState,
   mockPoolsApi,
   makePool,
+  waitForPoolsResponse,
   E2E_CONTRACT_ID,
 } from "./fixtures/test-base"
 
@@ -53,44 +54,48 @@ test.beforeEach(async ({ page }) => {
 
 test("compare bar appears when pools are selected", async ({ page }) => {
   await page.goto("/explore")
+  await waitForPoolsResponse(page)
 
-  await expect(page.getByText("Compare Pool A")).toBeVisible()
-  await expect(page.getByText("Compare Pool B")).toBeVisible()
+  await expect(page.getByText(/Compare Pool A/)).toBeVisible()
+  await expect(page.getByText(/Compare Pool B/)).toBeVisible()
 
   await page.getByRole("checkbox", { name: /compare compare pool a/i }).click()
 
-  await expect(page.getByText("1 pool selected")).toBeVisible()
+  await expect(page.getByText(/1 pool selected/)).toBeVisible()
   await expect(page.getByRole("button", { name: /compare \(1\)/i })).toBeVisible()
 })
 
 test("compare page shows comparison table via URL", async ({ page }) => {
   await page.goto(`/explore/compare?pools=${POOL_A.contract_address},${POOL_B.contract_address}`)
+  await waitForPoolsResponse(page)
 
-  await expect(page.getByRole("heading", { name: "Compare Pools" })).toBeVisible()
-  await expect(page.getByText("Compare Pool A")).toBeVisible()
-  await expect(page.getByText("Compare Pool B")).toBeVisible()
+  await expect(page.getByRole("heading", { name: /Compare Pools/ })).toBeVisible()
+  await expect(page.getByText(/Compare Pool A/)).toBeVisible()
+  await expect(page.getByText(/Compare Pool B/)).toBeVisible()
 })
 
 test("clear selection removes compare bar", async ({ page }) => {
   await page.goto("/explore")
+  await waitForPoolsResponse(page)
 
-  await expect(page.getByText("Compare Pool A")).toBeVisible()
+  await expect(page.getByText(/Compare Pool A/)).toBeVisible()
 
   await page.getByRole("checkbox", { name: /compare compare pool a/i }).click()
-  await expect(page.getByText("1 pool selected")).toBeVisible()
+  await expect(page.getByText(/1 pool selected/)).toBeVisible()
 
   await page.getByRole("button", { name: "Clear" }).click()
 
-  await expect(page.getByText("1 pool selected")).toBeHidden()
+  await expect(page.getByText(/1 pool selected/)).toBeHidden()
 })
 
 test("compare button is disabled with only one pool selected", async ({ page }) => {
   await page.goto("/explore")
+  await waitForPoolsResponse(page)
 
-  await expect(page.getByText("Compare Pool A")).toBeVisible()
+  await expect(page.getByText(/Compare Pool A/)).toBeVisible()
 
   await page.getByRole("checkbox", { name: /compare compare pool a/i }).click()
-  await expect(page.getByText("1 pool selected")).toBeVisible()
+  await expect(page.getByText(/1 pool selected/)).toBeVisible()
 
   const compareBtn = page.getByRole("button", { name: /compare \(1\)/i })
   await expect(compareBtn).toBeVisible()

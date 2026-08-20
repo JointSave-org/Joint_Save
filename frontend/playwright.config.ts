@@ -44,7 +44,7 @@ export default defineConfig({
     ? [["list"], ["html", { open: "never" }], ["github"]]
     : [["list"], ["html", { open: "never" }]],
   timeout: 30_000,
-  expect: { timeout: 10_000 },
+  expect: { timeout: isCI ? 20_000 : 10_000 },
 
   use: {
     baseURL: "http://localhost:3000",

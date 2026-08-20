@@ -4,6 +4,7 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  waitForPoolsResponse,
   E2E_MEMBER_2,
 } from "./fixtures/test-base"
 
@@ -76,7 +77,8 @@ for (const c of cases) {
 
     // 3) Pool now appears in "My Groups"
     await page.goto("/dashboard")
-    await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
+    await waitForPoolsResponse(page)
+    await expect(page.getByRole("heading", { name: /My Groups/ })).toBeVisible()
     await expect(page.getByText(c.name)).toBeVisible()
   })
 }

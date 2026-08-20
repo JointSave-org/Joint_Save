@@ -5,6 +5,7 @@ import {
   seedChainState,
   mockPoolsApi,
   makePool,
+  waitForPoolsResponse,
   E2E_ADDRESS,
   E2E_CONTRACT_ID,
 } from "./fixtures/test-base"
@@ -53,15 +54,17 @@ for (const vp of VIEWPORTS) {
   test(`dashboard renders without overflow at ${vp.label} (${vp.width}px)`, async ({ page }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height })
     await page.goto("/dashboard")
-    await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
-    await expect(page.getByText("Responsive Pool")).toBeVisible()
+    await waitForPoolsResponse(page)
+    await expect(page.getByRole("heading", { name: /My Groups/ })).toBeVisible()
+    await expect(page.getByText(/Responsive Pool/)).toBeVisible()
     await expectNoHorizontalOverflow(page)
   })
 
   test(`group detail renders without overflow at ${vp.label} (${vp.width}px)`, async ({ page }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height })
     await page.goto(`/dashboard/group/${POOL_ID}`)
-    await expect(page.getByRole("heading", { name: "Responsive Pool" })).toBeVisible()
+    await waitForPoolsResponse(page)
+    await expect(page.getByRole("heading", { name: /Responsive Pool/ })).toBeVisible()
     await expectNoHorizontalOverflow(page)
   })
 }

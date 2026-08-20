@@ -19,6 +19,19 @@ export const test = base.extend<{ consoleErrors: string[] }>({
   },
 })
 
+import type { Page } from "@playwright/test"
+
+/**
+ * Wait until the browser has received a successful `/api/pools` response.
+ * Call this right after `page.goto(...)` to eliminate the race where
+ * assertions run before the mocked pool data is applied in the UI.
+ */
+export async function waitForPoolsResponse(page: Page, timeout = 15_000) {
+  await page.waitForResponse((r) => r.url().includes("/api/pools") && r.status() === 200, {
+    timeout,
+  })
+}
+
 export { expect }
 export * from "./wallet"
 export * from "./mock-pools"

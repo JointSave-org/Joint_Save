@@ -5,6 +5,7 @@ import {
   seedChainState,
   mockPoolsApi,
   makePool,
+  waitForPoolsResponse,
   E2E_CONTRACT_ID,
 } from "./fixtures/test-base"
 
@@ -40,9 +41,10 @@ test.beforeEach(async ({ page }) => {
 
 test("deposits into a flexible pool and reflects it in the UI", async ({ page }) => {
   await page.goto(`/dashboard/group/${POOL_ID}`)
+  await waitForPoolsResponse(page)
 
   // Pool detail loads with the user's starting balance
-  await expect(page.getByRole("heading", { name: "Deposit Pool" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: /Deposit Pool/ })).toBeVisible()
   await expect(page.getByText("Your Balance")).toBeVisible()
 
   // Submit a 25 XLM deposit

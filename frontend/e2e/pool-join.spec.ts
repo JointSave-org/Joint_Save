@@ -5,6 +5,7 @@ import {
   seedChainState,
   mockPoolsApi,
   makePool,
+  waitForPoolsResponse,
   E2E_CONTRACT_ID,
   E2E_ADDRESS,
   E2E_MEMBER_2,
@@ -54,8 +55,9 @@ test.beforeEach(async ({ page }) => {
 
 test("shows pool preview and request to join", async ({ page }) => {
   await page.goto(`/join/${E2E_CONTRACT_ID}`)
+  await waitForPoolsResponse(page)
 
-  await expect(page.getByRole("heading", { name: "Join Test Pool" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: /Join Test Pool/ })).toBeVisible()
 
   await expect(page.getByText("Rotational Pool")).toBeVisible()
   await expect(page.getByText("3")).toBeVisible()
@@ -73,8 +75,8 @@ test("shows pool preview and request to join", async ({ page }) => {
 
 test("shows pool not found for invalid contract", async ({ page }) => {
   await page.goto("/join/INVALIDCONTRACT123")
-
-  await expect(page.getByRole("heading", { name: "Pool Not Found" })).toBeVisible()
+  // No waitForPoolsResponse here — the mock returns 404, not 200
+  await expect(page.getByRole("heading", { name: /Pool Not Found/ })).toBeVisible()
   await expect(page.getByText("Explore Pools")).toBeVisible()
 })
 
@@ -98,8 +100,9 @@ test("member already in pool sees go to pool details", async ({ page }) => {
   ])
 
   await page.goto(`/join/${E2E_CONTRACT_ID}`)
+  await waitForPoolsResponse(page)
 
-  await expect(page.getByRole("heading", { name: "Join Test Pool" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: /Join Test Pool/ })).toBeVisible()
   await expect(page.getByText("You are already a member of this pool")).toBeVisible()
   await expect(page.getByRole("link", { name: /go to pool details/i })).toBeVisible()
 })
