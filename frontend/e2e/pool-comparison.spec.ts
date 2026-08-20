@@ -51,14 +51,8 @@ test.beforeEach(async ({ page }) => {
   )
 })
 
-const waitForPools = (page: import("@playwright/test").Page) =>
-  page.waitForResponse((resp) => resp.url().includes("/api/pools") && resp.status() === 200, {
-    timeout: 15_000,
-  })
-
 test("compare bar appears when pools are selected", async ({ page }) => {
   await page.goto("/explore")
-  await waitForPools(page)
 
   await expect(page.getByText("Compare Pool A")).toBeVisible()
   await expect(page.getByText("Compare Pool B")).toBeVisible()
@@ -71,7 +65,6 @@ test("compare bar appears when pools are selected", async ({ page }) => {
 
 test("compare page shows comparison table via URL", async ({ page }) => {
   await page.goto(`/explore/compare?pools=${POOL_A.contract_address},${POOL_B.contract_address}`)
-  await waitForPools(page)
 
   await expect(page.getByRole("heading", { name: "Compare Pools" })).toBeVisible()
   await expect(page.getByText("Compare Pool A")).toBeVisible()
@@ -80,7 +73,6 @@ test("compare page shows comparison table via URL", async ({ page }) => {
 
 test("clear selection removes compare bar", async ({ page }) => {
   await page.goto("/explore")
-  await waitForPools(page)
 
   await expect(page.getByText("Compare Pool A")).toBeVisible()
 
@@ -94,7 +86,6 @@ test("clear selection removes compare bar", async ({ page }) => {
 
 test("compare button is disabled with only one pool selected", async ({ page }) => {
   await page.goto("/explore")
-  await waitForPools(page)
 
   await expect(page.getByText("Compare Pool A")).toBeVisible()
 

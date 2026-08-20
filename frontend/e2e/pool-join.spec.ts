@@ -52,14 +52,8 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-const waitForPoolsResponse = (page: import("@playwright/test").Page) =>
-  page.waitForResponse((resp) => resp.url().includes("/api/pools") && resp.status() === 200, {
-    timeout: 15_000,
-  })
-
 test("shows pool preview and request to join", async ({ page }) => {
   await page.goto(`/join/${E2E_CONTRACT_ID}`)
-  await waitForPoolsResponse(page)
 
   await expect(page.getByRole("heading", { name: "Join Test Pool" })).toBeVisible()
 
@@ -79,7 +73,6 @@ test("shows pool preview and request to join", async ({ page }) => {
 
 test("shows pool not found for invalid contract", async ({ page }) => {
   await page.goto("/join/INVALIDCONTRACT123")
-  await waitForPoolsResponse(page)
 
   await expect(page.getByRole("heading", { name: "Pool Not Found" })).toBeVisible()
   await expect(page.getByText("Explore Pools")).toBeVisible()
@@ -105,7 +98,6 @@ test("member already in pool sees go to pool details", async ({ page }) => {
   ])
 
   await page.goto(`/join/${E2E_CONTRACT_ID}`)
-  await waitForPoolsResponse(page)
 
   await expect(page.getByRole("heading", { name: "Join Test Pool" })).toBeVisible()
   await expect(page.getByText("You are already a member of this pool")).toBeVisible()

@@ -17,6 +17,30 @@ import {
 
 const POOL_ID = "member-pool"
 
+async function mockGroupApis(page: import("@playwright/test").Page) {
+  await page.route("**/api/admin/audit-log**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], total: 0 }),
+    })
+  )
+  await page.route("**/api/admin/actions**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [], total: 0 }),
+    })
+  )
+  await page.route("**/rest/v1/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  )
+}
+
 test("admin can add a member", async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page, {
@@ -32,6 +56,7 @@ test("admin can add a member", async ({ page }) => {
       contract_address: E2E_CONTRACT_ID,
     }),
   ])
+  await mockGroupApis(page)
 
   await page.goto(`/dashboard/group/${POOL_ID}`)
   await expect(page.getByRole("heading", { name: "Member Pool" })).toBeVisible()
@@ -64,6 +89,7 @@ test("admin can remove a member", async ({ page }) => {
       contract_address: E2E_CONTRACT_ID,
     }),
   ])
+  await mockGroupApis(page)
 
   await page.goto(`/dashboard/group/${POOL_ID}`)
   await expect(page.getByText("Manage Members")).toBeVisible()
@@ -100,6 +126,7 @@ test("non-admin sees leave pool button", async ({ page }) => {
       contract_address: E2E_CONTRACT_ID,
     }),
   ])
+  await mockGroupApis(page)
 
   await page.goto(`/dashboard/group/${POOL_ID}`)
   await expect(page.getByRole("heading", { name: "Member Pool" })).toBeVisible()

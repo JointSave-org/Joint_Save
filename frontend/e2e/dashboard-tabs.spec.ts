@@ -85,14 +85,8 @@ test.beforeEach(async ({ page }) => {
   )
 })
 
-const waitForPools = (page: import("@playwright/test").Page) =>
-  page.waitForResponse((resp) => resp.url().includes("/api/pools") && resp.status() === 200, {
-    timeout: 15_000,
-  })
-
 test("My Groups tab is default and shows pool list", async ({ page }) => {
   await page.goto("/dashboard")
-  await waitForPools(page)
 
   await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
   await expect(page.getByText("Tab Pool")).toBeVisible()
@@ -100,7 +94,6 @@ test("My Groups tab is default and shows pool list", async ({ page }) => {
 
 test("Explore tab shows explore content", async ({ page }) => {
   await page.goto("/dashboard")
-  await waitForPools(page)
 
   await page.getByRole("tab", { name: /explore/i }).click()
   await expect(page.getByRole("heading", { name: "Explore Pools" })).toBeVisible()
@@ -108,7 +101,6 @@ test("Explore tab shows explore content", async ({ page }) => {
 
 test("Create tab shows create content", async ({ page }) => {
   await page.goto("/dashboard")
-  await waitForPools(page)
 
   await page.getByRole("tab", { name: /create/i }).click()
   await expect(page.getByRole("heading", { name: /create.*group/i })).toBeVisible()
@@ -116,15 +108,16 @@ test("Create tab shows create content", async ({ page }) => {
 
 test("Portfolio tab renders", async ({ page }) => {
   await page.goto("/dashboard")
-  await waitForPools(page)
 
   await page.getByRole("tab", { name: /portfolio/i }).click()
-  await expect(page.getByText(/portfolio/i).first()).toBeVisible()
+  await expect(page.getByRole("tab", { name: /portfolio/i })).toHaveAttribute(
+    "aria-selected",
+    "true"
+  )
 })
 
 test("Transactions tab renders", async ({ page }) => {
   await page.goto("/dashboard")
-  await waitForPools(page)
 
   await page.getByRole("tab", { name: /transactions/i }).click()
   await expect(page.getByRole("tab", { name: /transactions/i })).toHaveAttribute(
@@ -135,7 +128,6 @@ test("Transactions tab renders", async ({ page }) => {
 
 test("Analytics tab renders", async ({ page }) => {
   await page.goto("/dashboard")
-  await waitForPools(page)
 
   await page.getByRole("tab", { name: /analytics/i }).click()
   await expect(page.getByRole("tab", { name: /analytics/i })).toHaveAttribute(
@@ -146,7 +138,6 @@ test("Analytics tab renders", async ({ page }) => {
 
 test("Profile tab renders", async ({ page }) => {
   await page.goto("/dashboard")
-  await waitForPools(page)
 
   await page.getByRole("tab", { name: /profile/i }).click()
   await expect(page.getByRole("tab", { name: /profile/i })).toHaveAttribute("aria-selected", "true")
