@@ -4,6 +4,7 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   makePool,
   waitForPoolsResponse,
   E2E_ADDRESS,
@@ -26,6 +27,7 @@ test.beforeEach(async ({ page }) => {
     totalBalance: 200 * XLM,
     balanceOf: 50 * XLM,
   })
+  await mockCommonApis(page)
   await mockPoolsApi(page, [
     makePool({
       id: POOL_ID,
@@ -64,7 +66,9 @@ test("withdraws from a flexible pool with fee preview", async ({ page }) => {
 })
 
 test("target pool withdraw sends directly", async ({ page }) => {
-  await page.goto(`/dashboard/group/${POOL_ID}`)
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await poolsResponse
 
   // Set up a target pool instead by re-mocking
   await mockPoolsApi(page, [

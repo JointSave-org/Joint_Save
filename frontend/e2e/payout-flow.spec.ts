@@ -4,6 +4,7 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   makePool,
   waitForPoolsResponse,
   E2E_ADDRESS,
@@ -30,6 +31,7 @@ test.beforeEach(async ({ page }) => {
     treasuryFeeBps: 100,
     relayerFeeBps: 50,
   })
+  await mockCommonApis(page)
   await mockPoolsApi(page, [
     makePool({
       id: POOL_ID,
@@ -40,28 +42,6 @@ test.beforeEach(async ({ page }) => {
       frequency: "weekly",
     }),
   ])
-
-  await page.route("**/api/admin/audit-log**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ data: [], total: 0 }),
-    })
-  )
-  await page.route("**/api/admin/actions**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ data: [], total: 0 }),
-    })
-  )
-  await page.route("**/rest/v1/**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    })
-  )
 })
 
 test("opens payout preview and confirms", async ({ page }) => {

@@ -4,6 +4,7 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   waitForPoolsResponse,
   E2E_MEMBER_2,
 } from "./fixtures/test-base"
@@ -18,6 +19,7 @@ import {
 test.beforeEach(async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page) // sane on-chain defaults for the new pool
+  await mockCommonApis(page)
   await mockPoolsApi(page)
 })
 

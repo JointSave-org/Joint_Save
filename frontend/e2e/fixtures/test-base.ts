@@ -32,6 +32,87 @@ export function waitForPoolsResponse(page: Page, timeout = 15_000) {
   })
 }
 
+/**
+ * Catch-all mock for every API endpoint the app may hit during E2E tests,
+ * EXCEPT `/api/pools` (which should be mocked per-spec via `mockPoolsApi`).
+ *
+ * Without this, unmocked server-side routes (e.g. `/api/notifications`,
+ * `/api/analytics`, `/api/user-profile`) hit the real Next.js API handlers,
+ * which try to connect to Supabase — causing either slow failures, 500s,
+ * or hanging requests that prevent Playwright's `networkidle` from resolving.
+ *
+ * Call once per test in `beforeEach`, BEFORE `page.goto()`.
+ */
+export async function mockCommonApis(page: Page) {
+  const json = (route: import("@playwright/test").Route, body: unknown, status = 200) =>
+    route.fulfill({
+      status,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    })
+
+  // Notifications — empty by default; specs that need data can re-route.
+  await page.route("**/api/notifications**", (route) => json(route, { data: [], total: 0 }))
+
+  // Analytics — return empty/safe defaults.
+  await page.route("**/api/analytics**", (route) =>
+    json(route, {
+      totalPools: 0,
+      totalSaved: 0,
+      totalDeposits: 0,
+      totalWithdrawals: 0,
+      averageHealthScore: 100,
+      poolsAnalytics: [],
+      globalChartData: [],
+    })
+  )
+
+  // Portfolio summary — return safe defaults.
+  await page.route("**/api/portfolio/summary**", (route) =>
+    json(route, {
+      total_saved: 0,
+      total_saved_by_token: {},
+      total_pools: { rotational: 0, target: 0, flexible: 0, total: 0 },
+      total_yield_earned: 0,
+      upcoming_commitments: [],
+      reputation_summary: { total_deposits: 0, average_on_time_rate: 100, pools_completed: 0 },
+      pools: [],
+    })
+  )
+
+  // Recommendations — empty by default.
+  await page.route("**/api/recommendations**", (route) => json(route, { pools: [] }))
+
+  // User profile — return a safe default profile.
+  await page.route("**/api/user-profile**", (route) =>
+    json(route, {
+      wallet_address: "",
+      email: null,
+      notification_preferences: {
+        email_on_payout: true,
+        email_on_deposit: true,
+        email_on_round: true,
+        email_on_target: true,
+        email_on_deposit_reminder: true,
+      },
+      muted_pools: [],
+    })
+  )
+
+  // Admin endpoints — return empty data.
+  await page.route("**/api/admin/audit-log**", (route) => json(route, { data: [], total: 0 }))
+  await page.route("**/api/admin/actions**", (route) => json(route, { data: [], total: 0 }))
+
+  // Pool messages — return empty array.
+  await page.route("**/api/pools/messages**", (route) => json(route, []))
+
+  // Error reporting — silently accept.
+  await page.route("**/api/errors**", (route) => json(route, { ok: true }))
+
+  // Supabase REST calls (from client-side supabase-js) — return empty.
+  await page.route("**/rest/v1/**", (route) => json(route, []))
+}
+
 export { expect }
 export * from "./wallet"
 export * from "./mock-pools"

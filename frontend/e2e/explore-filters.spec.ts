@@ -4,6 +4,7 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   makePool,
   waitForPoolsResponse,
   E2E_CONTRACT_ID,
@@ -49,15 +50,8 @@ const POOLS = [
 test.beforeEach(async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page, { isActive: true })
+  await mockCommonApis(page)
   await mockPoolsApi(page, POOLS)
-
-  await page.route("**/api/recommendations**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ pools: [] }),
-    })
-  )
 })
 
 test("search filters by pool name", async ({ page }) => {

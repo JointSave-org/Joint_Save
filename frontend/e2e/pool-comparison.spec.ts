@@ -4,6 +4,7 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   makePool,
   waitForPoolsResponse,
   E2E_CONTRACT_ID,
@@ -41,15 +42,8 @@ const POOL_B = makePool({
 test.beforeEach(async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page, { isActive: true })
+  await mockCommonApis(page)
   await mockPoolsApi(page, [POOL_A, POOL_B])
-
-  await page.route("**/api/recommendations**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ pools: [] }),
-    })
-  )
 })
 
 test("compare bar appears when pools are selected", async ({ page }) => {

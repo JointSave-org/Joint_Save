@@ -4,6 +4,7 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   makePool,
   waitForPoolsResponse,
   E2E_CONTRACT_ID,
@@ -24,6 +25,7 @@ test.beforeEach(async ({ page }) => {
     isActive: true,
     members: [E2E_ADDRESS, E2E_MEMBER_2],
   })
+  await mockCommonApis(page)
   await mockPoolsApi(page, [
     makePool({
       id: POOL_ID,

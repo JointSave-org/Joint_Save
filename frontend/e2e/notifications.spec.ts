@@ -1,4 +1,13 @@
-import { test, expect, connectWallet, seedChainState, E2E_ADDRESS } from "./fixtures/test-base"
+import {
+  test,
+  expect,
+  connectWallet,
+  seedChainState,
+  mockCommonApis,
+  mockPoolsApi,
+  waitForPoolsResponse,
+  E2E_ADDRESS,
+} from "./fixtures/test-base"
 
 /**
  * notifications.spec — visit the notifications page, verify empty state,
@@ -8,18 +17,11 @@ import { test, expect, connectWallet, seedChainState, E2E_ADDRESS } from "./fixt
 test.beforeEach(async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page, { isActive: true })
+  await mockCommonApis(page)
+  await mockPoolsApi(page)
 })
 
 test("shows empty state when no notifications", async ({ page }) => {
-  // Mock notifications API to return empty
-  await page.route("**/api/notifications**", async (route) => {
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ data: [], total: 0 }),
-    })
-  })
-
   await page.goto("/dashboard/notifications")
 
   // Page title
@@ -70,14 +72,6 @@ test("displays a list of notifications", async ({ page }) => {
 })
 
 test("shows back to dashboard link", async ({ page }) => {
-  await page.route("**/api/notifications**", async (route) => {
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ data: [], total: 0 }),
-    })
-  })
-
   await page.goto("/dashboard/notifications")
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible()
 

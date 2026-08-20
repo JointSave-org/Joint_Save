@@ -4,6 +4,7 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   makePool,
   waitForPoolsResponse,
   E2E_ADDRESS,
@@ -17,30 +18,6 @@ import {
  */
 
 const POOL_ID = "pause-pool"
-
-async function mockGroupApis(page: import("@playwright/test").Page) {
-  await page.route("**/api/admin/audit-log**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ data: [], total: 0 }),
-    })
-  )
-  await page.route("**/api/admin/actions**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ data: [], total: 0 }),
-    })
-  )
-  await page.route("**/rest/v1/**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    })
-  )
-}
 
 test("admin pauses an active pool", async ({ page }) => {
   await connectWallet(page)
@@ -58,7 +35,7 @@ test("admin pauses an active pool", async ({ page }) => {
       contract_address: E2E_CONTRACT_ID,
     }),
   ])
-  await mockGroupApis(page)
+  await mockCommonApis(page)
 
   const poolsResponse = waitForPoolsResponse(page)
   await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
@@ -93,7 +70,7 @@ test("admin unpauses a paused pool", async ({ page }) => {
       contract_address: E2E_CONTRACT_ID,
     }),
   ])
-  await mockGroupApis(page)
+  await mockCommonApis(page)
 
   const poolsResponse = waitForPoolsResponse(page)
   await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
@@ -132,7 +109,7 @@ test("non-admin cannot see pause/unpause buttons", async ({ page }) => {
       contract_address: E2E_CONTRACT_ID,
     }),
   ])
-  await mockGroupApis(page)
+  await mockCommonApis(page)
 
   const poolsResponse = waitForPoolsResponse(page)
   await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })

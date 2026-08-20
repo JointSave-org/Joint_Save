@@ -4,6 +4,7 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   makePool,
   waitForPoolsResponse,
   E2E_CONTRACT_ID,
@@ -27,6 +28,7 @@ test.beforeEach(async ({ page }) => {
     totalBalance: 100 * XLM, // 100 XLM in the pool
     balanceOf: 10 * XLM, //  10 XLM is the user's
   })
+  await mockCommonApis(page)
   await mockPoolsApi(page, [
     makePool({
       id: POOL_ID,

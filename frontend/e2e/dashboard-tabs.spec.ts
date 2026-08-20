@@ -4,6 +4,7 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   makePool,
   waitForPoolsResponse,
   E2E_ADDRESS,
@@ -24,6 +25,7 @@ test.beforeEach(async ({ page }) => {
     admin: E2E_ADDRESS,
     members: [E2E_ADDRESS],
   })
+  await mockCommonApis(page)
   await mockPoolsApi(page, [
     makePool({
       id: POOL_ID,
@@ -32,58 +34,6 @@ test.beforeEach(async ({ page }) => {
       contract_address: E2E_CONTRACT_ID,
     }),
   ])
-
-  await page.route("**/api/recommendations**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ pools: [] }),
-    })
-  )
-
-  await page.route("**/api/portfolio/summary**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        total_saved: 0,
-        total_saved_by_token: {},
-        total_pools: { rotational: 0, target: 0, flexible: 0, total: 0 },
-        total_yield_earned: 0,
-        upcoming_commitments: [],
-        reputation_summary: {
-          total_deposits: 0,
-          average_on_time_rate: 0,
-          pools_completed: 0,
-        },
-        pools: [],
-      }),
-    })
-  )
-
-  await page.route("**/api/analytics**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        totalPools: 0,
-        totalSaved: 0,
-        totalDeposits: 0,
-        totalWithdrawals: 0,
-        averageHealthScore: 100,
-        poolsAnalytics: [],
-        globalChartData: [],
-      }),
-    })
-  )
-
-  await page.route("**/rest/v1/**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    })
-  )
 })
 
 test("My Groups tab is default and shows pool list", async ({ page }) => {
