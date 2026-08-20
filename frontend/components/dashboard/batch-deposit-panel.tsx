@@ -110,11 +110,10 @@ export function BatchDepositPanel({ onDepositsComplete }: { onDepositsComplete?:
           } still outstanding`
         )
       }
-      onDepositsComplete?.()
     } catch (err) {
       toastManager.error(err instanceof Error ? err.message : "Batch deposit failed")
     }
-  }, [pools, selectedIds, buildBatchDepositTx, submitBatchDeposit, onDepositsComplete])
+  }, [pools, selectedIds, buildBatchDepositTx, submitBatchDeposit])
 
   const runRetry = useCallback(async () => {
     try {
@@ -123,18 +122,27 @@ export function BatchDepositPanel({ onDepositsComplete }: { onDepositsComplete?:
       if (result.failed.length === 0 && result.cancelled.length === 0) {
         toastManager.success("All outstanding deposits confirmed")
       }
-      onDepositsComplete?.()
     } catch (err) {
       toastManager.error(err instanceof Error ? err.message : "Retry failed")
     }
-  }, [retryFailed, onDepositsComplete])
+  }, [retryFailed])
 
+  /**
+   * Notify the parent only once the dialog is dismissed.
+   *
+   * The dashboard reloads its pool list in response, and that reload swaps
+   * "My Groups" to its loading skeleton — which unmounts this panel. Firing
+   * it while the run is still on screen would therefore tear down the dialog
+   * and the progress list the user is reading.
+   */
   const closeDialog = useCallback(() => {
     if (isSubmitting) return
+    const depositedSomething = items.some((i) => i.status === "confirmed")
     setOpen(false)
     reset()
     void refresh()
-  }, [isSubmitting, reset, refresh])
+    if (depositedSomething) onDepositsComplete?.()
+  }, [isSubmitting, items, reset, refresh, onDepositsComplete])
 
   // Nothing owed (or no wallet) → the panel stays out of the way entirely.
   if (!address || !hasScanned || (pools.length === 0 && !scanError)) return null

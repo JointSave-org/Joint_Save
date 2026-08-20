@@ -349,6 +349,49 @@ describe("BatchDepositPanel", () => {
     await waitFor(() => expect(screen.queryByTestId("batch-retry-failed")).not.toBeInTheDocument())
   })
 
+  it("defers onDepositsComplete until the dialog is dismissed", async () => {
+    // The dashboard reloads its pool list from this callback, which swaps
+    // "My Groups" to a loading skeleton and unmounts this panel. Firing it
+    // mid-run would tear down the dialog while the user is still reading the
+    // per-pool results — CI caught exactly that.
+    const user = userEvent.setup()
+    const onDepositsComplete = vi.fn()
+    memberPools = [poolRow(1, { name: "Alpha" })]
+
+    render(<BatchDepositPanel onDepositsComplete={onDepositsComplete} />)
+    const dialog = await openDialog(user)
+    await user.click(within(dialog).getByTestId("batch-deposit-now"))
+
+    const progress = await screen.findByTestId("batch-deposit-progress")
+    await waitFor(() =>
+      expect(within(progress).getByTestId("batch-progress-label")).toHaveTextContent(
+        "Deposited to 1 pool"
+      )
+    )
+
+    // Run is finished and still on screen — the parent must not have been told.
+    expect(onDepositsComplete).not.toHaveBeenCalled()
+    expect(screen.getByTestId("batch-deposit-progress")).toBeInTheDocument()
+
+    await user.click(screen.getByTestId("batch-close"))
+    await waitFor(() => expect(onDepositsComplete).toHaveBeenCalledTimes(1))
+  })
+
+  it("does not reload the dashboard when the dialog is dismissed without depositing", async () => {
+    const user = userEvent.setup()
+    const onDepositsComplete = vi.fn()
+    memberPools = [poolRow(1)]
+
+    render(<BatchDepositPanel onDepositsComplete={onDepositsComplete} />)
+    const dialog = await openDialog(user)
+    await user.click(within(dialog).getByRole("button", { name: /^cancel$/i }))
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("batch-deposit-dialog")).not.toBeInTheDocument()
+    )
+    expect(onDepositsComplete).not.toHaveBeenCalled()
+  })
+
   it("splits a selection larger than 15 pools into multiple batches", async () => {
     const user = userEvent.setup()
     memberPools = Array.from({ length: 16 }, (_, i) => poolRow(i + 1))

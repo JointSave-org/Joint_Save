@@ -91,8 +91,32 @@ const CONTRACT_ADDRESS_RE = /^C[A-Z2-7]{55}$/
 /** How many pools are inspected concurrently when scanning for what's owed. */
 const SCAN_CONCURRENCY = 4
 
+/**
+ * Per-pool budget for the state reads in the scan. A wallet in dozens of pools
+ * would otherwise be held behind a single unresponsive RPC read forever; past
+ * this the pool is simply left out of the list rather than stalling the panel.
+ */
+const SCAN_TIMEOUT_MS = 10_000
+
 function isDeployed(address: string | null | undefined): address is string {
   return !!address && CONTRACT_ADDRESS_RE.test(address.toUpperCase())
+}
+
+/** Reject with a clear error if `promise` outlives `ms`. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      }
+    )
+  })
 }
 
 function errorMessage(err: unknown): string {
@@ -191,10 +215,14 @@ export function useBatchDeposit() {
           slice.map(async (record) => {
             const contractAddress = record.contract_address as string
             try {
-              const [state, paused] = await Promise.all([
-                fetchRotationalState(contractAddress, wallet),
-                fetchIsPaused(contractAddress),
-              ])
+              const [state, paused] = await withTimeout(
+                Promise.all([
+                  fetchRotationalState(contractAddress, wallet),
+                  fetchIsPaused(contractAddress),
+                ]),
+                SCAN_TIMEOUT_MS,
+                `Reading ${record.name}`
+              )
 
               if (!state.isActive || paused || state.hasDeposited) return null
 

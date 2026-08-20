@@ -77,21 +77,15 @@ test("deposits to every selected pool from the dashboard in one run", async ({ p
   await expect(dialog.getByText("Batch Circle One")).toBeVisible()
   await expect(dialog.getByText("Batch Circle Two")).toBeVisible()
   await expect(dialog.getByText("Batch Circle Three")).toBeVisible()
-  await expect(dialog.getByTestId("batch-total")).toHaveText(
-    "Depositing to 3 pools: 150 XLM total"
-  )
+  await expect(dialog.getByTestId("batch-total")).toHaveText("Depositing to 3 pools: 150 XLM total")
 
   // 3) Deselecting a pool updates the running total.
   await dialog.getByTestId("batch-pool-row-batch-pool-3").click()
-  await expect(dialog.getByTestId("batch-total")).toHaveText(
-    "Depositing to 2 pools: 125 XLM total"
-  )
+  await expect(dialog.getByTestId("batch-total")).toHaveText("Depositing to 2 pools: 125 XLM total")
 
   // …and Select All puts it back.
   await dialog.getByRole("button", { name: "Select All", exact: true }).click()
-  await expect(dialog.getByTestId("batch-total")).toHaveText(
-    "Depositing to 3 pools: 150 XLM total"
-  )
+  await expect(dialog.getByTestId("batch-total")).toHaveText("Depositing to 3 pools: 150 XLM total")
 
   // 4) The run submits one transaction per pool and confirms each.
   await dialog.getByTestId("batch-deposit-now").click()
