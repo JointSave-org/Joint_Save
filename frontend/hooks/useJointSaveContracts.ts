@@ -665,22 +665,9 @@ export function useRotationalDeposit(contractId: string) {
         .build()
       return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
         address,
-        (account) =>
-          new TransactionBuilder(account, {
-            fee: BASE_FEE,
-            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-          })
-            .addOperation(
-              new Contract(normalizeId(contractId)).call("deposit", addressVal(address))
-            )
-            .setTimeout(TX_TIMEOUT)
-            .build(),
-        {
-          address,
-          type: "deposit",
-          poolId: contractId,
-        }
-      )
+        type: "deposit",
+        poolId: contractId,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -749,27 +736,10 @@ export function useTargetContribute(contractId: string, amount: string, decimals
         .build()
       return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
         address,
-        (account) =>
-          new TransactionBuilder(account, {
-            fee: BASE_FEE,
-            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-          })
-            .addOperation(
-              new Contract(normalizeId(contractId)).call(
-                "deposit",
-                addressVal(address),
-                i128Val(toBaseUnits(amount, decimals))
-              )
-            )
-            .setTimeout(TX_TIMEOUT)
-            .build(),
-        {
-          address,
-          type: "deposit",
-          poolId: contractId,
-          amount,
-        }
-      )
+        type: "deposit",
+        poolId: contractId,
+        amount,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -870,27 +840,10 @@ export function useFlexibleDeposit(contractId: string, amount: string, decimals 
         .build()
       return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
         address,
-        (account) =>
-          new TransactionBuilder(account, {
-            fee: BASE_FEE,
-            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-          })
-            .addOperation(
-              new Contract(normalizeId(contractId)).call(
-                "deposit",
-                addressVal(address),
-                i128Val(toBaseUnits(amount, decimals))
-              )
-            )
-            .setTimeout(TX_TIMEOUT)
-            .build(),
-        {
-          address,
-          type: "deposit",
-          poolId: contractId,
-          amount,
-        }
-      )
+        type: "deposit",
+        poolId: contractId,
+        amount,
+      })
     } finally {
       setIsLoading(false)
     }
