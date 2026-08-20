@@ -98,6 +98,37 @@ async function logActivity(
   } catch {}
 }
 
+/**
+ * Record a deposit in Supabase only after the transaction hash is verified
+ * as successful on Horizon (see app/api/pools/deposit/route.ts). Verification
+ * is retried briefly since Horizon may lag a freshly confirmed ledger.
+ */
+async function verifyAndLogDeposit(
+  poolId: string,
+  userAddress: string,
+  txHash: string,
+  amount: string | null
+) {
+  const payload = {
+    poolId,
+    userAddress,
+    txHash,
+    amount: amount ? parseFloat(amount) : null,
+  }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch("/api/pools/deposit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) return
+      if (res.status === 422) return // tx not on Horizon (yet) — tracker keeps watching
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** attempt))
+  }
+}
+
 async function logAdminAction(
   poolId: string,
   adminAddress: string,
@@ -357,6 +388,19 @@ export function GroupActions({
           await logActivity(groupId, "deposit", address, depositAmount || null, txHash)
           toastManager.info("Deposit submitted (confirming on-chain)…")
         }
+    try {
+      const amount = poolType !== "rotational" ? toBaseUnits(parseFloat(depositAmount)) : undefined
+      registerOptimistic("deposit", address, amount)
+
+      let txHash: string | undefined
+      if (poolType === "rotational") txHash = await rotationalDeposit.deposit()
+      else if (poolType === "target") txHash = await targetContribute.contribute()
+      else txHash = await flexibleDeposit.deposit()
+
+      if (txHash) {
+        updateTxHash(txHash)
+        await verifyAndLogDeposit(groupId, address, txHash, depositAmount || null)
+        toastManager.info("Deposit submitted (confirming on-chain)…")
       }
     )
   }

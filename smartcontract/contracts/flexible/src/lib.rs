@@ -1,6 +1,8 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Address, Env, Vec};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, Symbol, Vec,
+};
 
 const VERSION: u32 = 1;
 
@@ -22,6 +24,9 @@ pub enum DataKey {
     DeployedToYield,
     TokenDecimals,
     MigratedFrom,
+    /// Optional address of the on-chain ReputationTracker contract.
+    ReputationTracker,
+    /// Optional allowlist of accepted token addresses (empty = unrestricted).
     SupportedTokens,
 }
 
@@ -103,6 +108,9 @@ impl FlexiblePool {
         let bal_key = DataKey::Balance(member.clone());
         storage.extend_ttl(&bal_key, LEDGER_THRESHOLD, LEDGER_BUMP);
         Self::bump_config_state_internal(&env);
+
+        // Report successful deposit to reputation tracker (best-effort)
+        Self::report_update_score(&env, &member, true, false);
 
         env.events()
             .publish((symbol_short!("deposit"), member), amount);
@@ -505,9 +513,24 @@ impl FlexiblePool {
         if storage.has(&DataKey::YieldStrategy) {
             storage.extend_ttl(&DataKey::YieldStrategy, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
+        if storage.has(&DataKey::ReputationTracker) {
+            storage.extend_ttl(&DataKey::ReputationTracker, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
         if storage.has(&DataKey::SupportedTokens) {
             storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
+    }
+
+    /// Point this pool at a deployed ReputationTracker contract so deposits
+    /// are reported for the on-chain reputation system.
+    /// Restricted to pool members; safe to call more than once.
+    pub fn set_reputation_tracker(env: Env, caller: Address, tracker: Address) {
+        caller.require_auth();
+        let storage = env.storage().persistent();
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(Self::is_member(&members, &caller), "not a member");
+        storage.set(&DataKey::ReputationTracker, &tracker);
+        Self::bump_config_state_internal(&env);
     }
 
     // ── Views ─────────────────────────────────────────────────────────────
@@ -579,8 +602,10 @@ impl FlexiblePool {
             .unwrap_or(0)
     }
 
-    /// Tokens this pool is allowed to accept deposits in. Empty until an
-    /// admin calls `set_supported_tokens`.
+    pub fn reputation_tracker(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::ReputationTracker)
+    }
+
     pub fn get_supported_tokens(env: Env) -> Vec<Address> {
         env.storage()
             .persistent()
@@ -631,6 +656,34 @@ impl FlexiblePool {
             }
         }
         false
+    }
+
+    /// Best-effort reputation report. A missing/misconfigured tracker must
+    /// never block the pool's core deposit flow.
+    fn reputation_tracker_addr(env: &Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::ReputationTracker)
+    }
+
+    fn report_update_score(
+        env: &Env,
+        member: &Address,
+        deposit_success: bool,
+        pool_completed: bool,
+    ) {
+        if let Some(tracker) = Self::reputation_tracker_addr(env) {
+            let pool = env.current_contract_address();
+            env.invoke_contract::<()>(
+                &tracker,
+                &Symbol::new(env, "update_score"),
+                soroban_sdk::vec![
+                    env,
+                    pool.into_val(env),
+                    member.into_val(env),
+                    deposit_success.into_val(env),
+                    pool_completed.into_val(env)
+                ],
+            );
+        }
     }
 }
 

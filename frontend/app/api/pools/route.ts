@@ -1,6 +1,7 @@
 import { supabase, savePoolToDatabase } from "@/lib/supabase"
 import { NextRequest, NextResponse } from "next/server"
 import { readLimiter, writeLimiter } from "@/lib/rate-limit"
+import { jsonPublic, jsonPrivate } from "@/lib/cache-headers"
 
 export async function POST(req: NextRequest) {
   try {
@@ -134,7 +135,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Pool not found" }, { status: 404 })
       }
 
-      return NextResponse.json(data)
+      return jsonPublic(data)
     } else if (contractAddress) {
       // Fetch single pool by contract address
       const { data, error } = await supabase
@@ -166,7 +167,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Pool not found" }, { status: 404 })
       }
 
-      return NextResponse.json(data)
+      return jsonPublic(data)
     } else if (creatorAddress) {
       const PAGE_SIZE = 6
       const page = Math.max(0, parseInt(req.nextUrl.searchParams.get("page") || "0", 10))
@@ -184,7 +185,7 @@ export async function GET(req: NextRequest) {
         throw error
       }
 
-      return NextResponse.json({ data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE })
+      return jsonPrivate({ data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE })
     } else if (req.nextUrl.searchParams.get("explore") !== null) {
       // Explore feed — all pools, paginated, newest first, for prospective members.
       const PAGE_SIZE = 6
@@ -202,7 +203,7 @@ export async function GET(req: NextRequest) {
         throw error
       }
 
-      return NextResponse.json({ data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE })
+      return jsonPublic({ data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE })
     } else {
       // Fetch all pools
       const { data, error } = await supabase
@@ -215,7 +216,7 @@ export async function GET(req: NextRequest) {
         throw error
       }
 
-      return NextResponse.json(data || [])
+      return jsonPublic(data || [])
     }
   } catch (error) {
     console.error("Pool fetch error:", error)

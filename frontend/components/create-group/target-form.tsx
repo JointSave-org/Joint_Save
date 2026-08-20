@@ -15,7 +15,11 @@ import {
   getRpc,
   resolveTokenAddress,
 } from "@/hooks/useJointSaveContracts"
-import { TokenSelect, type SelectedToken } from "@/components/create-group/token-select"
+import {
+  TokenSelect,
+  tokenFromPrefill,
+  type SelectedToken,
+} from "@/components/create-group/token-select"
 import BulkImport from "@/components/create-group/BulkImport"
 import { FieldTooltip } from "@/components/ui/field-tooltip"
 import { FieldError } from "@/components/ui/form"
@@ -28,7 +32,10 @@ import {
 } from "@/lib/form-validation"
 import { MAX_POOL_MEMBERS, MAX_DEADLINE_DAYS } from "@/lib/constants"
 import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
+import type { PoolTemplateConfig } from "@/lib/templates"
+import { SaveTemplateDialog } from "@/components/templates/save-template-dialog"
 import { toastManager } from "@/lib/toast"
+import { LayoutTemplate } from "lucide-react"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -47,11 +54,10 @@ type Touched = Partial<Record<"name" | "targetAmount" | "deadlineDays", boolean>
 export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const router = useRouter()
   const { address } = useStellar()
-  const [token, setToken] = useState<SelectedToken>({
-    address: "native",
-    symbol: prefill?.token || "XLM",
-    decimals: 7,
-  })
+  const [token, setToken] = useState<SelectedToken>(
+    tokenFromPrefill(prefill?.token) ?? { address: "native", symbol: "XLM", decimals: 7 }
+  )
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
   const initialMembers = prefill?.members?.filter((m: string) => m !== address) ?? [""]
   const [members, setMembers] = useState<string[]>(
     initialMembers.length > 0 ? initialMembers : [""]
@@ -63,7 +69,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
     name: prefill?.name || "",
     description: prefill?.description || "",
     targetAmount: prefill?.targetAmount || "",
-    deadlineDays: "",
+    deadlineDays: prefill?.deadlineDays || "",
   })
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Touched>({})
@@ -245,6 +251,17 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
     { label: "Members (2+)", valid: validMembers.length >= 2 },
   ]
 
+  const templateToken = token.address === "native" ? "XLM" : token.address
+  const templateConfig: PoolTemplateConfig = {
+    name: formData.name,
+    description: formData.description || null,
+    poolType: "target",
+    targetAmount: formData.targetAmount,
+    deadlineDays: formData.deadlineDays,
+    members: validMembers,
+    token: templateToken,
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {isCreating && (
@@ -317,7 +334,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
         />
       </div>
 
-      <TokenSelect onChange={setToken} />
+      <TokenSelect onChange={setToken} defaultToken={tokenFromPrefill(prefill?.token)} />
       {/* Bulk Import Component */}
       <BulkImport onMembersChange={setMembers} />
 
@@ -486,7 +503,24 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
             "Create Target Pool"
           )}
         </Button>
+
+        <button
+          type="button"
+          onClick={() => setSaveTemplateOpen(true)}
+          disabled={isCreating}
+          className="w-full mt-2 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+        >
+          <LayoutTemplate className="h-4 w-4" />
+          Save as Template
+        </button>
       </div>
+
+      <SaveTemplateDialog
+        open={saveTemplateOpen}
+        onOpenChange={setSaveTemplateOpen}
+        config={templateConfig}
+        creatorAddress={address}
+      />
     </form>
   )
 }
