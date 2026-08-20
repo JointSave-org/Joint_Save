@@ -87,7 +87,9 @@ export function useNotificationPreferences(
     try {
       const params = new URLSearchParams({ wallet: walletAddress })
       if (poolId) params.set("poolId", poolId)
-      const res = await fetch(`/api/notifications/preferences?${params}`)
+      const res = await fetch(`/api/notifications/preferences?${params}`, {
+        headers: { "x-wallet-address": walletAddress },
+      })
       if (!res.ok) throw new Error(`Failed to fetch preferences: ${res.status}`)
       const data: NotificationPreferences = await res.json()
       setPreferences(data)
@@ -111,7 +113,10 @@ export function useNotificationPreferences(
       try {
         const res = await fetch("/api/notifications/preferences", {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-wallet-address": walletAddress,
+          },
           body: JSON.stringify({ wallet: walletAddress, pool_id: targetPoolId, ...updates }),
         })
         if (!res.ok) {
@@ -162,7 +167,10 @@ export function useNotificationPreferences(
       // 4. Send the subscription to the server.
       const res = await fetch("/api/notifications/subscribe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-wallet-address": walletAddress,
+        },
         body: JSON.stringify({
           wallet: walletAddress,
           subscription: subscription.toJSON(),
@@ -196,7 +204,10 @@ export function useNotificationPreferences(
       // Notify server to remove the subscription row.
       await fetch("/api/notifications/subscribe", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-wallet-address": walletAddress,
+        },
         body: JSON.stringify({ wallet: walletAddress, endpoint }),
       })
 

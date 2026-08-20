@@ -94,8 +94,9 @@ async function logActivity(
 }
 
 /**
- * Fire-and-forget: send a push notification to pool members via the internal
- * push dispatch endpoint. Does not block the caller.
+ * Fire-and-forget: send a push notification to pool members via the
+ * server-side proxy endpoint. The client never touches CRON_SECRET —
+ * the secret is added server-side in /api/notifications/push-event.
  */
 async function triggerPushNotification(
   poolId: string,
@@ -104,14 +105,9 @@ async function triggerPushNotification(
   body: string
 ) {
   try {
-    await fetch("/api/notifications/push", {
+    await fetch("/api/notifications/push-event", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(process.env.NEXT_PUBLIC_CRON_SECRET
-          ? { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}` }
-          : {}),
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pool_id: poolId, event_type: eventType, title, body }),
     })
   } catch {

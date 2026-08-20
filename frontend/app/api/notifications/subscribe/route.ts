@@ -2,8 +2,24 @@ import { getAdminClient } from "@/lib/supabase-admin"
 import { NextRequest, NextResponse } from "next/server"
 import { writeLimiter } from "@/lib/rate-limit"
 
+// ─── Wallet ownership guard ────────────────────────────────────────────────────
+// Requires `x-wallet-address` header to match the wallet in the request body.
+// Prevents a caller from registering or removing push subscriptions for a
+// wallet address they do not control.
+function verifyWalletOwnership(req: NextRequest, walletFromPayload: string): NextResponse | null {
+  const headerWallet = req.headers.get("x-wallet-address")?.toLowerCase()
+  if (!headerWallet) {
+    return NextResponse.json({ error: "x-wallet-address header is required" }, { status: 401 })
+  }
+  if (headerWallet !== walletFromPayload.toLowerCase()) {
+    return NextResponse.json({ error: "Wallet address mismatch" }, { status: 403 })
+  }
+  return null
+}
+
 // ─── POST /api/notifications/subscribe ───────────────────────────────────────
 // Stores a Web Push subscription for a wallet address.
+// Headers: x-wallet-address: <connected wallet>
 // Body: { wallet: string, subscription: PushSubscription JSON }
 //   subscription shape: { endpoint, keys: { p256dh, auth } }
 export async function POST(req: NextRequest) {
@@ -24,6 +40,11 @@ export async function POST(req: NextRequest) {
   const sub = body.subscription
 
   if (!wallet) return NextResponse.json({ error: "wallet required" }, { status: 400 })
+
+  // Verify the requester owns this wallet address.
+  const authError = verifyWalletOwnership(req, wallet)
+  if (authError) return authError
+
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) {
     return NextResponse.json(
       {
@@ -65,6 +86,7 @@ export async function POST(req: NextRequest) {
 
 // ─── DELETE /api/notifications/subscribe ─────────────────────────────────────
 // Removes a push subscription (unsubscribe).
+// Headers: x-wallet-address: <connected wallet>
 // Body: { wallet: string, endpoint: string }
 export async function DELETE(req: NextRequest) {
   const limited = writeLimiter(req)
@@ -81,6 +103,11 @@ export async function DELETE(req: NextRequest) {
   const endpoint = body.endpoint
 
   if (!wallet) return NextResponse.json({ error: "wallet required" }, { status: 400 })
+
+  // Verify the requester owns this wallet address.
+  const authError = verifyWalletOwnership(req, wallet)
+  if (authError) return authError
+
   if (!endpoint) return NextResponse.json({ error: "endpoint required" }, { status: 400 })
 
   const supabase = getAdminClient()

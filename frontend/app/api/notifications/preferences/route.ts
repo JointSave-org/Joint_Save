@@ -2,6 +2,23 @@ import { getAdminClient } from "@/lib/supabase-admin"
 import { NextRequest, NextResponse } from "next/server"
 import { readLimiter, writeLimiter } from "@/lib/rate-limit"
 
+// ─── Wallet ownership guard ────────────────────────────────────────────────────
+// The app has no server-side session (wallet-based auth). We require callers to
+// echo their wallet address in the `x-wallet-address` header (set by the hook
+// from the connected wallet) and verify it matches the wallet in the request
+// payload. This prevents one wallet from reading or modifying another's prefs.
+// It is the same mitigation already used by the rate limiter for key resolution.
+function verifyWalletOwnership(req: NextRequest, walletFromPayload: string): NextResponse | null {
+  const headerWallet = req.headers.get("x-wallet-address")?.toLowerCase()
+  if (!headerWallet) {
+    return NextResponse.json({ error: "x-wallet-address header is required" }, { status: 401 })
+  }
+  if (headerWallet !== walletFromPayload.toLowerCase()) {
+    return NextResponse.json({ error: "Wallet address mismatch" }, { status: 403 })
+  }
+  return null
+}
+
 // ─── GET /api/notifications/preferences?wallet=<address>&poolId=<id> ─────────
 // Returns the preference row for the given wallet+pool combination.
 // If poolId is omitted, returns the global (pool_id IS NULL) defaults.
@@ -11,6 +28,10 @@ export async function GET(req: NextRequest) {
 
   const wallet = req.nextUrl.searchParams.get("wallet")?.toLowerCase()
   if (!wallet) return NextResponse.json({ error: "wallet required" }, { status: 400 })
+
+  // Verify the requester owns this wallet address.
+  const authError = verifyWalletOwnership(req, wallet)
+  if (authError) return authError
 
   const poolId = req.nextUrl.searchParams.get("poolId") ?? null
   const supabase = getAdminClient()
@@ -71,6 +92,10 @@ export async function PUT(req: NextRequest) {
   const wallet = (body.wallet as string | undefined)?.toLowerCase()
   if (!wallet) return NextResponse.json({ error: "wallet required" }, { status: 400 })
 
+  // Verify the requester owns this wallet address.
+  const authError = verifyWalletOwnership(req, wallet)
+  if (authError) return authError
+
   const supabase = getAdminClient()
 
   const row = {
@@ -92,8 +117,6 @@ export async function PUT(req: NextRequest) {
     updated_at: new Date().toISOString(),
   }
 
-  // Supabase upsert with composite key including nullable pool_id.
-  // We use onConflict on the unique index columns.
   const { data, error } = await supabase
     .from("notification_preferences")
     .upsert(row, { onConflict: "wallet_address,pool_id" })
