@@ -18,6 +18,8 @@ import { useStellar } from "@/components/web3-provider"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { FirstPoolTooltip } from "@/components/dashboard/first-pool-tooltip"
 import { PoolCard, PoolCardSkeleton, type Pool } from "@/components/dashboard/pool-card"
+import { PoolHealthWidget } from "@/components/dashboard/pool-health-widget"
+import { HealthSuggestionList } from "@/components/dashboard/health-suggestion-list"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 
 const PAGE_SIZE = 6
@@ -176,6 +178,14 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
           className="pl-9"
         />
       </div>
+
+      {/* Pool health widget — shown at the top when there are pools */}
+      {pools.length > 0 && (
+        <>
+          <PoolHealthWidget pools={pools} isLoading={false} />
+          <HealthSuggestionList pools={pools} isLoading={false} />
+        </>
+      )}
 
       {pools.length === 0 ? (
         <EmptyState onCreateClick={onCreateClick} />
