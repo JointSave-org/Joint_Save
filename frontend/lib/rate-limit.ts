@@ -12,7 +12,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { RATE_LIMIT_WINDOW_MS, READ_RATE_LIMIT, WRITE_RATE_LIMIT } from "@/lib/constants"
+import {
+  EXPORT_RATE_LIMIT,
+  EXPORT_RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_WINDOW_MS,
+  READ_RATE_LIMIT,
+  WRITE_RATE_LIMIT,
+} from "@/lib/constants"
 
 interface WindowEntry {
   timestamps: number[]
@@ -117,4 +123,17 @@ export function readLimiter(req: NextRequest): NextResponse | null {
  */
 export function writeLimiter(req: NextRequest): NextResponse | null {
   return applyLimit(req, "write", WRITE_RATE_LIMIT, WINDOW_MS)
+}
+
+/**
+ * Export limiter — 5 requests per hour per key.
+ * For GET /api/pools/[id]/activity/export.
+ *
+ * Reasoning: an export is a full-history dump, far heavier than a page read.
+ * A member re-exporting after new activity a handful of times an hour is
+ * normal; anything more is scripted scraping. Callers must supply a `wallet`
+ * query param so the limit is keyed per wallet, not per IP.
+ */
+export function exportLimiter(req: NextRequest): NextResponse | null {
+  return applyLimit(req, "export", EXPORT_RATE_LIMIT, EXPORT_RATE_LIMIT_WINDOW_MS)
 }

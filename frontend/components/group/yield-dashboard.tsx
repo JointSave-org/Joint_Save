@@ -21,6 +21,7 @@ import {
   Transaction,
 } from "@stellar/stellar-sdk"
 import { getRpc } from "@/hooks/useJointSaveContracts"
+import { submitWithRetry } from "@/lib/tx-retry"
 import { TX_TIMEOUT } from "@/lib/constants"
 
 function addressVal(addr: string): xdr.ScVal {
@@ -127,27 +128,18 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
   }, [loadState])
 
   async function submitTx(buildOp: (account: Account) => Transaction) {
-    const { rpc: rpcModule, Transaction: TransactionClass } = await import("@stellar/stellar-sdk")
     const server = getRpc()
-    const account = await server.getAccount(address!)
-    const tx = buildOp(account as Account)
-    const sim = await server.simulateTransaction(tx)
-    if (rpcModule.Api.isSimulationError(sim)) throw new Error(`Simulation: ${sim.error}`)
-    const prepared = rpcModule.assembleTransaction(tx, sim).build()
-    const { signedTxXdr } = await enqueueSign(prepared.toXDR(), {
+    const result = await submitWithRetry({
+      address: address!,
       networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      sign: async (txXdr: string) =>
+        (await enqueueSign(txXdr, { networkPassphrase: STELLAR_NETWORK_PASSPHRASE })).signedTxXdr,
+      buildTx: buildOp,
+      rpcServer: server,
     })
-    const result = await server.sendTransaction(
-      new TransactionClass(signedTxXdr, STELLAR_NETWORK_PASSPHRASE)
-    )
-    if (result.status === "ERROR") throw new Error("Transaction failed")
-    // Poll
-    let poll = await server.getTransaction(result.hash)
-    for (let i = 0; poll.status === rpc.Api.GetTransactionStatus.NOT_FOUND && i < 30; i++) {
-      await new Promise((r) => setTimeout(r, 1500))
-      poll = await server.getTransaction(result.hash)
+    if (result.status === "failed") {
+      throw new Error(result.error ?? "Transaction failed on-chain")
     }
-    if (poll.status === rpc.Api.GetTransactionStatus.FAILED) throw new Error("On-chain failure")
     return result.hash
   }
 

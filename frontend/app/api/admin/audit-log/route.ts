@@ -100,5 +100,8 @@ export async function GET(req: NextRequest) {
     })
   )
 
-  return NextResponse.json({ rows: auditRows, inconsistent, activityNet, recorded })
+  return NextResponse.json(
+    { rows: auditRows, inconsistent, activityNet, recorded },
+    { headers: { "Cache-Control": "private, no-cache" } }
+  )
 }

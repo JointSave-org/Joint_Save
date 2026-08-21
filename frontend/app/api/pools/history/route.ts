@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
 import { readLimiter } from "@/lib/rate-limit"
+import { jsonPublic } from "@/lib/cache-headers"
 
 // Batched sparkline data for many pools in one request, so the
 // Explore/My Groups grid doesn't fire one fetch per card.
@@ -29,5 +30,5 @@ export async function GET(req: NextRequest) {
     byPool[row.pool_id].push(row.total_balance)
   }
 
-  return NextResponse.json({ history: byPool })
+  return jsonPublic({ history: byPool })
 }

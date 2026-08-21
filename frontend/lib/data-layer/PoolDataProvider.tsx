@@ -74,7 +74,7 @@ interface PoolDataContextType {
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
-const PoolDataContext = createContext<PoolDataContextType | null>(null)
+export const PoolDataContext = createContext<PoolDataContextType | null>(null)
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 

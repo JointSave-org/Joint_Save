@@ -125,7 +125,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch admin actions" }, { status: 500 })
     }
 
-    return NextResponse.json({ actions: actions ?? [] })
+    return NextResponse.json(
+      { actions: actions ?? [] },
+      { headers: { "Cache-Control": "private, no-cache" } }
+    )
   } catch (error) {
     console.error("Failed to fetch admin actions:", error)
     return NextResponse.json(

@@ -3,6 +3,7 @@
 ## Example 1: Transaction Success (group-actions.tsx)
 
 ### ❌ Before (Inline State)
+
 ```typescript
 const [error, setError] = useState("")
 const [successMsg, setSuccessMsg] = useState("")
@@ -11,7 +12,7 @@ const handleDeposit = async () => {
   setError("")
   setSuccessMsg("")
   if (!address) return setError("Please connect your wallet first")
-  
+
   try {
     // ... transaction logic
     setSuccessMsg("Deposit submitted (confirming on-chain)…")
@@ -37,24 +38,26 @@ const handleDeposit = async () => {
 ```
 
 ### ✅ After (Toast System)
+
 ```typescript
-import { toastManager } from "@/lib/toast"
+import { toastManager } from "@/lib/toast";
 
 const handleDeposit = async () => {
-  if (!address) return toastManager.error("Please connect your wallet first")
-  
+  if (!address) return toastManager.error("Please connect your wallet first");
+
   try {
     // ... transaction logic
-    toastManager.info("Deposit submitted (confirming on-chain)…")
+    toastManager.info("Deposit submitted (confirming on-chain)…");
   } catch (e) {
-    toastManager.error((e as Error).message)
+    toastManager.error((e as Error).message);
   }
-}
+};
 
 // No inline error/success divs in JSX!
 ```
 
 **Benefits:**
+
 - ✅ No local state management
 - ✅ Consistent UI across app
 - ✅ Auto-dismiss after 6 seconds
@@ -64,37 +67,40 @@ const handleDeposit = async () => {
 ## Example 2: Transaction Confirmation with Explorer Link
 
 ### ❌ Before
+
 ```typescript
 useEffect(() => {
-  const { pendingTx } = optimisticState
-  if (!pendingTx) return
+  const { pendingTx } = optimisticState;
+  if (!pendingTx) return;
 
   if (pendingTx.status === "confirmed") {
     toastManager.success(
-      `${pendingTx.type.charAt(0).toUpperCase() + pendingTx.type.slice(1)} confirmed ✓`
-    )
+      `${pendingTx.type.charAt(0).toUpperCase() + pendingTx.type.slice(1)} confirmed ✓`,
+    );
   }
-}, [optimisticState])
+}, [optimisticState]);
 ```
 
 ### ✅ After
+
 ```typescript
 useEffect(() => {
-  const { pendingTx } = optimisticState
-  if (!pendingTx) return
+  const { pendingTx } = optimisticState;
+  if (!pendingTx) return;
 
   if (pendingTx.status === "confirmed") {
-    const txHash = pendingTx.txHash
+    const txHash = pendingTx.txHash;
     toastManager.success(
       `${pendingTx.type.charAt(0).toUpperCase() + pendingTx.type.slice(1)} confirmed ✓`,
       undefined,
-      txHash  // 👈 Automatically adds "View on Explorer" button
-    )
+      txHash, // 👈 Automatically adds "View on Explorer" button
+    );
   }
-}, [optimisticState])
+}, [optimisticState]);
 ```
 
 **Benefits:**
+
 - ✅ One-click transaction verification on Stellar Expert
 - ✅ Opens in new tab automatically
 - ✅ Network-aware (testnet vs mainnet)
@@ -102,6 +108,7 @@ useEffect(() => {
 ## Example 3: Form Submission Error (flexible-form.tsx)
 
 ### ❌ Before
+
 ```typescript
 const [error, setError] = useState("")
 const errorRef = useRef<HTMLDivElement>(null)
@@ -113,11 +120,11 @@ useEffect(() => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault()
   setError("")
-  
+
   if (!address) return setError("Please connect your wallet first")
   if (duplicateIndices.size > 0)
     return setError("Duplicate member addresses found")
-  
+
   try {
     // ... form submission
   } catch (err) {
@@ -138,27 +145,29 @@ const handleSubmit = async (e: React.FormEvent) => {
 ```
 
 ### ✅ After
+
 ```typescript
-import { toastManager } from "@/lib/toast"
+import { toastManager } from "@/lib/toast";
 
 const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  
-  if (!address) return toastManager.error("Please connect your wallet first")
+  e.preventDefault();
+
+  if (!address) return toastManager.error("Please connect your wallet first");
   if (duplicateIndices.size > 0)
-    return toastManager.error("Duplicate member addresses found")
-  
+    return toastManager.error("Duplicate member addresses found");
+
   try {
     // ... form submission
   } catch (err) {
-    toastManager.error((err as Error).message || "Failed to create group")
+    toastManager.error((err as Error).message || "Failed to create group");
   }
-}
+};
 
 // No error div, no ref, no useEffect!
 ```
 
 **Benefits:**
+
 - ✅ Less boilerplate code
 - ✅ No ref management
 - ✅ No scroll handling
@@ -168,38 +177,41 @@ const handleSubmit = async (e: React.FormEvent) => {
 ## Example 4: Admin Actions with Transaction Link
 
 ### ❌ Before
+
 ```typescript
 const handlePause = async () => {
-  setError("")
-  setSuccessMsg("")
+  setError("");
+  setSuccessMsg("");
   try {
-    const txHash = await pausePool.pause()
+    const txHash = await pausePool.pause();
     if (txHash) {
-      await logAdminAction(groupId, address, "pause", null, txHash)
+      await logAdminAction(groupId, address, "pause", null, txHash);
     }
-    setSuccessMsg("Pool paused successfully.")
+    setSuccessMsg("Pool paused successfully.");
   } catch (e) {
-    setError((e as Error).message || "Transaction failed")
+    setError((e as Error).message || "Transaction failed");
   }
-}
+};
 ```
 
 ### ✅ After
+
 ```typescript
 const handlePause = async () => {
   try {
-    const txHash = await pausePool.pause()
+    const txHash = await pausePool.pause();
     if (txHash) {
-      await logAdminAction(groupId, address, "pause", null, txHash)
-      toastManager.success("Pool paused successfully", undefined, txHash)
+      await logAdminAction(groupId, address, "pause", null, txHash);
+      toastManager.success("Pool paused successfully", undefined, txHash);
     }
   } catch (e) {
-    toastManager.error((e as Error).message || "Transaction failed")
+    toastManager.error((e as Error).message || "Transaction failed");
   }
-}
+};
 ```
 
 **Benefits:**
+
 - ✅ Cleaner code flow
 - ✅ Transaction hash automatically linked
 - ✅ Success message auto-dismisses after 6 seconds
@@ -209,24 +221,25 @@ const handlePause = async () => {
 
 ```typescript
 // Success - Green theme, auto-dismiss after 6s, optional tx link
-toastManager.success("Transaction confirmed!", undefined, txHash)
+toastManager.success("Transaction confirmed!", undefined, txHash);
 
 // Error - Red theme, requires manual dismissal
-toastManager.error("Network connection failed")
+toastManager.error("Network connection failed");
 
 // Info - Blue theme, auto-dismiss after 6s
-toastManager.info("Processing your request...")
+toastManager.info("Processing your request...");
 
 // Warning - Amber theme, auto-dismiss after 6s
-toastManager.warning("Pool is approaching capacity limit")
+toastManager.warning("Pool is approaching capacity limit");
 
 // Custom duration (10 seconds)
-toastManager.info("This will show for 10 seconds", 10000)
+toastManager.info("This will show for 10 seconds", 10000);
 ```
 
 ## Visual Differences
 
 ### Before: Inline Error
+
 ```
 ┌─────────────────────────────────────────┐
 │ ⚠️ Please connect your wallet first    │
@@ -235,11 +248,13 @@ toastManager.info("This will show for 10 seconds", 10000)
 │ [Submit Button]                        │
 └─────────────────────────────────────────┘
 ```
+
 - ❌ Takes up space in the layout
 - ❌ Can be scrolled out of view
 - ❌ Different per component
 
 ### After: Toast Notification
+
 ```
                     ┌────────────────────────────┐
                     │ ✖ Error                    │
@@ -251,6 +266,7 @@ toastManager.info("This will show for 10 seconds", 10000)
 │ [Submit Button]                                 │
 └─────────────────────────────────────────────────┘
 ```
+
 - ✅ Floats above content (doesn't shift layout)
 - ✅ Always visible in fixed position
 - ✅ Consistent across entire app
@@ -260,16 +276,19 @@ toastManager.info("This will show for 10 seconds", 10000)
 ## Code Size Reduction
 
 ### group-actions.tsx
+
 - **Before:** 2 state variables + 2 inline divs = ~30 lines of error handling
 - **After:** Direct toast calls = ~0 lines of UI code
 - **Reduction:** ~30 lines removed
 
 ### flexible-form.tsx
+
 - **Before:** 1 state + 1 ref + 1 useEffect + 1 inline div = ~20 lines
 - **After:** Direct toast calls = ~0 lines of UI code
 - **Reduction:** ~20 lines removed
 
 ### Total across all 4 components
+
 - **Lines removed:** ~100+ lines
 - **Components cleaner:** 4/4
 - **Consistency improved:** ✅

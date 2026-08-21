@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -34,6 +34,19 @@ const isValidContractId = (id: string) => /^C[A-Z2-7]{55}$/.test(id)
 type TokenMode = "native" | "usdc" | "custom"
 
 /**
+ * Map a template/duplicate prefill token string ("XLM", "USDC", or a SEP-41
+ * contract id) to the `SelectedToken` a creation form seeds its state with.
+ * Returns undefined when the value can't be mapped to a known token.
+ */
+export function tokenFromPrefill(token: string | undefined): SelectedToken | undefined {
+  if (!token) return undefined
+  if (token === "XLM") return NATIVE
+  if (token === "USDC") return USDC
+  if (isValidContractId(token)) return { address: token, symbol: "CUSTOM", decimals: 7 }
+  return undefined
+}
+
+/**
  * Token picker shared by all three creation forms. Defaults to native XLM;
  * "USDC" uses the well-known registry entry from `lib/token-utils` directly
  * (see the bridge tutorial at /bridge for getting USDC onto Stellar first).
@@ -41,13 +54,51 @@ type TokenMode = "native" | "usdc" | "custom"
  * view call and reports the resolved `SelectedToken` to the parent. The
  * parent should also seed its own state to native XLM so submit works
  * without interaction.
+ *
+ * Pass an optional `defaultToken` (e.g. from a template) to have the picker
+ * reflect a pre-filled token instead of defaulting to XLM.
  */
-export function TokenSelect({ onChange }: { onChange: (token: SelectedToken) => void }) {
+export function TokenSelect({
+  onChange,
+  defaultToken,
+}: {
+  onChange: (token: SelectedToken) => void
+  defaultToken?: SelectedToken
+}) {
   const [mode, setMode] = useState<TokenMode>("native")
   const [customId, setCustomId] = useState("")
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle")
   const [meta, setMeta] = useState<TokenMetadata | null>(null)
   const [error, setError] = useState("")
+
+  // Reflect a pre-filled token (from a template) on mount.
+  useEffect(() => {
+    if (!defaultToken) return
+    if (defaultToken.address === "native") {
+      setMode("native")
+      onChange(NATIVE)
+    } else if (defaultToken.address === USDC.address) {
+      setMode("usdc")
+      onChange(USDC)
+    } else if (isValidContractId(defaultToken.address)) {
+      setMode("custom")
+      setCustomId(defaultToken.address)
+      fetchTokenMetadata(defaultToken.address)
+        .then((m) => {
+          setMeta(m)
+          setStatus("ok")
+          onChange({
+            address: defaultToken.address,
+            symbol: m.symbol,
+            decimals: m.decimals,
+          })
+        })
+        .catch(() => {
+          setStatus("error")
+          setError("Couldn't read this token — is it a valid SEP-41 contract?")
+        })
+    }
+  }, [defaultToken, onChange])
 
   const handleMode = (v: string) => {
     const next = v as TokenMode

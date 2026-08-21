@@ -1,61 +1,17 @@
 "use client"
 
-import {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-  Suspense,
-  type KeyboardEvent,
-  type MouseEvent,
-} from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Search,
-  Users,
-  TrendingUp,
-  Calendar,
-  Loader2,
-  Send,
-  AlertCircle,
-  Heart,
-} from "lucide-react"
-import { motion } from "framer-motion"
-import { useStellar } from "@/components/web3-provider"
-import { fetchFactoryPools, fetchReputation } from "@/hooks/useJointSaveContracts"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel"
-import Link from "next/link"
-import { useToast } from "@/hooks/use-toast"
-import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { Suspense } from "react"
+import dynamic from "next/dynamic"
 import { ErrorBoundary } from "@/components/error-boundary"
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  usePoolComparison,
-  getPoolComparisonKey,
-  MAX_COMPARISON_POOLS,
-} from "@/hooks/usePoolComparison"
+import { ExploreSkeleton } from "@/components/ui/loading-skeletons"
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+const ExploreView = dynamic(
+  () => import("@/components/explore/explore-view").then((mod) => mod.ExploreContent),
+  {
+    ssr: false,
+    loading: () => <ExploreSkeleton />,
+  }
+)
 
 interface Pool {
   id: string
@@ -900,9 +856,9 @@ function ExploreFallback() {
 // useSearchParams requires a Suspense boundary at the page level.
 export default function ExplorePage() {
   return (
-    <Suspense fallback={<ExploreFallback />}>
+    <Suspense fallback={<ExploreSkeleton />}>
       <ErrorBoundary sectionName="Explore Pools">
-        <ExploreContent />
+        <ExploreView />
       </ErrorBoundary>
     </Suspense>
   )

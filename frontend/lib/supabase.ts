@@ -95,6 +95,7 @@ export type Database = {
           withdrawal_fee?: number | null
           yield_enabled?: boolean
         }
+        Relationships: []
       }
       pool_members: {
         Row: {
@@ -117,6 +118,7 @@ export type Database = {
           contribution_amount?: number
           status?: "pending" | "paid" | "late"
         }
+        Relationships: []
       }
       pool_activity: {
         Row: {
@@ -128,6 +130,9 @@ export type Database = {
           token_amount: number | null
           description: string | null
           tx_hash: string | null
+          on_chain_timestamp: string | null
+          block_number: number | null
+          fee_charged: number | null
           created_at: string
         }
         Insert: {
@@ -138,6 +143,9 @@ export type Database = {
           token_amount?: number | null
           description?: string | null
           tx_hash?: string | null
+          on_chain_timestamp?: string | null
+          block_number?: number | null
+          fee_charged?: number | null
         }
         Update: {
           pool_id?: string
@@ -147,7 +155,11 @@ export type Database = {
           token_amount?: number | null
           description?: string | null
           tx_hash?: string | null
+          on_chain_timestamp?: string | null
+          block_number?: number | null
+          fee_charged?: number | null
         }
+        Relationships: []
       }
       pool_daily_metrics: {
         Row: {
@@ -180,6 +192,7 @@ export type Database = {
           active_members_count?: number
           created_at?: string
         }
+        Relationships: []
       }
       join_requests: {
         Row: {
@@ -201,6 +214,7 @@ export type Database = {
           responded_at?: string | null
           responder_id?: string | null
         }
+        Relationships: []
       }
       pool_health_scores: {
         Row: {
@@ -227,6 +241,7 @@ export type Database = {
           risk_indicator?: string
           last_calculated_at?: string
         }
+        Relationships: []
       }
       user_profiles: {
         Row: {
@@ -266,6 +281,7 @@ export type Database = {
           }
           updated_at?: string
         }
+        Relationships: []
       }
       deposit_reminders: {
         Row: {
@@ -288,6 +304,7 @@ export type Database = {
           round_deadline?: string
           created_at?: string
         }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -311,6 +328,7 @@ export type Database = {
         Update: {
           read?: boolean
         }
+        Relationships: []
       }
       admin_actions: {
         Row: {
@@ -342,6 +360,7 @@ export type Database = {
           tx_hash?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       cron_job_logs: {
         Row: {
@@ -376,8 +395,68 @@ export type Database = {
           next_retry_at?: string | null
           created_at?: string
         }
+        Relationships: []
+      }
+      event_index_log: {
+        Row: {
+          id: number
+          pool_id: string
+          last_indexed_ledger: number
+          indexed_at: string
+        }
+        Insert: {
+          pool_id: string
+          last_indexed_ledger: number
+          indexed_at?: string
+        }
+        Update: {
+          pool_id?: string
+          last_indexed_ledger?: number
+          indexed_at?: string
+        }
+        Relationships: []
+      }
+      pool_templates: {
+        Row: {
+          id: string
+          creator_address: string
+          name: string
+          description: string | null
+          pool_type: "rotational" | "target" | "flexible"
+          config: Record<string, unknown>
+          is_public: boolean
+          use_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          creator_address: string
+          name: string
+          description?: string | null
+          pool_type: "rotational" | "target" | "flexible"
+          config: Record<string, unknown>
+          is_public?: boolean
+          use_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          pool_type?: "rotational" | "target" | "flexible"
+          config?: Record<string, unknown>
+          is_public?: boolean
+          use_count?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
+    // supabase-js v2 requires these keys on the schema type; without them the
+    // client can't match GenericSchema and every table degrades to `never`.
+    Views: Record<string, never>
+    Functions: Record<string, never>
   }
 }
 
