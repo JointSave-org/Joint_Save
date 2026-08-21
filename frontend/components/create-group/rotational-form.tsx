@@ -183,7 +183,6 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
       try {
         await register(address, contractId)
       } catch (regErr: unknown) {
-        // eslint-disable-next-line no-console
         console.warn("Factory registration skipped:", (regErr as Error).message)
       }
 
@@ -191,7 +190,6 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
       try {
         await setTracker(contractId)
       } catch (repErr: unknown) {
-        // eslint-disable-next-line no-console
         console.warn("Reputation tracker wiring skipped:", (repErr as Error).message)
       }
 
