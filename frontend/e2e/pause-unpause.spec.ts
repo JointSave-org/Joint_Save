@@ -51,7 +51,9 @@ test("admin pauses an active pool", async ({ page }) => {
   await pauseBtn.click()
 
   // Toast confirms — use .text-sm.opacity-90 to target description, avoid strict mode
-  await expect(page.locator(".text-sm.opacity-90").getByText(/paused/i)).toBeVisible({ timeout: 10000 })
+  await expect(page.locator(".text-sm.opacity-90").getByText(/paused/i)).toBeVisible({
+    timeout: 10000,
+  })
 })
 
 test("admin unpauses a paused pool", async ({ page }) => {
@@ -89,7 +91,9 @@ test("admin unpauses a paused pool", async ({ page }) => {
   await unpauseBtn.click()
 
   // Toast confirms — use .text-sm.opacity-90 to target description, avoid strict mode
-  await expect(page.locator(".text-sm.opacity-90").getByText(/unpaused/i)).toBeVisible({ timeout: 10000 })
+  await expect(page.locator(".text-sm.opacity-90").getByText(/unpaused/i)).toBeVisible({
+    timeout: 10000,
+  })
 })
 
 test("non-admin cannot see pause/unpause buttons", async ({ page }) => {

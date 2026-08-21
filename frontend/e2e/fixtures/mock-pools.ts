@@ -88,16 +88,12 @@ export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<P
   await page.route("**/api/pools**", async (route) => {
     const req = route.request()
     const url = new URL(req.url())
-    // Skip sub-paths like /api/pools/messages — let them fall through.
-    if (url.pathname !== "/api/pools" && url.pathname !== "/api/pools/") {
-      return route.continue()
-    }
     const method = req.method()
 
     // ── Nested per-pool routes (issue #210) ──────────────────────────────────
     // /api/pools/:id/activity, /api/pools/:id/activity/export,
-    // /api/pools/:id/index-events — must be handled before the query-param
-    // branches because the **/api/pools** glob captures them too.
+    // /api/pools/:id/index-events — must be handled before the sub-path
+    // fall-through below because the **/api/pools** glob captures them too.
     const nested = url.pathname.match(
       /\/api\/pools\/([^/]+)\/(activity\/export|activity|index-events)$/
     )
@@ -207,6 +203,12 @@ export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<P
         })
       }
       return json(route, { verified: true })
+    }
+
+    // Remaining sub-paths (e.g. /api/pools/messages) — let later-registered
+    // routes (mockCommonApis) handle them instead of serving the pool list.
+    if (url.pathname !== "/api/pools" && url.pathname !== "/api/pools/") {
+      return route.continue()
     }
 
     if (method === "POST") {

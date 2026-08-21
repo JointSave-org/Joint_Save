@@ -69,5 +69,7 @@ test("opens payout preview and confirms", async ({ page }) => {
 
   // Dialog closes and toast appears
   await expect(dialog).toBeHidden()
-  await expect(page.locator(".text-sm.opacity-90").getByText(/payout/i)).toBeVisible({ timeout: 10000 })
+  await expect(page.locator(".text-sm.opacity-90").getByText(/payout/i)).toBeVisible({
+    timeout: 10000,
+  })
 })

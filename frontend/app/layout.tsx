@@ -50,19 +50,19 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <ReactQueryProvider>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <ScrollToTop />
-          <Suspense fallback={null}>
-            <Web3Provider>
-              <TransactionRecoveryProvider>
-                <PoolDataProvider>
-                  {children}
-                  <PendingTxBanner />
-                </PoolDataProvider>
-              </TransactionRecoveryProvider>
-            </Web3Provider>
-          </Suspense>
-        </ThemeProvider>
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+            <ScrollToTop />
+            <Suspense fallback={null}>
+              <Web3Provider>
+                <TransactionRecoveryProvider>
+                  <PoolDataProvider>
+                    {children}
+                    <PendingTxBanner />
+                  </PoolDataProvider>
+                </TransactionRecoveryProvider>
+              </Web3Provider>
+            </Suspense>
+          </ThemeProvider>
         </ReactQueryProvider>
         <Analytics />
         <WebVitals />

@@ -88,8 +88,10 @@ test("admin can remove a member", async ({ page }) => {
   // Confirm removal
   await dialog.getByRole("button", { name: "Remove" }).click()
 
-  // Toast confirms
-  await expect(page.getByText(/member removed/i)).toBeVisible({ timeout: 10000 })
+  // Toast confirms — use .text-sm.opacity-90 to target description, avoid strict mode
+  await expect(page.locator(".text-sm.opacity-90").getByText(/member removed/i)).toBeVisible({
+    timeout: 10000,
+  })
 })
 
 test("non-admin sees leave pool button", async ({ page }) => {
