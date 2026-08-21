@@ -94,6 +94,37 @@ async function logActivity(
 }
 
 /**
+ * Record a deposit in Supabase only after the transaction hash is verified
+ * as successful on Horizon (see app/api/pools/deposit/route.ts). Verification
+ * is retried briefly since Horizon may lag a freshly confirmed ledger.
+ */
+async function verifyAndLogDeposit(
+  poolId: string,
+  userAddress: string,
+  txHash: string,
+  amount: string | null
+) {
+  const payload = {
+    poolId,
+    userAddress,
+    txHash,
+    amount: amount ? parseFloat(amount) : null,
+  }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch("/api/pools/deposit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) return
+      if (res.status === 422) return // tx not on Horizon (yet) — tracker keeps watching
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** attempt))
+  }
+}
+
+/**
  * Fire-and-forget: send a push notification to pool members via the
  * server-side proxy endpoint. The client never touches CRON_SECRET —
  * the secret is added server-side in /api/notifications/push-event.
@@ -304,7 +335,7 @@ export function GroupActions({
 
       if (txHash) {
         updateTxHash(txHash)
-        await logActivity(groupId, "deposit", address, depositAmount || null, txHash)
+        await verifyAndLogDeposit(groupId, address, txHash, depositAmount || null)
         void triggerPushNotification(
           groupId,
           "event_deposit",
