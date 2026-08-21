@@ -164,14 +164,24 @@ export function DashboardHeader() {
                       </DropdownMenuItem>
                     ))
                   )}
-                  {!initialLoading && notifications.length > 0 && (
+                  {!initialLoading && (
                     <>
                       <DropdownMenuSeparator />
+                      {notifications.length > 0 && (
+                        <DropdownMenuItem
+                          asChild
+                          className="justify-center text-sm font-medium text-primary cursor-pointer"
+                        >
+                          <Link href="/dashboard/notifications">View all notifications</Link>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         asChild
-                        className="justify-center text-sm font-medium text-primary cursor-pointer"
+                        className="justify-center text-sm text-muted-foreground cursor-pointer"
                       >
-                        <Link href="/dashboard/notifications">View all notifications</Link>
+                        <Link href="/dashboard/notifications/preferences">
+                          Notification preferences
+                        </Link>
                       </DropdownMenuItem>
                     </>
                   )}

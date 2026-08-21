@@ -115,6 +115,13 @@ export function Web3Provider({ children }: { children: ReactNode }) {
     if (savedAddress) setAddress(savedAddress)
     if (savedWalletId) setWalletId(savedWalletId)
     setIsInitializing(false)
+
+    // Register the push notification service worker.
+    if (!IS_E2E && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.warn("[sw] Service worker registration failed:", err)
+      })
+    }
   }, [])
 
   const connect = useCallback(async () => {
