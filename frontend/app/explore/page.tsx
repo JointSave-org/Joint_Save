@@ -13,6 +13,7 @@ const ExploreView = dynamic(
   }
 )
 
+// useSearchParams requires a Suspense boundary at the page level.
 export default function ExplorePage() {
   return (
     <Suspense fallback={<ExploreSkeleton />}>

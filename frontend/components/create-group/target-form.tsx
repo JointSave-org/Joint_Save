@@ -188,7 +188,6 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       try {
         await register(address, contractId)
       } catch (regErr: unknown) {
-        // eslint-disable-next-line no-console
         console.warn("Factory registration skipped:", (regErr as Error).message)
       }
 
