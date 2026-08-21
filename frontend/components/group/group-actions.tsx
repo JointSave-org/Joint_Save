@@ -129,6 +129,28 @@ async function verifyAndLogDeposit(
   }
 }
 
+/**
+ * Fire-and-forget: send a push notification to pool members via the
+ * server-side proxy endpoint. The client never touches CRON_SECRET —
+ * the secret is added server-side in /api/notifications/push-event.
+ */
+async function triggerPushNotification(
+  poolId: string,
+  eventType: string,
+  title: string,
+  body: string
+) {
+  try {
+    await fetch("/api/notifications/push-event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pool_id: poolId, event_type: eventType, title, body }),
+    })
+  } catch {
+    // Non-critical — never let push failure break the deposit flow.
+  }
+}
+
 async function logAdminAction(
   poolId: string,
   adminAddress: string,
@@ -400,6 +422,12 @@ export function GroupActions({
       if (txHash) {
         updateTxHash(txHash)
         await verifyAndLogDeposit(groupId, address, txHash, depositAmount || null)
+        void triggerPushNotification(
+          groupId,
+          "event_deposit",
+          "💰 New deposit made",
+          `A member deposited${depositAmount ? ` ${depositAmount} ${tokenSymbol}` : ""} in your pool.`
+        )
         toastManager.info("Deposit submitted (confirming on-chain)…")
       }
     )
@@ -563,6 +591,75 @@ export function GroupActions({
         }
       }
     )
+
+      const treasuryFeeBps = state.treasuryFeeBps
+      const relayerFeeBps = state.relayerFeeBps
+      const depositCount = state.depositCount
+      const currentRound = state.currentRound
+      const members = state.members
+      const beneficiary = members[currentRound] || "Unknown beneficiary"
+
+      const treasuryPercent = treasuryFeeBps / 100
+      const relayerPercent = relayerFeeBps / 100
+
+      const contribution = parseFloat((poolData?.contribution_amount as string) ?? "0")
+      const totalCollected = contribution * depositCount
+      const treasuryCut = totalCollected * (treasuryFeeBps / 10000)
+      const relayerCut = totalCollected * (relayerFeeBps / 10000)
+      const payoutAmount = totalCollected - treasuryCut - relayerCut
+
+      const shortAddress = (addr: string) =>
+        addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-6)}` : addr
+
+      setPreviewData({
+        type: "payout",
+        amount: totalCollected,
+        details: [
+          {
+            label: "Total Collected (Depositors)",
+            value: `${totalCollected.toFixed(2)} ${tokenSymbol} (${depositCount}/${members.length} paid)`,
+          },
+          {
+            label: `Treasury Fee (${treasuryPercent}%)`,
+            value: `-${treasuryCut.toFixed(2)} ${tokenSymbol}`,
+            isDeduction: true,
+          },
+          {
+            label: `Relayer Fee (${relayerPercent}%)`,
+            value: `-${relayerCut.toFixed(2)} ${tokenSymbol}`,
+            isDeduction: true,
+          },
+          { label: "Net Recipient Payout", value: `${payoutAmount.toFixed(2)} ${tokenSymbol}` },
+          { label: "Beneficiary Address", value: shortAddress(beneficiary) },
+          {
+            label: "Your Relayer Reward (expected)",
+            value: `${relayerCut.toFixed(2)} ${tokenSymbol}`,
+          },
+        ],
+        onConfirm: async () => {
+          if (!confirmRecentPendingTransaction(address, poolAddress, "trigger_payout")) return
+          registerOptimistic("trigger_payout", address)
+          const txHash = await triggerPayout.trigger()
+          if (txHash) {
+            updateTxHash(txHash)
+            await logActivity(groupId, "payout", address, null, txHash)
+            void triggerPushNotification(
+              groupId,
+              "event_payout",
+              "🎉 Payout triggered",
+              "A payout has been distributed from your pool."
+            )
+            toastManager.info("Payout trigger submitted (confirming on-chain)…")
+          }
+        },
+      })
+      setIsPreviewOpen(true)
+    } catch (e: unknown) {
+      const msg = (e as Error).message || "Failed to load payout details"
+      toastManager.error(msg)
+    } finally {
+      setPreviewLoading(false)
+    }
   }
 
   const handleRefund = async () => {
@@ -597,6 +694,17 @@ export function GroupActions({
           toastManager.success("Pool paused successfully", undefined, txHash)
         }
         onPauseChange?.()
+    try {
+      const txHash = await pausePool.pause()
+      if (txHash) {
+        await logAdminAction(groupId, address, "pause", null, txHash)
+        void triggerPushNotification(
+          groupId,
+          "event_paused",
+          "⏸️ Pool paused",
+          "An admin has paused this pool. Deposits and withdrawals are temporarily disabled."
+        )
+        toastManager.success("Pool paused successfully", undefined, txHash)
       }
     )
   }
@@ -614,6 +722,17 @@ export function GroupActions({
           toastManager.success("Pool unpaused successfully", undefined, txHash)
         }
         onPauseChange?.()
+    try {
+      const txHash = await unpausePool.unpause()
+      if (txHash) {
+        await logAdminAction(groupId, address, "unpause", null, txHash)
+        void triggerPushNotification(
+          groupId,
+          "event_paused",
+          "▶️ Pool resumed",
+          "This pool has been resumed. Deposits and withdrawals are now active again."
+        )
+        toastManager.success("Pool unpaused successfully", undefined, txHash)
       }
     )
   }
@@ -645,6 +764,27 @@ export function GroupActions({
           setNewMember("")
           await refreshMembers()
         }
+    try {
+      const txHash = await addPoolMember.addMember(newMember.trim().toUpperCase())
+      if (txHash) {
+        await logActivity(
+          groupId,
+          "member_added",
+          address,
+          null,
+          txHash,
+          newMember.trim().toUpperCase()
+        )
+        await logAdminAction(groupId, address, "add_member", newMember.trim().toUpperCase(), txHash)
+        void triggerPushNotification(
+          groupId,
+          "event_member_joined",
+          "👋 New member joined",
+          "A new member has been added to your pool."
+        )
+        toastManager.success("Member added successfully", undefined, txHash)
+        setNewMember("")
+        await refreshMembers()
       }
     )
   }
@@ -673,6 +813,20 @@ export function GroupActions({
           setMemberToRemove(null)
           await refreshMembers()
         }
+    try {
+      const txHash = await removePoolMember.removeMember(memberToRemove)
+      if (txHash) {
+        await logActivity(groupId, "member_removed", address, null, txHash, memberToRemove)
+        await logAdminAction(groupId, address, "remove_member", memberToRemove, txHash)
+        void triggerPushNotification(
+          groupId,
+          "event_member_left",
+          "🚪 Member removed",
+          "A member has been removed from the pool."
+        )
+        toastManager.success("Member removed successfully", undefined, txHash)
+        setMemberToRemove(null)
+        await refreshMembers()
       }
     )
   }
