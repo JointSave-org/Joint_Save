@@ -88,6 +88,10 @@ export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<P
   await page.route("**/api/pools**", async (route) => {
     const req = route.request()
     const url = new URL(req.url())
+    // Skip sub-paths like /api/pools/messages — let them fall through.
+    if (url.pathname !== "/api/pools" && url.pathname !== "/api/pools/") {
+      return route.continue()
+    }
     const method = req.method()
 
     if (method === "GET") {

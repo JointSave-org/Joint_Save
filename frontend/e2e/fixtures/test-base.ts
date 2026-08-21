@@ -22,14 +22,25 @@ export const test = base.extend<{ consoleErrors: string[] }>({
 import type { Page } from "@playwright/test"
 
 /**
- * Wait until the browser has received a successful `/api/pools` response.
+ * Wait until the browser has received a successful `/api/pools` response
+ * (not sub-paths like `/api/pools/messages`).
  * Call this right after `page.goto(...)` to eliminate the race where
  * assertions run before the mocked pool data is applied in the UI.
  */
 export function waitForPoolsResponse(page: Page, timeout = 15_000) {
-  return page.waitForResponse((r) => r.url().includes("/api/pools") && r.status() === 200, {
-    timeout,
-  })
+  return page.waitForResponse(
+    (r) => {
+      if (r.status() !== 200) return false
+      try {
+        const pathname = new URL(r.url()).pathname
+        // Match /api/pools exactly, but NOT sub-paths like /api/pools/messages
+        return pathname === "/api/pools" || pathname === "/api/pools/"
+      } catch {
+        return false
+      }
+    },
+    { timeout }
+  )
 }
 
 /**
@@ -99,9 +110,11 @@ export async function mockCommonApis(page: Page) {
     })
   )
 
-  // Admin endpoints — return empty data.
-  await page.route("**/api/admin/audit-log**", (route) => json(route, { data: [], total: 0 }))
-  await page.route("**/api/admin/actions**", (route) => json(route, { data: [], total: 0 }))
+  // Admin endpoints — return data in the shape each component expects.
+  await page.route("**/api/admin/audit-log**", (route) =>
+    json(route, { rows: [], inconsistent: false, activityNet: 0, recorded: 0 })
+  )
+  await page.route("**/api/admin/actions**", (route) => json(route, { actions: [] }))
 
   // Pool messages — return empty array.
   await page.route("**/api/pools/messages**", (route) => json(route, []))

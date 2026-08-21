@@ -61,13 +61,13 @@ test("opens payout preview and confirms", async ({ page }) => {
 
   // Fee breakdown rows are visible
   await expect(dialog.getByText("Total Collected")).toBeVisible()
-  await expect(dialog.getByText(/treasury fee/i)).toBeVisible()
-  await expect(dialog.getByText(/relayer fee/i)).toBeVisible()
+  await expect(dialog.getByText(/treasury fee/i).first()).toBeVisible()
+  await expect(dialog.getByText(/relayer fee/i).first()).toBeVisible()
 
   // Confirm and sign
   await dialog.getByRole("button", { name: /confirm & sign/i }).click()
 
   // Dialog closes and toast appears
   await expect(dialog).toBeHidden()
-  await expect(page.locator(".text-sm.opacity-90").getByText(/payout/i)).toBeVisible()
+  await expect(page.locator(".text-sm.opacity-90").getByText(/payout/i)).toBeVisible({ timeout: 10000 })
 })

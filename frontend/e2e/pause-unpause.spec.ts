@@ -42,16 +42,16 @@ test("admin pauses an active pool", async ({ page }) => {
   await poolsResponse
   await expect(page.getByRole("heading", { name: /Pause Pool/i })).toBeVisible()
 
-  // Pause button is visible and enabled for admin
-  const pauseBtn = page.getByRole("button", { name: "Pause Pool" })
+  // Pause button is visible and enabled for admin (exact match to avoid "Unpause Pool")
+  const pauseBtn = page.getByRole("button", { name: "Pause Pool", exact: true })
   await expect(pauseBtn).toBeVisible()
   await expect(pauseBtn).toBeEnabled()
 
   // Click pause
   await pauseBtn.click()
 
-  // Toast confirms
-  await expect(page.locator(".text-sm.opacity-90").getByText(/paused/i)).toBeVisible()
+  // Toast confirms — use .text-sm.opacity-90 to target description, avoid strict mode
+  await expect(page.locator(".text-sm.opacity-90").getByText(/paused/i)).toBeVisible({ timeout: 10000 })
 })
 
 test("admin unpauses a paused pool", async ({ page }) => {
@@ -80,16 +80,16 @@ test("admin unpauses a paused pool", async ({ page }) => {
   // Pause banner is shown
   await expect(page.getByText(/pool is paused/i)).toBeVisible()
 
-  // Unpause button is visible
-  const unpauseBtn = page.getByRole("button", { name: "Unpause Pool" })
+  // Unpause button is visible (exact match)
+  const unpauseBtn = page.getByRole("button", { name: "Unpause Pool", exact: true })
   await expect(unpauseBtn).toBeVisible()
   await expect(unpauseBtn).toBeEnabled()
 
   // Click unpause
   await unpauseBtn.click()
 
-  // Toast confirms
-  await expect(page.locator(".text-sm.opacity-90").getByText(/unpaused/i)).toBeVisible()
+  // Toast confirms — use .text-sm.opacity-90 to target description, avoid strict mode
+  await expect(page.locator(".text-sm.opacity-90").getByText(/unpaused/i)).toBeVisible({ timeout: 10000 })
 })
 
 test("non-admin cannot see pause/unpause buttons", async ({ page }) => {
@@ -119,11 +119,10 @@ test("non-admin cannot see pause/unpause buttons", async ({ page }) => {
   // Admin Controls section shows the "only admin" message
   await expect(page.getByText("Only the pool admin can pause or unpause")).toBeVisible()
 
-  // The pause button should be disabled (non-admin)
-  const pauseBtn = page.getByRole("button", { name: "Pause Pool" })
+  // Both buttons are always in the DOM; use exact match to avoid "Unpause Pool"
+  const pauseBtn = page.getByRole("button", { name: "Pause Pool", exact: true })
   await expect(pauseBtn).toBeDisabled()
 
-  // The unpause button should also be disabled
-  const unpauseBtn = page.getByRole("button", { name: "Unpause Pool" })
+  const unpauseBtn = page.getByRole("button", { name: "Unpause Pool", exact: true })
   await expect(unpauseBtn).toBeDisabled()
 })

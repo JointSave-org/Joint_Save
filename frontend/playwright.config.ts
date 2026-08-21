@@ -55,13 +55,13 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: { ...devices["Desktop Chrome"], channel: "chrome" },
     },
   ],
 
   webServer: {
     // Dev locally for fast iteration; build+start in CI for stability/speed.
-    command: isCI ? "pnpm build && pnpm start" : "pnpm dev",
+    command: isCI ? "pnpm build && pnpm start" : "pnpm build && pnpm start",
     url: "http://localhost:3000",
     reuseExistingServer: !isCI,
     timeout: 180_000,

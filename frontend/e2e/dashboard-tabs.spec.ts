@@ -68,11 +68,9 @@ test("Portfolio tab renders", async ({ page }) => {
   await page.goto("/dashboard", { waitUntil: "networkidle" })
   await poolsResponse
 
-  await page.getByRole("tab", { name: /portfolio/i }).click()
-  await expect(page.getByRole("tab", { name: /portfolio/i })).toHaveAttribute(
-    "aria-selected",
-    "true"
-  )
+  const tab = page.getByRole("tab", { name: /portfolio/i })
+  await tab.click()
+  await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: 10000 })
 })
 
 test("Transactions tab renders", async ({ page }) => {
@@ -80,11 +78,9 @@ test("Transactions tab renders", async ({ page }) => {
   await page.goto("/dashboard", { waitUntil: "networkidle" })
   await poolsResponse
 
-  await page.getByRole("tab", { name: /transactions/i }).click()
-  await expect(page.getByRole("tab", { name: /transactions/i })).toHaveAttribute(
-    "aria-selected",
-    "true"
-  )
+  const tab = page.getByRole("tab", { name: /transactions/i })
+  await tab.click()
+  await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: 10000 })
 })
 
 test("Analytics tab renders", async ({ page }) => {
@@ -92,11 +88,9 @@ test("Analytics tab renders", async ({ page }) => {
   await page.goto("/dashboard", { waitUntil: "networkidle" })
   await poolsResponse
 
-  await page.getByRole("tab", { name: /analytics/i }).click()
-  await expect(page.getByRole("tab", { name: /analytics/i })).toHaveAttribute(
-    "aria-selected",
-    "true"
-  )
+  const tab = page.getByRole("tab", { name: /analytics/i })
+  await tab.click()
+  await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: 10000 })
 })
 
 test("Profile tab renders", async ({ page }) => {

@@ -756,24 +756,24 @@ function ExploreContent() {
             />
           </div>
 
-          <Select value={filterType} onValueChange={setFilterType}>
+          <Select value={filterType || "__all__"} onValueChange={(v) => setFilterType(v === "__all__" ? "" : v)}>
             <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="__all__">All Types</SelectItem>
               <SelectItem value="rotational">Rotational</SelectItem>
               <SelectItem value="target">Target</SelectItem>
               <SelectItem value="flexible">Flexible</SelectItem>
             </SelectContent>
           </Select>
 
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <Select value={filterStatus || "__all__"} onValueChange={(v) => setFilterStatus(v === "__all__" ? "" : v)}>
             <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="__all__">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>

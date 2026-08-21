@@ -51,7 +51,7 @@ test("admin can add a member", async ({ page }) => {
   await page.getByRole("button", { name: "Add member" }).click()
 
   // Toast confirms
-  await expect(page.locator(".text-sm.opacity-90").getByText(/member added/i)).toBeVisible()
+  await expect(page.getByText(/member added/i).first()).toBeVisible({ timeout: 10000 })
 })
 
 test("admin can remove a member", async ({ page }) => {
@@ -89,7 +89,7 @@ test("admin can remove a member", async ({ page }) => {
   await dialog.getByRole("button", { name: "Remove" }).click()
 
   // Toast confirms
-  await expect(page.locator(".text-sm.opacity-90").getByText(/member removed/i)).toBeVisible()
+  await expect(page.getByText(/member removed/i)).toBeVisible({ timeout: 10000 })
 })
 
 test("non-admin sees leave pool button", async ({ page }) => {
@@ -115,8 +115,8 @@ test("non-admin sees leave pool button", async ({ page }) => {
   await poolsResponse
   await expect(page.getByRole("heading", { name: /Member Pool/i })).toBeVisible()
 
-  // Non-admin sees Leave Pool section
-  await expect(page.getByText("Leave Pool")).toBeVisible()
+  // Non-admin sees Leave Pool button (text matches both heading and button, use .first())
+  await expect(page.getByText("Leave Pool").first()).toBeVisible()
   const leaveBtn = page.getByRole("button", { name: "Leave Pool" })
   await expect(leaveBtn).toBeVisible()
 

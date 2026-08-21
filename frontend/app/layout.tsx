@@ -9,6 +9,7 @@ import { Web3Provider } from "@/components/web3-provider"
 import { PoolDataProvider } from "@/lib/data-layer/PoolDataProvider"
 import "@/lib/env"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ReactQueryProvider } from "@/components/react-query-provider"
 import { Suspense } from "react"
 import { TxQueueBadge } from "@/components/tx-queue-badge"
 import { ScrollToTop } from "@/components/ui/scroll-to-top"
@@ -46,6 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+        <ReactQueryProvider>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <ScrollToTop />
           <Suspense fallback={null}>
@@ -56,6 +58,7 @@ export default function RootLayout({
             </Web3Provider>
           </Suspense>
         </ThemeProvider>
+        </ReactQueryProvider>
         <Analytics />
         <Toaster />
         <TxQueueBadge />
