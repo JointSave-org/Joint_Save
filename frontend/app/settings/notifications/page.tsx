@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useState } from "react"
 import { useStellar } from "@/components/web3-provider"
@@ -27,7 +27,9 @@ export default function NotificationSettingsPage() {
   useEffect(() => {
     if (!address) return
     setLoading(true)
-    fetch(`/api/notifications/digest-preferences?wallet=${address}`)
+    fetch(`/api/notifications/digest-preferences?wallet=${address}`, {
+      headers: { "x-wallet-address": address },
+    })
       .then((res) => res.json())
       .then((data) => {
         setEmail(data.email ?? "")
@@ -52,7 +54,7 @@ export default function NotificationSettingsPage() {
     try {
       const res = await fetch("/api/notifications/digest-preferences", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-wallet-address": address },
         body: JSON.stringify({ wallet_address: address, email, frequency }),
       })
       if (!res.ok) throw new Error()

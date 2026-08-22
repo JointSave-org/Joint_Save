@@ -1,4 +1,4 @@
-﻿import { getAdminClient } from "@/lib/supabase-admin"
+import { getAdminClient } from "@/lib/supabase-admin"
 import { sendDigestEmail } from "@/lib/email"
 import { NextRequest, NextResponse } from "next/server"
 
@@ -15,6 +15,9 @@ interface DigestPref {
 
 // GET /api/cron/send-digests -- triggered daily at 08:00 UTC by Vercel Cron.
 export async function GET(req: NextRequest) {
+  if (!process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 500 })
+  }
   const authHeader = req.headers.get("authorization")
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

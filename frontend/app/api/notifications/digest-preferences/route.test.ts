@@ -1,4 +1,4 @@
-﻿import { test } from "node:test"
+import { test } from "node:test"
 import assert from "node:assert"
 
 // -- Validation logic (mirrors route.ts) -------------------------------
@@ -115,4 +115,31 @@ test("digest-preferences -- PUT normalizes wallet to lowercase and trims email",
   if ("error" in result) throw new Error("Expected valid result")
   assert.strictEqual(result.wallet_address, "gabc123")
   assert.strictEqual(result.email, "test@example.com")
+})
+
+// -- Wallet ownership guard --------------------------------------------------
+
+function verifyWalletOwnership(
+  headerWallet: string | null,
+  walletFromPayload: string
+): { error: string; status: number } | null {
+  if (!headerWallet) return { error: "x-wallet-address header is required", status: 401 }
+  if (headerWallet.toLowerCase() !== walletFromPayload.toLowerCase())
+    return { error: "Wallet address mismatch", status: 403 }
+  return null
+}
+
+test("digest-preferences -- rejects missing x-wallet-address header", () => {
+  const result = verifyWalletOwnership(null, "gabc123")
+  assert.deepStrictEqual(result, { error: "x-wallet-address header is required", status: 401 })
+})
+
+test("digest-preferences -- rejects mismatched wallet header", () => {
+  const result = verifyWalletOwnership("gdifferent", "gabc123")
+  assert.deepStrictEqual(result, { error: "Wallet address mismatch", status: 403 })
+})
+
+test("digest-preferences -- accepts matching wallet header (case-insensitive)", () => {
+  const result = verifyWalletOwnership("GABC123", "gabc123")
+  assert.strictEqual(result, null)
 })

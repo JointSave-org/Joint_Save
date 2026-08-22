@@ -16,8 +16,19 @@ export interface Digest {
   unsubscribeToken: string
 }
 
+// Escapes HTML entities so user-controlled text (pool names, notification
+// messages) can't inject markup into emails sent from our domain.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 function activityLabel(type: string): string {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  return escapeHtml(type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()))
 }
 
 function digestEmailHtml(digest: Digest): string {
@@ -30,7 +41,7 @@ function digestEmailHtml(digest: Digest): string {
         <li style="margin-bottom:10px;list-style:none;">
           <span style="color:#6d28d9;font-weight:600;">${activityLabel(n.activity_type)}</span>
           <br/>
-          <span style="color:#374151;">${n.message}</span>
+          <span style="color:#374151;">${escapeHtml(n.message)}</span>
         </li>`
         )
         .join("")
@@ -58,7 +69,7 @@ function digestEmailHtml(digest: Digest): string {
     </div>`
 }
 
-// sendDigestEmail — formats and sends one digest email via Resend.
+// sendDigestEmail -- formats and sends one digest email via Resend.
 // Silently no-ops if RESEND_API_KEY isn't set (mirrors send-deposit-reminders'
 // pattern of degrading gracefully in local/dev environments without secrets).
 export async function sendDigestEmail(to: string, digest: Digest): Promise<void> {
