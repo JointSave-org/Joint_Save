@@ -93,11 +93,7 @@ export function BulkOperations({
             )}
             {allSelected ? "Deselect All" : "Select All"}
           </Button>
-          {selectedCount > 0 && (
-            <Badge variant="secondary">
-              {selectedCount} selected
-            </Badge>
-          )}
+          {selectedCount > 0 && <Badge variant="secondary">{selectedCount} selected</Badge>}
         </div>
 
         <Button
@@ -172,10 +168,7 @@ export function BulkOperations({
             <Button variant="outline" onClick={() => setMessageDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSendMessage}
-              disabled={isSending || !messageText.trim()}
-            >
+            <Button onClick={handleSendMessage} disabled={isSending || !messageText.trim()}>
               {isSending ? "Sending..." : "Send Message"}
             </Button>
           </DialogFooter>

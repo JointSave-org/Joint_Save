@@ -97,7 +97,9 @@ export function PoolHealthCard({
           {pool.health_band === "new" ? (
             <div className="w-[88px] h-[88px] rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
               <span className="text-xs text-muted-foreground text-center leading-tight">
-                No<br />data
+                No
+                <br />
+                data
               </span>
             </div>
           ) : (
@@ -142,7 +144,9 @@ export function PoolHealthCard({
             </div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <TrendingUp className="h-3.5 w-3.5" />
-              <span>{pool.total_saved} {pool.token_symbol}</span>
+              <span>
+                {pool.total_saved} {pool.token_symbol}
+              </span>
             </div>
             {pool.next_payout && (
               <div className="flex items-center gap-1.5 text-muted-foreground">

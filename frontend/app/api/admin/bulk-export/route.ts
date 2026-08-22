@@ -41,7 +41,9 @@ export async function POST(req: NextRequest) {
     // Fetch activity for all selected pools
     const { data: activities, error: actError } = await admin
       .from("pool_activity")
-      .select("pool_id, activity_type, user_address, amount, token_amount, description, created_at, tx_hash")
+      .select(
+        "pool_id, activity_type, user_address, amount, token_amount, description, created_at, tx_hash"
+      )
       .in("pool_id", poolIds)
       .order("created_at", { ascending: false })
       .limit(5000)

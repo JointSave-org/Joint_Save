@@ -35,11 +35,7 @@ export interface Anomaly {
 }
 
 export type AnomalyType =
-  | "stale_pool"
-  | "low_members"
-  | "at_risk_reputation"
-  | "near_capacity"
-  | "stale_disputes"
+  "stale_pool" | "low_members" | "at_risk_reputation" | "near_capacity" | "stale_disputes"
 
 const STALE_POOL_DAYS = 30
 const LOW_MEMBER_COUNT = 3
@@ -57,9 +53,10 @@ function detectAnomalies(
 
   // Stale pool: no deposits in last 30 days
   const depositActivities = activities.filter((a) => a.activity_type === "deposit")
-  const lastDeposit = depositActivities.length > 0
-    ? new Date(depositActivities[0].created_at).getTime()
-    : new Date(pool.created_at).getTime()
+  const lastDeposit =
+    depositActivities.length > 0
+      ? new Date(depositActivities[0].created_at).getTime()
+      : new Date(pool.created_at).getTime()
   const daysSinceLastDeposit = (now - lastDeposit) / (1000 * 60 * 60 * 24)
   if (daysSinceLastDeposit > STALE_POOL_DAYS) {
     anomalies.push({
@@ -141,9 +138,10 @@ function computeHealthScore(
   const depositCompliance = Math.min(1, depositCount / Math.max(1, expectedDeposits))
 
   // Activity recency: days since last activity (more recent = higher score)
-  const lastActivity = activities.length > 0
-    ? new Date(activities[0].created_at).getTime()
-    : new Date(createdAt).getTime()
+  const lastActivity =
+    activities.length > 0
+      ? new Date(activities[0].created_at).getTime()
+      : new Date(createdAt).getTime()
   const daysSinceActivity = (now - lastActivity) / (1000 * 60 * 60 * 24)
   const activityRecency = Math.max(0, 1 - daysSinceActivity / 60) // 60 days decay
 
@@ -183,7 +181,8 @@ export async function GET(req: NextRequest) {
     // Fetch all pools where the wallet is the creator/admin
     const { data: pools, error: poolsError } = await admin
       .from("pools")
-      .select(`
+      .select(
+        `
         *,
         pool_members (
           member_address,
@@ -194,7 +193,8 @@ export async function GET(req: NextRequest) {
           created_at,
           amount
         )
-      `)
+      `
+      )
       .eq("creator_address", wallet.toLowerCase())
       .order("created_at", { ascending: false })
 
@@ -209,7 +209,12 @@ export async function GET(req: NextRequest) {
     // Compute health scores and detect anomalies for each pool
     const enrichedPools: AdminPoolData[] = pools.map((pool) => {
       const members = (pool.pool_members as { member_address: string; status: string }[]) ?? []
-      const activities = (pool.pool_activity as { activity_type: string; created_at: string; amount: number | null }[]) ?? []
+      const activities =
+        (pool.pool_activity as {
+          activity_type: string
+          created_at: string
+          amount: number | null
+        }[]) ?? []
 
       const { score, band } = computeHealthScore(
         members.length,

@@ -17,13 +17,7 @@ import { formatRelativeTime } from "@/lib/utils"
 import Link from "next/link"
 
 type SortKey =
-  | "name"
-  | "type"
-  | "total_saved"
-  | "members_count"
-  | "health_score"
-  | "status"
-  | "updated_at"
+  "name" | "type" | "total_saved" | "members_count" | "health_score" | "status" | "updated_at"
 
 type SortDirection = "asc" | "desc"
 
@@ -48,11 +42,7 @@ function SortableHeader({
   onSort: (key: SortKey) => void
 }) {
   const isActive = currentSort === sortKey
-  const Icon = isActive
-    ? currentDirection === "asc"
-      ? ArrowUp
-      : ArrowDown
-    : ArrowUpDown
+  const Icon = isActive ? (currentDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown
 
   return (
     <TableHead
@@ -136,13 +126,55 @@ export function PoolComparisonTable({ pools }: { pools: AdminPoolData[] }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <SortableHeader label="Pool Name" sortKey="name" currentSort={sortKey} currentDirection={sortDirection} onSort={handleSort} />
-            <SortableHeader label="Type" sortKey="type" currentSort={sortKey} currentDirection={sortDirection} onSort={handleSort} />
-            <SortableHeader label="TVL" sortKey="total_saved" currentSort={sortKey} currentDirection={sortDirection} onSort={handleSort} />
-            <SortableHeader label="Members" sortKey="members_count" currentSort={sortKey} currentDirection={sortDirection} onSort={handleSort} />
-            <SortableHeader label="Health" sortKey="health_score" currentSort={sortKey} currentDirection={sortDirection} onSort={handleSort} />
-            <SortableHeader label="Status" sortKey="status" currentSort={sortKey} currentDirection={sortDirection} onSort={handleSort} />
-            <SortableHeader label="Last Activity" sortKey="updated_at" currentSort={sortKey} currentDirection={sortDirection} onSort={handleSort} />
+            <SortableHeader
+              label="Pool Name"
+              sortKey="name"
+              currentSort={sortKey}
+              currentDirection={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              label="Type"
+              sortKey="type"
+              currentSort={sortKey}
+              currentDirection={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              label="TVL"
+              sortKey="total_saved"
+              currentSort={sortKey}
+              currentDirection={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              label="Members"
+              sortKey="members_count"
+              currentSort={sortKey}
+              currentDirection={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              label="Health"
+              sortKey="health_score"
+              currentSort={sortKey}
+              currentDirection={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              label="Status"
+              sortKey="status"
+              currentSort={sortKey}
+              currentDirection={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              label="Last Activity"
+              sortKey="updated_at"
+              currentSort={sortKey}
+              currentDirection={sortDirection}
+              onSort={handleSort}
+            />
           </TableRow>
         </TableHeader>
         <TableBody>
