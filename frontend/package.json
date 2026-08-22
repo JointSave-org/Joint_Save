@@ -90,7 +90,7 @@
     "@eslint/eslintrc": "^3.3.5",
     "@next/bundle-analyzer": "^16.2.9",
     "@next/eslint-plugin-next": "^16.2.9",
-    "@playwright/test": "^1.49.0",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.1.9",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",

@@ -1,3 +1,5 @@
+import { StrKey } from "@stellar/stellar-sdk"
+
 export type ValidationResult = { valid: boolean; message: string }
 
 const ok: ValidationResult = { valid: true, message: "" }
@@ -16,6 +18,10 @@ export function validateStellarAddress(value: string): ValidationResult {
   if (value.length !== 56) return err(`Address must be 56 characters (currently ${value.length})`)
   if (!/^G[A-Z2-7]{55}$/.test(value))
     return err("Invalid characters — only A–Z and 2–7 allowed after 'G'")
+  // Full StrKey check including the CRC16 checksum. Length + charset alone let
+  // typos through, and an invalid address crashes downstream ScVal encoding
+  // (nativeToScVal → new Address throws) instead of failing gracefully.
+  if (!StrKey.isValidEd25519PublicKey(value)) return err("Invalid Stellar address checksum")
   return ok
 }
 
