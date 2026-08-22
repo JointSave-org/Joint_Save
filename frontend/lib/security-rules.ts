@@ -153,9 +153,7 @@ const REPUTATION_MANIPULATION_THRESHOLD = 3
 
 function detectRapidEmergencyWithdraw(ctx: RuleContext): SecurityAlert | null {
   const emergencyWithdraws = ctx.activities.filter(
-    (a) =>
-      a.activity_type === "emergency_withdraw" ||
-      a.activity_type === "emergency_withdrawal"
+    (a) => a.activity_type === "emergency_withdraw" || a.activity_type === "emergency_withdrawal"
   )
 
   const now = ctx.now.getTime()
@@ -166,9 +164,7 @@ function detectRapidEmergencyWithdraw(ctx: RuleContext): SecurityAlert | null {
   if (recent.length < RAPID_EMERGENCY_WITHDRAW_THRESHOLD) return null
 
   const poolIds = [...new Set(recent.map((a) => a.pool_id))]
-  const wallets = recent
-    .map((a) => a.user_address)
-    .filter((w): w is string => w !== null)
+  const wallets = recent.map((a) => a.user_address).filter((w): w is string => w !== null)
 
   return {
     id: "",
@@ -192,17 +188,14 @@ function detectUnusualDepositSpike(ctx: RuleContext): SecurityAlert | null {
 
   if (deposits.length < 5) return null
 
-  const avgDeposit =
-    deposits.reduce((sum, a) => sum + (a.amount ?? 0), 0) / deposits.length
+  const avgDeposit = deposits.reduce((sum, a) => sum + (a.amount ?? 0), 0) / deposits.length
 
   const spikes = deposits.filter((a) => (a.amount ?? 0) > avgDeposit * DEPOSIT_SPIKE_MULTIPLIER)
 
   if (spikes.length === 0) return null
 
   const poolIds = [...new Set(spikes.map((a) => a.pool_id))]
-  const wallets = spikes
-    .map((a) => a.user_address)
-    .filter((w): w is string => w !== null)
+  const wallets = spikes.map((a) => a.user_address).filter((w): w is string => w !== null)
 
   return {
     id: "",
@@ -227,9 +220,7 @@ function detectAdminKeyRotation(ctx: RuleContext): SecurityAlert | null {
   if (rotations.length === 0) return null
 
   const poolIds = [...new Set(rotations.map((a) => a.pool_id))]
-  const wallets = rotations
-    .map((a) => a.admin_address)
-    .filter((w): w is string => w !== null)
+  const wallets = rotations.map((a) => a.admin_address).filter((w): w is string => w !== null)
 
   return {
     id: "",
@@ -341,8 +332,7 @@ function detectDormantPoolActivation(ctx: RuleContext): SecurityAlert | null {
   const dormantThreshold = now - DORMANT_POOL_DAYS * 24 * 60 * 60 * 1000
 
   const dormantPools = ctx.pools.filter(
-    (p) =>
-      new Date(p.updated_at).getTime() < dormantThreshold && p.status === "active"
+    (p) => new Date(p.updated_at).getTime() < dormantThreshold && p.status === "active"
   )
 
   if (dormantPools.length === 0) return null
@@ -357,9 +347,7 @@ function detectDormantPoolActivation(ctx: RuleContext): SecurityAlert | null {
   if (deposits.length === 0) return null
 
   const poolIds = [...new Set(deposits.map((a) => a.pool_id))]
-  const wallets = deposits
-    .map((a) => a.user_address)
-    .filter((w): w is string => w !== null)
+  const wallets = deposits.map((a) => a.user_address).filter((w): w is string => w !== null)
 
   return {
     id: "",

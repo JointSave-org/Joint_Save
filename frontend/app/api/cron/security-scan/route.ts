@@ -157,9 +157,7 @@ export async function POST(req: NextRequest) {
       job_name: "security-scan",
       status: alerts.some((a) => a.severity === "critical") ? "warning" : "success",
       error_message:
-        criticalAlerts.length > 0
-          ? `${criticalAlerts.length} critical alert(s) triggered`
-          : null,
+        criticalAlerts.length > 0 ? `${criticalAlerts.length} critical alert(s) triggered` : null,
     })
 
     return NextResponse.json({

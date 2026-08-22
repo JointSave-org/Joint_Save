@@ -63,7 +63,10 @@ export function SecurityAlertCard({ alert, onStatusChange }: SecurityAlertCardPr
         <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", config.iconClassName)} />
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="outline" className={cn("text-[10px] uppercase tracking-wider", config.badgeClassName)}>
+            <Badge
+              variant="outline"
+              className={cn("text-[10px] uppercase tracking-wider", config.badgeClassName)}
+            >
               {alert.severity}
             </Badge>
             <span className="font-medium text-sm">{RULE_NAMES[alert.rule_id]}</span>
@@ -86,8 +89,8 @@ export function SecurityAlertCard({ alert, onStatusChange }: SecurityAlertCardPr
             <div className="space-y-2 text-xs text-muted-foreground mt-2 pl-1 border-l-2 border-muted">
               {alert.affected_pools.length > 0 && (
                 <div>
-                  <span className="font-medium">Affected Pools:</span>{" "}
-                  {alert.affected_pools.length} pool(s)
+                  <span className="font-medium">Affected Pools:</span> {alert.affected_pools.length}{" "}
+                  pool(s)
                 </div>
               )}
               {alert.affected_wallets.length > 0 && (
@@ -155,7 +158,9 @@ export function SecurityAlertListEmpty() {
     <div className="text-center py-12 text-muted-foreground">
       <AlertCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
       <p className="text-sm font-medium">No security alerts detected</p>
-      <p className="text-xs mt-1">All monitoring rules are clear. Run a scan to check for new alerts.</p>
+      <p className="text-xs mt-1">
+        All monitoring rules are clear. Run a scan to check for new alerts.
+      </p>
     </div>
   )
 }

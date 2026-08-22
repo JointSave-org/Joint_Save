@@ -15,14 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Shield,
-  ShieldAlert,
-  AlertTriangle,
-  Info,
-  RefreshCw,
-  Loader2,
-} from "lucide-react"
+import { Shield, ShieldAlert, AlertTriangle, Info, RefreshCw, Loader2 } from "lucide-react"
 import type { AlertSeverity } from "@/lib/security-rules"
 
 function SecurityDashboardContent() {
@@ -178,11 +171,7 @@ function SecurityDashboardContent() {
         ) : (
           <div className="space-y-3">
             {filteredAlerts.map((alert) => (
-              <SecurityAlertCard
-                key={alert.id}
-                alert={alert}
-                onStatusChange={updateAlertStatus}
-              />
+              <SecurityAlertCard key={alert.id} alert={alert} onStatusChange={updateAlertStatus} />
             ))}
           </div>
         )}

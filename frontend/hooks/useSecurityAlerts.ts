@@ -73,9 +73,7 @@ export function useSecurityAlerts(): UseSecurityAlertsResult {
     async (alertId: string, status: SecurityAlert["status"]) => {
       try {
         // Optimistic update
-        setAlerts((prev) =>
-          prev.map((a) => (a.id === alertId ? { ...a, status } : a))
-        )
+        setAlerts((prev) => prev.map((a) => (a.id === alertId ? { ...a, status } : a)))
 
         const response = await fetch("/api/admin/security/scan", {
           method: "POST",
