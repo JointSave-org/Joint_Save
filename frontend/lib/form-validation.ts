@@ -74,3 +74,9 @@ export function findDuplicateAddresses(addresses: string[]): Set<number> {
   })
   return duplicates
 }
+
+export function validateEmail(value: string): ValidationResult {
+  if (!value.trim()) return err("Email is required")
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return err("Enter a valid email address")
+  return ok
+}
