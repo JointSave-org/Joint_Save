@@ -34,7 +34,12 @@ import {
   useLeavePool,
   fetchRotationalState,
   fetchPoolMembers,
+  buildContractCallTx,
 } from "@/hooks/useJointSaveContracts"
+import { simulateTransaction } from "@/lib/tx-simulator"
+import { TxSimulationDialog } from "@/components/shared/tx-simulation-dialog"
+import type { SimulationOutcome } from "@/lib/tx-simulator"
+import { nativeToScVal } from "@stellar/stellar-sdk"
 import { validateStellarAddress } from "@/lib/form-validation"
 import { getTokenBySymbol, getTokenBalance, formatUsdApprox } from "@/lib/token-utils"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
@@ -65,6 +70,13 @@ interface GroupActionsProps {
   poolAdmin?: string | null
   onPauseChange?: () => void
 }
+
+// ── E2E test seam ─────────────────────────────────────────────────────────────
+// When NEXT_PUBLIC_E2E=true, skip the pre-flight simulation dialog and submit
+// directly. Building + simulating a real tx requires a live Soroban RPC and a
+// funded account, which Playwright runs stub out at the contract layer instead
+// (see useJointSaveContracts.ts). Dead code in production — the flag is unset.
+const IS_E2E = process.env.NEXT_PUBLIC_E2E === "true"
 
 async function logActivity(
   poolId: string,
@@ -121,6 +133,28 @@ async function verifyAndLogDeposit(
       if (res.status === 422) return // tx not on Horizon (yet) — tracker keeps watching
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** attempt))
+  }
+}
+
+/**
+ * Fire-and-forget: send a push notification to pool members via the
+ * server-side proxy endpoint. The client never touches CRON_SECRET —
+ * the secret is added server-side in /api/notifications/push-event.
+ */
+async function triggerPushNotification(
+  poolId: string,
+  eventType: string,
+  title: string,
+  body: string
+) {
+  try {
+    await fetch("/api/notifications/push-event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pool_id: poolId, event_type: eventType, title, body }),
+    })
+  } catch {
+    // Non-critical — never let push failure break the deposit flow.
   }
 }
 
@@ -244,6 +278,13 @@ export function GroupActions({
     onConfirm: () => Promise<void>
   } | null>(null)
 
+  // Simulation dialog state
+  const [simOpen, setSimOpen] = useState(false)
+  const [simOutcome, setSimOutcome] = useState<SimulationOutcome | null>(null)
+  const [isSimulating, setIsSimulating] = useState(false)
+  const [simLabel, setSimLabel] = useState("Transaction")
+  const pendingSimConfirmRef = useRef<(() => Promise<void>) | null>(null)
+
   useEffect(() => {
     if (!groupId) return
     fetch(`/api/pools?id=${groupId}`)
@@ -275,7 +316,7 @@ export function GroupActions({
   const removePoolMember = useRemovePoolMember(poolAddress)
   const leavePool = useLeavePool(poolAddress)
 
-  const { optimisticState, registerOptimistic, updateTxHash, markFailed } =
+  const { optimisticState, registerOptimistic, updateTxHash } =
     useOptimisticTransactions(poolAddress)
 
   // Watch for confirmation/failure from optimistic state
@@ -297,30 +338,94 @@ export function GroupActions({
     }
   }, [optimisticState])
 
+  // ── Simulation helper ────────────────────────────────────────────────────
+  const simulateAndShow = useCallback(
+    async (
+      label: string,
+      txArgs: { method: string; args: ReturnType<typeof nativeToScVal>[] },
+      onConfirm: () => Promise<void>
+    ) => {
+      if (!address) return toastManager.error("Please connect your wallet first")
+      // E2E: the stubbed contract layer returns a canned tx hash without any
+      // network, so there is nothing to simulate — run the submit path directly.
+      if (IS_E2E) {
+        await onConfirm()
+        return
+      }
+      setSimLabel(label)
+      setSimOutcome(null)
+      setIsSimulating(true)
+      setSimOpen(true)
+      pendingSimConfirmRef.current = onConfirm
+      try {
+        const tx = await buildContractCallTx(address, poolAddress, txArgs.method, ...txArgs.args)
+        const outcome = await simulateTransaction(tx)
+        setSimOutcome(outcome)
+      } catch {
+        setSimOutcome({
+          success: false,
+          unavailable: true,
+          error: "Network error",
+          friendlyMessage: "Simulation unavailable.",
+        })
+      } finally {
+        setIsSimulating(false)
+      }
+    },
+    [address, poolAddress]
+  )
+
+  const handleSimConfirm = useCallback(async () => {
+    setSimOpen(false)
+    if (pendingSimConfirmRef.current) {
+      await pendingSimConfirmRef.current()
+      pendingSimConfirmRef.current = null
+    }
+  }, [])
+
   const handleDeposit = async () => {
     if (!address) return toastManager.error("Please connect your wallet first")
     if (isPending) return toastManager.error("Contract not yet deployed.")
     if (isPaused) return toastManager.error("Pool is paused. Deposits are disabled.")
     if (!confirmRecentPendingTransaction(address, poolAddress, "deposit")) return
-    try {
-      const amount = poolType !== "rotational" ? toBaseUnits(parseFloat(depositAmount)) : undefined
-      registerOptimistic("deposit", address, amount)
 
-      let txHash: string | undefined
-      if (poolType === "rotational") txHash = await rotationalDeposit.deposit()
-      else if (poolType === "target") txHash = await targetContribute.contribute()
-      else txHash = await flexibleDeposit.deposit()
+    const depositArgs =
+      poolType === "rotational"
+        ? { method: "deposit", args: [nativeToScVal(address, { type: "address" })] }
+        : {
+            method: "deposit",
+            args: [
+              nativeToScVal(address, { type: "address" }),
+              nativeToScVal(toBaseUnits(parseFloat(depositAmount)), { type: "i128" }),
+            ],
+          }
 
-      if (txHash) {
-        updateTxHash(txHash)
-        await verifyAndLogDeposit(groupId, address, txHash, depositAmount || null)
-        toastManager.info("Deposit submitted (confirming on-chain)…")
+    await simulateAndShow(
+      isRotational ? "Deposit" : isTarget ? "Contribute" : "Deposit",
+      depositArgs,
+      async () => {
+        const amount =
+          poolType !== "rotational" ? toBaseUnits(parseFloat(depositAmount)) : undefined
+        registerOptimistic("deposit", address, amount)
+
+        let txHash: string | undefined
+        if (poolType === "rotational") txHash = await rotationalDeposit.deposit()
+        else if (poolType === "target") txHash = await targetContribute.contribute()
+        else txHash = await flexibleDeposit.deposit()
+
+        if (txHash) {
+          updateTxHash(txHash)
+          await verifyAndLogDeposit(groupId, address, txHash, depositAmount || null)
+          void triggerPushNotification(
+            groupId,
+            "event_deposit",
+            "💰 New deposit made",
+            `A member deposited${depositAmount ? ` ${depositAmount} ${tokenSymbol}` : ""} in your pool.`
+          )
+          toastManager.info("Deposit submitted (confirming on-chain)…")
+        }
       }
-    } catch (e: unknown) {
-      const msg = (e as Error).message || "Transaction failed"
-      toastManager.error(msg)
-      markFailed(msg)
-    }
+    )
   }
 
   const handleWithdrawClick = async () => {
@@ -329,23 +434,21 @@ export function GroupActions({
     if (isPaused) return toastManager.error("Pool is paused. Withdrawals are disabled.")
 
     if (poolType === "target") {
-      // Direct withdrawal since target pool exit has no fee parameters stored/previewed
       if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
-      try {
-        registerOptimistic("withdraw", address)
-        const txHash = await targetWithdraw.withdraw()
-        if (txHash) {
-          updateTxHash(txHash)
-          await logActivity(groupId, "withdraw", address, null, txHash)
-          toastManager.info("Withdrawal submitted (confirming on-chain)…")
+      await simulateAndShow(
+        "Withdraw",
+        { method: "withdraw", args: [nativeToScVal(address, { type: "address" })] },
+        async () => {
+          registerOptimistic("withdraw", address)
+          const txHash = await targetWithdraw.withdraw()
+          if (txHash) {
+            updateTxHash(txHash)
+            await logActivity(groupId, "withdraw", address, null, txHash)
+            toastManager.info("Withdrawal submitted (confirming on-chain)…")
+          }
         }
-      } catch (e: unknown) {
-        const msg = (e as Error).message || "Transaction failed"
-        toastManager.error(msg)
-        markFailed(msg)
-      }
+      )
     } else {
-      // Flexible withdrawal preview
       const amount = parseFloat(withdrawAmount)
       if (isNaN(amount) || amount <= 0)
         return toastManager.error("Please enter a valid withdrawal amount")
@@ -354,32 +457,47 @@ export function GroupActions({
       const feeAmount = amount * (feePercent / 100)
       const netAmount = amount - feeAmount
 
-      setPreviewData({
-        type: "withdraw",
-        amount,
-        details: [
-          { label: "Withdraw Amount", value: `${amount.toFixed(2)} ${tokenSymbol}` },
-          {
-            label: `Withdrawal Fee (${feePercent}%)`,
-            value: `-${feeAmount.toFixed(2)} ${tokenSymbol}`,
-            isDeduction: true,
-          },
-          { label: "Net Amount You Receive", value: `${netAmount.toFixed(2)} ${tokenSymbol}` },
-        ],
-        onConfirm: async () => {
-          if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
-          const amountStroops = toBaseUnits(amount)
-          registerOptimistic("withdraw", address, amountStroops)
-          const txHash = await flexibleWithdraw.withdraw()
-          if (txHash) {
-            updateTxHash(txHash)
-            await logActivity(groupId, "withdraw", address, withdrawAmount || null, txHash)
-            toastManager.info("Withdrawal submitted (confirming on-chain)…")
-            setWithdrawAmount("")
-          }
+      await simulateAndShow(
+        "Withdraw",
+        {
+          method: "withdraw",
+          args: [
+            nativeToScVal(address, { type: "address" }),
+            nativeToScVal(toBaseUnits(amount), { type: "i128" }),
+          ],
         },
-      })
-      setIsPreviewOpen(true)
+        async () => {
+          setPreviewData({
+            type: "withdraw",
+            amount,
+            details: [
+              { label: "Withdraw Amount", value: `${amount.toFixed(2)} ${tokenSymbol}` },
+              {
+                label: `Withdrawal Fee (${feePercent}%)`,
+                value: `-${feeAmount.toFixed(2)} ${tokenSymbol}`,
+                isDeduction: true,
+              },
+              {
+                label: "Net Amount You Receive",
+                value: `${netAmount.toFixed(2)} ${tokenSymbol}`,
+              },
+            ],
+            onConfirm: async () => {
+              if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
+              const amountStroops = toBaseUnits(amount)
+              registerOptimistic("withdraw", address, amountStroops)
+              const txHash = await flexibleWithdraw.withdraw()
+              if (txHash) {
+                updateTxHash(txHash)
+                await logActivity(groupId, "withdraw", address, withdrawAmount || null, txHash)
+                toastManager.info("Withdrawal submitted (confirming on-chain)…")
+                setWithdrawAmount("")
+              }
+            },
+          })
+          setIsPreviewOpen(true)
+        }
+      )
     }
   }
 
@@ -388,127 +506,157 @@ export function GroupActions({
     if (isPending) return toastManager.error("Contract not yet deployed.")
     if (isPaused) return toastManager.error("Pool is paused. Payouts are disabled.")
 
-    setPreviewLoading(true)
-    try {
-      // Fetch rotational pool state on-chain
-      const state = await fetchRotationalState(poolAddress)
+    await simulateAndShow(
+      "Trigger Payout",
+      { method: "trigger_payout", args: [nativeToScVal(address, { type: "address" })] },
+      async () => {
+        setPreviewLoading(true)
+        try {
+          const state = await fetchRotationalState(poolAddress)
 
-      if (state.treasuryFeeBps === null || state.relayerFeeBps === null) {
-        toastManager.error("Unable to load pool fee configuration. Please try again.")
-        return
-      }
-
-      const treasuryFeeBps = state.treasuryFeeBps
-      const relayerFeeBps = state.relayerFeeBps
-      const depositCount = state.depositCount
-      const currentRound = state.currentRound
-      const members = state.members
-      const beneficiary = members[currentRound] || "Unknown beneficiary"
-
-      const treasuryPercent = treasuryFeeBps / 100
-      const relayerPercent = relayerFeeBps / 100
-
-      const contribution = parseFloat((poolData?.contribution_amount as string) ?? "0")
-      const totalCollected = contribution * depositCount
-      const treasuryCut = totalCollected * (treasuryFeeBps / 10000)
-      const relayerCut = totalCollected * (relayerFeeBps / 10000)
-      const payoutAmount = totalCollected - treasuryCut - relayerCut
-
-      const shortAddress = (addr: string) =>
-        addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-6)}` : addr
-
-      setPreviewData({
-        type: "payout",
-        amount: totalCollected,
-        details: [
-          {
-            label: "Total Collected (Depositors)",
-            value: `${totalCollected.toFixed(2)} ${tokenSymbol} (${depositCount}/${members.length} paid)`,
-          },
-          {
-            label: `Treasury Fee (${treasuryPercent}%)`,
-            value: `-${treasuryCut.toFixed(2)} ${tokenSymbol}`,
-            isDeduction: true,
-          },
-          {
-            label: `Relayer Fee (${relayerPercent}%)`,
-            value: `-${relayerCut.toFixed(2)} ${tokenSymbol}`,
-            isDeduction: true,
-          },
-          { label: "Net Recipient Payout", value: `${payoutAmount.toFixed(2)} ${tokenSymbol}` },
-          { label: "Beneficiary Address", value: shortAddress(beneficiary) },
-          {
-            label: "Your Relayer Reward (expected)",
-            value: `${relayerCut.toFixed(2)} ${tokenSymbol}`,
-          },
-        ],
-        onConfirm: async () => {
-          if (!confirmRecentPendingTransaction(address, poolAddress, "trigger_payout")) return
-          registerOptimistic("trigger_payout", address)
-          const txHash = await triggerPayout.trigger()
-          if (txHash) {
-            updateTxHash(txHash)
-            await logActivity(groupId, "payout", address, null, txHash)
-            toastManager.info("Payout trigger submitted (confirming on-chain)…")
+          if (state.treasuryFeeBps === null || state.relayerFeeBps === null) {
+            toastManager.error("Unable to load pool fee configuration. Please try again.")
+            return
           }
-        },
-      })
-      setIsPreviewOpen(true)
-    } catch (e: unknown) {
-      const msg = (e as Error).message || "Failed to load payout details"
-      toastManager.error(msg)
-    } finally {
-      setPreviewLoading(false)
-    }
+
+          const treasuryFeeBps = state.treasuryFeeBps
+          const relayerFeeBps = state.relayerFeeBps
+          const depositCount = state.depositCount
+          const currentRound = state.currentRound
+          const members = state.members
+          const beneficiary = members[currentRound] || "Unknown beneficiary"
+
+          const treasuryPercent = treasuryFeeBps / 100
+          const relayerPercent = relayerFeeBps / 100
+
+          const contribution = parseFloat((poolData?.contribution_amount as string) ?? "0")
+          const totalCollected = contribution * depositCount
+          const treasuryCut = totalCollected * (treasuryFeeBps / 10000)
+          const relayerCut = totalCollected * (relayerFeeBps / 10000)
+          const payoutAmount = totalCollected - treasuryCut - relayerCut
+
+          const shortAddress = (addr: string) =>
+            addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-6)}` : addr
+
+          setPreviewData({
+            type: "payout",
+            amount: totalCollected,
+            details: [
+              {
+                label: "Total Collected (Depositors)",
+                value: `${totalCollected.toFixed(2)} ${tokenSymbol} (${depositCount}/${members.length} paid)`,
+              },
+              {
+                label: `Treasury Fee (${treasuryPercent}%)`,
+                value: `-${treasuryCut.toFixed(2)} ${tokenSymbol}`,
+                isDeduction: true,
+              },
+              {
+                label: `Relayer Fee (${relayerPercent}%)`,
+                value: `-${relayerCut.toFixed(2)} ${tokenSymbol}`,
+                isDeduction: true,
+              },
+              {
+                label: "Net Recipient Payout",
+                value: `${payoutAmount.toFixed(2)} ${tokenSymbol}`,
+              },
+              { label: "Beneficiary Address", value: shortAddress(beneficiary) },
+              {
+                label: "Your Relayer Reward (expected)",
+                value: `${relayerCut.toFixed(2)} ${tokenSymbol}`,
+              },
+            ],
+            onConfirm: async () => {
+              if (!confirmRecentPendingTransaction(address, poolAddress, "trigger_payout")) return
+              registerOptimistic("trigger_payout", address)
+              const txHash = await triggerPayout.trigger()
+              if (txHash) {
+                updateTxHash(txHash)
+                await logActivity(groupId, "payout", address, null, txHash)
+                void triggerPushNotification(
+                  groupId,
+                  "event_payout",
+                  "🎉 Payout triggered",
+                  "A payout has been distributed from your pool."
+                )
+                toastManager.info("Payout trigger submitted (confirming on-chain)…")
+              }
+            },
+          })
+          setIsPreviewOpen(true)
+        } catch (e: unknown) {
+          const msg = (e as Error).message || "Failed to load payout details"
+          toastManager.error(msg)
+        } finally {
+          setPreviewLoading(false)
+        }
+      }
+    )
   }
 
   const handleRefund = async () => {
     if (!address) return toastManager.error("Please connect your wallet first")
     if (isPending) return toastManager.error("Contract not yet deployed.")
     if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
-    try {
-      registerOptimistic("withdraw", address)
-      const txHash = await targetRefund.refund()
-      if (txHash) {
-        updateTxHash(txHash)
-        await logActivity(groupId, "refund", address, null, txHash)
-        toastManager.info("Refund submitted (confirming on-chain)…")
+    await simulateAndShow(
+      "Refund",
+      { method: "refund", args: [nativeToScVal(address, { type: "address" })] },
+      async () => {
+        registerOptimistic("withdraw", address)
+        const txHash = await targetRefund.refund()
+        if (txHash) {
+          updateTxHash(txHash)
+          await logActivity(groupId, "refund", address, null, txHash)
+          toastManager.info("Refund submitted (confirming on-chain)…")
+        }
       }
-    } catch (e: unknown) {
-      const msg = (e as Error).message || "Transaction failed"
-      toastManager.error(msg)
-      markFailed(msg)
-    }
+    )
   }
 
   const handlePause = async () => {
     if (!address) return toastManager.error("Please connect your wallet first")
     if (isPending) return toastManager.error("Contract not yet deployed.")
-    try {
-      const txHash = await pausePool.pause()
-      if (txHash) {
-        await logAdminAction(groupId, address, "pause", null, txHash)
-        toastManager.success("Pool paused successfully", undefined, txHash)
+    await simulateAndShow(
+      "Pause Pool",
+      { method: "pause", args: [nativeToScVal(address, { type: "address" })] },
+      async () => {
+        const txHash = await pausePool.pause()
+        if (txHash) {
+          await logAdminAction(groupId, address, "pause", null, txHash)
+          void triggerPushNotification(
+            groupId,
+            "event_paused",
+            "⏸️ Pool paused",
+            "An admin has paused this pool. Deposits and withdrawals are temporarily disabled."
+          )
+          toastManager.success("Pool paused successfully", undefined, txHash)
+        }
+        onPauseChange?.()
       }
-      onPauseChange?.()
-    } catch (e: unknown) {
-      toastManager.error((e as Error).message || "Transaction failed")
-    }
+    )
   }
 
   const handleUnpause = async () => {
     if (!address) return toastManager.error("Please connect your wallet first")
     if (isPending) return toastManager.error("Contract not yet deployed.")
-    try {
-      const txHash = await unpausePool.unpause()
-      if (txHash) {
-        await logAdminAction(groupId, address, "unpause", null, txHash)
-        toastManager.success("Pool unpaused successfully", undefined, txHash)
+    await simulateAndShow(
+      "Unpause Pool",
+      { method: "unpause", args: [nativeToScVal(address, { type: "address" })] },
+      async () => {
+        const txHash = await unpausePool.unpause()
+        if (txHash) {
+          await logAdminAction(groupId, address, "unpause", null, txHash)
+          void triggerPushNotification(
+            groupId,
+            "event_paused",
+            "▶️ Pool resumed",
+            "This pool has been resumed. Deposits and withdrawals are now active again."
+          )
+          toastManager.success("Pool unpaused successfully", undefined, txHash)
+        }
+        onPauseChange?.()
       }
-      onPauseChange?.()
-    } catch (e: unknown) {
-      toastManager.error((e as Error).message || "Transaction failed")
-    }
+    )
   }
 
   const handleAddMember = async () => {
@@ -519,25 +667,33 @@ export function GroupActions({
     const validation = validateStellarAddress(newMember.trim().toUpperCase())
     if (!validation.valid) return toastManager.error(validation.message)
 
-    try {
-      const txHash = await addPoolMember.addMember(newMember.trim().toUpperCase())
-      if (txHash) {
-        await logActivity(
-          groupId,
-          "member_added",
-          address,
-          null,
-          txHash,
-          newMember.trim().toUpperCase()
-        )
-        await logAdminAction(groupId, address, "add_member", newMember.trim().toUpperCase(), txHash)
-        toastManager.success("Member added successfully", undefined, txHash)
-        setNewMember("")
-        await refreshMembers()
+    const memberAddr = newMember.trim().toUpperCase()
+    await simulateAndShow(
+      "Add Member",
+      {
+        method: "add_member",
+        args: [
+          nativeToScVal(address, { type: "address" }),
+          nativeToScVal(memberAddr, { type: "address" }),
+        ],
+      },
+      async () => {
+        const txHash = await addPoolMember.addMember(memberAddr)
+        if (txHash) {
+          await logActivity(groupId, "member_added", address, null, txHash, memberAddr)
+          await logAdminAction(groupId, address, "add_member", memberAddr, txHash)
+          void triggerPushNotification(
+            groupId,
+            "event_member_joined",
+            "👋 New member joined",
+            "A new member has been added to your pool."
+          )
+          toastManager.success("Member added successfully", undefined, txHash)
+          setNewMember("")
+          await refreshMembers()
+        }
       }
-    } catch (e: unknown) {
-      toastManager.error((e as Error).message || "Transaction failed")
-    }
+    )
   }
 
   const handleRemoveMember = async () => {
@@ -546,18 +702,32 @@ export function GroupActions({
     if (isPending) return toastManager.error("Contract not yet deployed.")
     if (!memberToRemove) return
 
-    try {
-      const txHash = await removePoolMember.removeMember(memberToRemove)
-      if (txHash) {
-        await logActivity(groupId, "member_removed", address, null, txHash, memberToRemove)
-        await logAdminAction(groupId, address, "remove_member", memberToRemove, txHash)
-        toastManager.success("Member removed successfully", undefined, txHash)
-        setMemberToRemove(null)
-        await refreshMembers()
+    await simulateAndShow(
+      "Remove Member",
+      {
+        method: "remove_member",
+        args: [
+          nativeToScVal(address, { type: "address" }),
+          nativeToScVal(memberToRemove, { type: "address" }),
+        ],
+      },
+      async () => {
+        const txHash = await removePoolMember.removeMember(memberToRemove)
+        if (txHash) {
+          await logActivity(groupId, "member_removed", address, null, txHash, memberToRemove)
+          await logAdminAction(groupId, address, "remove_member", memberToRemove, txHash)
+          void triggerPushNotification(
+            groupId,
+            "event_member_left",
+            "🚪 Member removed",
+            "A member has been removed from the pool."
+          )
+          toastManager.success("Member removed successfully", undefined, txHash)
+          setMemberToRemove(null)
+          await refreshMembers()
+        }
       }
-    } catch (e: unknown) {
-      toastManager.error((e as Error).message || "Transaction failed")
-    }
+    )
   }
 
   const isDepositLoading =
@@ -1102,19 +1272,25 @@ export function GroupActions({
             <Button
               variant="destructive"
               onClick={async () => {
-                setError("")
-                setSuccessMsg("")
-                try {
-                  const txHash = await leavePool.leavePool()
-                  if (txHash && address) {
-                    await logActivity(groupId, "member_left", address, null, txHash)
-                    setSuccessMsg("You have left the pool.")
-                    setShowLeaveDialog(false)
+                if (!address) return
+                setShowLeaveDialog(false)
+                await simulateAndShow(
+                  "Leave Pool",
+                  { method: "leave_pool", args: [nativeToScVal(address, { type: "address" })] },
+                  async () => {
+                    setError("")
+                    setSuccessMsg("")
+                    try {
+                      const txHash = await leavePool.leavePool()
+                      if (txHash && address) {
+                        await logActivity(groupId, "member_left", address, null, txHash)
+                        setSuccessMsg("You have left the pool.")
+                      }
+                    } catch (e: unknown) {
+                      setError((e as Error).message || "Transaction failed")
+                    }
                   }
-                } catch (e: unknown) {
-                  setError((e as Error).message || "Transaction failed")
-                  setShowLeaveDialog(false)
-                }
+                )
               }}
               disabled={leavePool.isLoading}
             >
@@ -1170,6 +1346,15 @@ export function GroupActions({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <TxSimulationDialog
+        open={simOpen}
+        onOpenChange={setSimOpen}
+        simulation={simOutcome}
+        isSimulating={isSimulating}
+        onConfirm={handleSimConfirm}
+        txLabel={simLabel}
+      />
     </>
   )
 }

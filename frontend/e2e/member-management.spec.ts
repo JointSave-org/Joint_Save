@@ -19,6 +19,13 @@ import {
 
 const POOL_ID = "member-pool"
 
+/**
+ * Checksum-valid address (passes StrKey.isValidEd25519PublicKey). The add-member
+ * handler encodes the input with nativeToScVal({type:"address"}), which throws
+ * on malformed strkeys — so this input must be a real, decodable address.
+ */
+const NEW_MEMBER = "GADUCKBBLGEFTAGKVQRK4FYPX4MLE7XL5TZQQI4E7BATRROUE2L2UVDJ"
+
 test("admin can add a member", async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page, {
@@ -46,6 +53,7 @@ test("admin can add a member", async ({ page }) => {
 
   // Fill in a new member address
   await page.locator("#new-member").fill("GDXOINK23J7YV2E3ZHKWKW6CWYD2OYBWYO7GWAJ3H5XQ6SJBXMZ6IYJH")
+  await page.locator("#new-member").fill(NEW_MEMBER)
 
   // Click the add member button (UserPlus icon button with aria-label)
   await page.getByRole("button", { name: "Add member" }).click()

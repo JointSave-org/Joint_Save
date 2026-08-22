@@ -416,6 +416,26 @@ export type Database = {
         }
         Relationships: []
       }
+      pool_messages: {
+        Row: {
+          id: string
+          pool_id: string
+          sender_address: string
+          message: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          sender_address: string
+          message: string
+          created_at?: string
+        }
+        Update: {
+          message?: string
+        }
+        Relationships: []
+      }
       pool_templates: {
         Row: {
           id: string
@@ -449,6 +469,70 @@ export type Database = {
           is_public?: boolean
           use_count?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          wallet_address: string
+          pool_id: string | null
+          event_deposit: boolean
+          event_payout: boolean
+          event_member_joined: boolean
+          event_member_left: boolean
+          event_deadline_warning: boolean
+          event_paused: boolean
+          push_enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          wallet_address: string
+          pool_id?: string | null
+          event_deposit?: boolean
+          event_payout?: boolean
+          event_member_joined?: boolean
+          event_member_left?: boolean
+          event_deadline_warning?: boolean
+          event_paused?: boolean
+          push_enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          event_deposit?: boolean
+          event_payout?: boolean
+          event_member_joined?: boolean
+          event_member_left?: boolean
+          event_deadline_warning?: boolean
+          event_paused?: boolean
+          push_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          wallet_address: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          wallet_address: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at?: string
+        }
+        Update: {
+          wallet_address?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
         }
         Relationships: []
       }
