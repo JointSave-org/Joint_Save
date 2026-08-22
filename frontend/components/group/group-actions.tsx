@@ -71,6 +71,13 @@ interface GroupActionsProps {
   onPauseChange?: () => void
 }
 
+// ── E2E test seam ─────────────────────────────────────────────────────────────
+// When NEXT_PUBLIC_E2E=true, skip the pre-flight simulation dialog and submit
+// directly. Building + simulating a real tx requires a live Soroban RPC and a
+// funded account, which Playwright runs stub out at the contract layer instead
+// (see useJointSaveContracts.ts). Dead code in production — the flag is unset.
+const IS_E2E = process.env.NEXT_PUBLIC_E2E === "true"
+
 async function logActivity(
   poolId: string,
   type: string,
@@ -339,6 +346,12 @@ export function GroupActions({
       onConfirm: () => Promise<void>
     ) => {
       if (!address) return toastManager.error("Please connect your wallet first")
+      // E2E: the stubbed contract layer returns a canned tx hash without any
+      // network, so there is nothing to simulate — run the submit path directly.
+      if (IS_E2E) {
+        await onConfirm()
+        return
+      }
       setSimLabel(label)
       setSimOutcome(null)
       setIsSimulating(true)

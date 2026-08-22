@@ -4,7 +4,9 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   makePool,
+  waitForPoolsResponse,
   E2E_CONTRACT_ID,
 } from "./fixtures/test-base"
 
@@ -48,73 +50,59 @@ const POOLS = [
 test.beforeEach(async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page, { isActive: true })
+  await mockCommonApis(page)
   await mockPoolsApi(page, POOLS)
-
-  // Mock /api/recommendations — the explore page fetches this for the
-  // "Recommended for You" section; without a mock the request hangs in CI.
-  await page.route("**/api/recommendations**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ pools: [] }),
-    })
-  )
 })
 
 test("search filters by pool name", async ({ page }) => {
-  await page.goto("/explore")
-  await page.waitForLoadState("networkidle")
-  await expect(page.getByRole("heading", { name: "Explore Pools" })).toBeVisible()
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/explore", { waitUntil: "networkidle" })
+  await poolsResponse
 
-  // All three pools visible
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
-  await expect(page.getByText("Beta Target")).toBeVisible()
-  await expect(page.getByText("Gamma Flexible")).toBeVisible()
+  await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
+  await expect(page.getByText(/Beta Target/i)).toBeVisible()
+  await expect(page.getByText(/Gamma Flexible/i)).toBeVisible()
 
-  // Search for "Alpha"
   await page.getByPlaceholder(/search by pool name/i).fill("Alpha")
 
-  // Only Alpha visible
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
-  await expect(page.getByText("Beta Target")).toBeHidden()
-  await expect(page.getByText("Gamma Flexible")).toBeHidden()
+  await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
+  await expect(page.getByText(/Beta Target/i)).toBeHidden()
+  await expect(page.getByText(/Gamma Flexible/i)).toBeHidden()
 })
 
 test("type filter shows only matching pools", async ({ page }) => {
-  await page.goto("/explore")
-  await page.waitForLoadState("networkidle")
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/explore", { waitUntil: "networkidle" })
+  await poolsResponse
+  await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
 
-  // Select "rotational" type filter
   await page.locator('[role="combobox"]').first().click()
   await page.getByRole("option", { name: "Rotational" }).click()
 
-  // Only rotational pools visible
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
-  await expect(page.getByText("Beta Target")).toBeHidden()
+  await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
+  await expect(page.getByText(/Beta Target/i)).toBeHidden()
 })
 
 test("status filter shows only matching pools", async ({ page }) => {
-  await page.goto("/explore")
-  await page.waitForLoadState("networkidle")
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/explore", { waitUntil: "networkidle" })
+  await poolsResponse
+  await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
 
-  // Select "active" status filter (second combobox)
   await page.locator('[role="combobox"]').nth(1).click()
   await page.getByRole("option", { name: "Active" }).click()
 
-  // Only active pools visible
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
-  await expect(page.getByText("Beta Target")).toBeVisible()
-  await expect(page.getByText("Gamma Flexible")).toBeHidden()
+  await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
+  await expect(page.getByText(/Beta Target/i)).toBeVisible()
+  await expect(page.getByText(/Gamma Flexible/i)).toBeHidden()
 })
 
 test("empty state when no pools match", async ({ page }) => {
-  await page.goto("/explore")
-  await page.waitForLoadState("networkidle")
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/explore", { waitUntil: "networkidle" })
+  await poolsResponse
+  await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
 
-  // Search for something that doesn't exist
   await page.getByPlaceholder(/search by pool name/i).fill("Nonexistent Pool")
 
   await expect(page.getByText("No pools found")).toBeVisible()
@@ -122,11 +110,11 @@ test("empty state when no pools match", async ({ page }) => {
 })
 
 test("pool cards have view and request to join buttons", async ({ page }) => {
-  await page.goto("/explore")
-  await page.waitForLoadState("networkidle")
-  await expect(page.getByText("Alpha Rotational")).toBeVisible()
+  const poolsResponse = waitForPoolsResponse(page)
+  await page.goto("/explore", { waitUntil: "networkidle" })
+  await poolsResponse
+  await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
 
-  // Each pool card has View and Request to Join buttons
   const viewBtns = page.getByRole("link", { name: "View" })
   await expect(viewBtns.first()).toBeVisible()
 

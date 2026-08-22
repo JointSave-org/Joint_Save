@@ -77,6 +77,9 @@ interface Recommendation {
   pool?: { health_score: number }
 }
 
+/** Sentinel Select value for "no filter" (Radix forbids empty-string item values). */
+const FILTER_ALL = "__all__"
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const container = {
@@ -754,24 +757,31 @@ export function ExploreContent() {
             />
           </div>
 
-          <Select value={filterType} onValueChange={setFilterType}>
+          {/* Radix forbids SelectItem value="" — use a sentinel for "no filter". */}
+          <Select
+            value={filterType || FILTER_ALL}
+            onValueChange={(v) => setFilterType(v === FILTER_ALL ? "" : v)}
+          >
             <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value={FILTER_ALL}>All Types</SelectItem>
               <SelectItem value="rotational">Rotational</SelectItem>
               <SelectItem value="target">Target</SelectItem>
               <SelectItem value="flexible">Flexible</SelectItem>
             </SelectContent>
           </Select>
 
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <Select
+            value={filterStatus || FILTER_ALL}
+            onValueChange={(v) => setFilterStatus(v === FILTER_ALL ? "" : v)}
+          >
             <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value={FILTER_ALL}>All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>

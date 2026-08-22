@@ -4,6 +4,8 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
+  waitForPoolsResponse,
   E2E_MEMBER_2,
 } from "./fixtures/test-base"
 
@@ -17,6 +19,7 @@ import {
 test.beforeEach(async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page) // sane on-chain defaults for the new pool
+  await mockCommonApis(page)
   await mockPoolsApi(page)
 })
 
@@ -75,8 +78,10 @@ for (const c of cases) {
     await expect(page.getByText("Live onchain")).toBeVisible()
 
     // 3) Pool now appears in "My Groups"
-    await page.goto("/dashboard")
-    await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
+    const poolsResponse = waitForPoolsResponse(page)
+    await page.goto("/dashboard", { waitUntil: "networkidle" })
+    await poolsResponse
+    await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
     await expect(page.getByText(c.name)).toBeVisible()
   })
 }
