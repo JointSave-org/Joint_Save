@@ -17,11 +17,8 @@ import {
 } from "@stellar/stellar-sdk"
 import { useStellar, STELLAR_RPC_URL, STELLAR_NETWORK_PASSPHRASE } from "@/components/web3-provider"
 import { enqueueSign } from "@/lib/tx-queue"
-import {
-  addPendingTransactionRecord,
-  removePendingTransactionRecord,
-  type PendingTransactionType,
-} from "@/lib/pending-transactions"
+import { submitWithRetry, toTrackedTxType } from "@/lib/tx-retry"
+import type { PendingTransactionType } from "@/lib/pending-transactions"
 import { TX_TIMEOUT } from "@/lib/constants"
 import { mapSorobanEvent } from "@/lib/soroban-event-mapping"
 import { isContractVersionUnknown } from "@/lib/contract-version"
@@ -178,15 +175,17 @@ function vecVal(addrs: string[]): xdr.ScVal {
   return nativeToScVal(addrs.map((a) => nativeToScVal(a, { type: "address" })))
 }
 
-/** Simulate → assemble → sign → send → poll. Returns tx hash. */
+/**
+ * Simulate → assemble → sign → send → poll with automatic retry.
+ *
+ * `buildTx` receives a freshly fetched account on every attempt so each
+ * retry uses the current sequence number (see lib/tx-retry.ts). Broadcast
+ * transactions are tracked in the `jointsave_pending_txs` tracker plus the
+ * legacy per-address pending list. Returns the tx hash.
+ */
 async function submitTx(
-  kit: {
-    signTransaction: (
-      xdr: string,
-      opts: { networkPassphrase: string }
-    ) => Promise<{ signedTxXdr: string }>
-  },
-  tx: Transaction,
+  address: string,
+  buildTx: (account: Account) => Transaction,
   pendingTx?: {
     address: string
     type: PendingTransactionType
@@ -195,57 +194,36 @@ async function submitTx(
   }
 ): Promise<string> {
   if (IS_E2E) return E2E_TX_HASH
-  const server = getRpc()
-
-  const simResult = await server.simulateTransaction(tx)
-  if (rpc.Api.isSimulationError(simResult)) {
-    throw new Error(`Simulation failed: ${simResult.error}`)
-  }
-
-  const preparedTx = rpc.assembleTransaction(tx, simResult).build()
-
-  const { signedTxXdr } = await enqueueSign(preparedTx.toXDR(), {
+  const result = await submitWithRetry({
+    address,
     networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+    sign: async (txXdr: string) =>
+      (await enqueueSign(txXdr, { networkPassphrase: STELLAR_NETWORK_PASSPHRASE })).signedTxXdr,
+    buildTx,
+    rpcServer: getRpc(),
+    dedup: pendingTx
+      ? { poolId: pendingTx.poolId, type: toTrackedTxType(pendingTx.type) }
+      : undefined,
+    track: pendingTx
+      ? {
+          type: toTrackedTxType(pendingTx.type),
+          poolId: pendingTx.poolId,
+          poolName: pendingTx.poolId,
+          amount: pendingTx.amount,
+        }
+      : undefined,
+    legacy: pendingTx
+      ? {
+          address: pendingTx.address,
+          type: pendingTx.type,
+          poolId: pendingTx.poolId,
+          amount: pendingTx.amount,
+        }
+      : undefined,
   })
-
-  const result = await server.sendTransaction(
-    new Transaction(signedTxXdr, STELLAR_NETWORK_PASSPHRASE)
-  )
-
-  if (result.status === "ERROR") {
-    throw new Error(`Send failed: ${JSON.stringify(result.errorResult)}`)
+  if (result.status === "failed") {
+    throw new Error(result.error ?? "Transaction failed on-chain")
   }
-
-  if (pendingTx) {
-    addPendingTransactionRecord(pendingTx.address, {
-      hash: result.hash,
-      type: pendingTx.type,
-      poolId: pendingTx.poolId,
-      submittedAt: Date.now(),
-      amount: pendingTx.amount,
-    })
-  }
-
-  // Poll for confirmation
-  let getResult = await server.getTransaction(result.hash)
-  let attempts = 0
-  while (getResult.status === rpc.Api.GetTransactionStatus.NOT_FOUND && attempts < 30) {
-    await new Promise((r) => setTimeout(r, 1500))
-    getResult = await server.getTransaction(result.hash)
-    attempts++
-  }
-
-  if (getResult.status === rpc.Api.GetTransactionStatus.FAILED) {
-    if (pendingTx) {
-      removePendingTransactionRecord(pendingTx.address, result.hash)
-    }
-    throw new Error("Transaction failed on-chain")
-  }
-
-  if (getResult.status === rpc.Api.GetTransactionStatus.SUCCESS && pendingTx) {
-    removePendingTransactionRecord(pendingTx.address, result.hash)
-  }
-
   return result.hash
 }
 
@@ -410,38 +388,31 @@ export function useDeployPool() {
     setIsLoading(true)
     try {
       const server = getRpc()
-      const account = await server.getAccount(address)
       const salt = crypto.getRandomValues(new Uint8Array(32))
 
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
+      const result = await submitWithRetry({
+        address,
         networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          Operation.createCustomContract({
-            wasmHash: Buffer.from(wasmHash, "hex"),
-            address: new Address(address),
-            salt: Buffer.from(salt),
+        sign: async (txXdr: string) =>
+          (await enqueueSign(txXdr, { networkPassphrase: STELLAR_NETWORK_PASSPHRASE })).signedTxXdr,
+        buildTx: (account) =>
+          new TransactionBuilder(account, {
+            fee: BASE_FEE,
+            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
           })
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-
-      const simResult = await server.simulateTransaction(tx)
-      if (rpc.Api.isSimulationError(simResult)) {
-        throw new Error(`Deploy simulation failed: ${simResult.error}`)
-      }
-
-      const preparedTx = rpc.assembleTransaction(tx, simResult).build()
-      const { signedTxXdr } = await enqueueSign(preparedTx.toXDR(), {
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+            .addOperation(
+              Operation.createCustomContract({
+                wasmHash: Buffer.from(wasmHash, "hex"),
+                address: new Address(address),
+                salt: Buffer.from(salt),
+              })
+            )
+            .setTimeout(TX_TIMEOUT)
+            .build(),
+        rpcServer: server,
       })
-
-      const result = await server.sendTransaction(
-        new Transaction(signedTxXdr, STELLAR_NETWORK_PASSPHRASE)
-      )
-      if (result.status === "ERROR") {
-        throw new Error(`Deploy failed: ${JSON.stringify(result.errorResult)}`)
+      if (result.status === "failed") {
+        throw new Error(result.error ?? "Deploy transaction failed on-chain")
       }
 
       // Poll and extract new contract ID from return value
@@ -491,27 +462,27 @@ export function useInitializePool() {
     if (!kit || !address) throw new Error("Wallet not connected")
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(contractId)).call(
-            "initialize",
-            addressVal(params.token),
-            addressVal(params.admin),
-            vecVal(params.members),
-            i128Val(toBaseUnits(params.depositAmount, params.decimals)),
-            u64Val(BigInt(params.roundDuration)),
-            u32Val(params.treasuryFeeBps),
-            u32Val(params.relayerFeeBps),
-            addressVal(params.treasury)
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call(
+              "initialize",
+              addressVal(params.token),
+              addressVal(params.admin),
+              vecVal(params.members),
+              i128Val(toBaseUnits(params.depositAmount, params.decimals)),
+              u64Val(BigInt(params.roundDuration)),
+              u32Val(params.treasuryFeeBps),
+              u32Val(params.relayerFeeBps),
+              addressVal(params.treasury)
+            )
           )
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }
@@ -531,24 +502,24 @@ export function useInitializePool() {
     if (!kit || !address) throw new Error("Wallet not connected")
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(contractId)).call(
-            "initialize",
-            addressVal(params.token),
-            addressVal(params.admin),
-            vecVal(params.members),
-            i128Val(toBaseUnits(params.targetAmount, params.decimals)),
-            u32Val(params.deadlineLedger)
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call(
+              "initialize",
+              addressVal(params.token),
+              addressVal(params.admin),
+              vecVal(params.members),
+              i128Val(toBaseUnits(params.targetAmount, params.decimals)),
+              u32Val(params.deadlineLedger)
+            )
           )
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }
@@ -571,27 +542,27 @@ export function useInitializePool() {
     if (!kit || !address) throw new Error("Wallet not connected")
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(contractId)).call(
-            "initialize",
-            addressVal(params.token),
-            addressVal(params.admin),
-            vecVal(params.members),
-            i128Val(toBaseUnits(params.minimumDeposit, params.decimals)),
-            u32Val(params.withdrawalFeeBps),
-            boolVal(params.yieldEnabled),
-            addressVal(params.treasury),
-            u32Val(params.treasuryFeeBps)
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call(
+              "initialize",
+              addressVal(params.token),
+              addressVal(params.admin),
+              vecVal(params.members),
+              i128Val(toBaseUnits(params.minimumDeposit, params.decimals)),
+              u32Val(params.withdrawalFeeBps),
+              boolVal(params.yieldEnabled),
+              addressVal(params.treasury),
+              u32Val(params.treasuryFeeBps)
+            )
           )
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }
@@ -611,27 +582,27 @@ export function useRegisterPool(poolType: "rotational" | "target" | "flexible") 
     if (!FACTORY_ID) throw new Error("Factory contract ID not configured")
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
+      const contractBytes = StrKey.decodeContract(contractId)
       const methodMap = {
         rotational: "register_rotational",
         target: "register_target",
         flexible: "register_flexible",
       }
-      const contractBytes = StrKey.decodeContract(contractId)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(FACTORY_ID)).call(
-            methodMap[poolType],
-            addressVal(caller),
-            xdr.ScVal.scvBytes(Buffer.from(contractBytes))
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(FACTORY_ID)).call(
+              methodMap[poolType],
+              addressVal(caller),
+              xdr.ScVal.scvBytes(Buffer.from(contractBytes))
+            )
           )
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }
@@ -651,21 +622,21 @@ export function useSetReputationTracker() {
     if (!kit || !address || !contractId || !REPUTATION_ID) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(contractId)).call(
-            "set_reputation_tracker",
-            addressVal(address),
-            addressVal(REPUTATION_ID)
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call(
+              "set_reputation_tracker",
+              addressVal(address),
+              addressVal(REPUTATION_ID)
+            )
           )
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }
@@ -713,21 +684,24 @@ export function useTriggerPayout(contractId: string) {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(contractId)).call("trigger_payout", addressVal(address))
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx, {
+      return await submitTx(
         address,
-        type: "trigger_payout",
-        poolId: contractId,
-      })
+        (account) =>
+          new TransactionBuilder(account, {
+            fee: BASE_FEE,
+            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+          })
+            .addOperation(
+              new Contract(normalizeId(contractId)).call("trigger_payout", addressVal(address))
+            )
+            .setTimeout(TX_TIMEOUT)
+            .build(),
+        {
+          address,
+          type: "trigger_payout",
+          poolId: contractId,
+        }
+      )
     } finally {
       setIsLoading(false)
     }
@@ -782,19 +756,24 @@ export function useTargetWithdraw(contractId: string) {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(new Contract(normalizeId(contractId)).call("withdraw", addressVal(address)))
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx, {
+      return await submitTx(
         address,
-        type: "withdraw",
-        poolId: contractId,
-      })
+        (account) =>
+          new TransactionBuilder(account, {
+            fee: BASE_FEE,
+            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+          })
+            .addOperation(
+              new Contract(normalizeId(contractId)).call("withdraw", addressVal(address))
+            )
+            .setTimeout(TX_TIMEOUT)
+            .build(),
+        {
+          address,
+          type: "withdraw",
+          poolId: contractId,
+        }
+      )
     } finally {
       setIsLoading(false)
     }
@@ -811,19 +790,22 @@ export function useTargetRefund(contractId: string) {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(new Contract(normalizeId(contractId)).call("refund", addressVal(address)))
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx, {
+      return await submitTx(
         address,
-        type: "withdraw",
-        poolId: contractId,
-      })
+        (account) =>
+          new TransactionBuilder(account, {
+            fee: BASE_FEE,
+            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+          })
+            .addOperation(new Contract(normalizeId(contractId)).call("refund", addressVal(address)))
+            .setTimeout(TX_TIMEOUT)
+            .build(),
+        {
+          address,
+          type: "withdraw",
+          poolId: contractId,
+        }
+      )
     } finally {
       setIsLoading(false)
     }
@@ -878,26 +860,29 @@ export function useFlexibleWithdraw(contractId: string, amount: string, decimals
     if (!kit || !address || !contractId || !amount) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(contractId)).call(
-            "withdraw",
-            addressVal(address),
-            i128Val(toBaseUnits(amount, decimals))
-          )
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx, {
+      return await submitTx(
         address,
-        type: "withdraw",
-        poolId: contractId,
-        amount,
-      })
+        (account) =>
+          new TransactionBuilder(account, {
+            fee: BASE_FEE,
+            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+          })
+            .addOperation(
+              new Contract(normalizeId(contractId)).call(
+                "withdraw",
+                addressVal(address),
+                i128Val(toBaseUnits(amount, decimals))
+              )
+            )
+            .setTimeout(TX_TIMEOUT)
+            .build(),
+        {
+          address,
+          type: "withdraw",
+          poolId: contractId,
+          amount,
+        }
+      )
     } finally {
       setIsLoading(false)
     }
@@ -1423,21 +1408,21 @@ export function useAddPoolMember(contractId: string) {
     if (!kit || !address || !contractId || !newMember) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(contractId)).call(
-            "add_member",
-            addressVal(address),
-            addressVal(newMember)
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call(
+              "add_member",
+              addressVal(address),
+              addressVal(newMember)
+            )
           )
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }
@@ -1454,21 +1439,21 @@ export function useRemovePoolMember(contractId: string) {
     if (!kit || !address || !contractId || !member) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(contractId)).call(
-            "remove_member",
-            addressVal(address),
-            addressVal(member)
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call(
+              "remove_member",
+              addressVal(address),
+              addressVal(member)
+            )
           )
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }
@@ -1485,15 +1470,17 @@ export function useLeavePool(contractId: string) {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(new Contract(normalizeId(contractId)).call("leave_pool", addressVal(address)))
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call("leave_pool", addressVal(address))
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }
@@ -1510,15 +1497,15 @@ export function usePausePool(contractId: string) {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(new Contract(normalizeId(contractId)).call("pause", addressVal(address)))
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(new Contract(normalizeId(contractId)).call("pause", addressVal(address)))
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }
@@ -1535,15 +1522,15 @@ export function useUnpausePool(contractId: string) {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(new Contract(normalizeId(contractId)).call("unpause", addressVal(address)))
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(new Contract(normalizeId(contractId)).call("unpause", addressVal(address)))
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }
@@ -1662,15 +1649,15 @@ export function useBumpPoolState(contractId: string) {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(new Contract(normalizeId(contractId)).call("bump_state"))
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await submitTx(kit, tx)
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(new Contract(normalizeId(contractId)).call("bump_state"))
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
     } finally {
       setIsLoading(false)
     }

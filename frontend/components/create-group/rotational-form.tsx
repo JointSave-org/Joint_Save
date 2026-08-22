@@ -22,7 +22,11 @@ import {
   useSetReputationTracker,
   resolveTokenAddress,
 } from "@/hooks/useJointSaveContracts"
-import { TokenSelect, type SelectedToken } from "@/components/create-group/token-select"
+import {
+  TokenSelect,
+  tokenFromPrefill,
+  type SelectedToken,
+} from "@/components/create-group/token-select"
 import BulkImport from "@/components/create-group/BulkImport"
 import { FieldTooltip } from "@/components/ui/field-tooltip"
 import { FieldError } from "@/components/ui/form"
@@ -34,12 +38,15 @@ import {
   findDuplicateAddresses,
 } from "@/lib/form-validation"
 import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
+import type { PoolTemplateConfig } from "@/lib/templates"
+import { SaveTemplateDialog } from "@/components/templates/save-template-dialog"
 import {
   MAX_POOL_MEMBERS,
   DEFAULT_TREASURY_FEE_BPS,
   DEFAULT_RELAYER_FEE_BPS,
 } from "@/lib/constants"
 import { toastManager } from "@/lib/toast"
+import { LayoutTemplate } from "lucide-react"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -61,11 +68,10 @@ type Touched = Partial<Record<"name" | "contributionAmount", boolean>>
 export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const router = useRouter()
   const { address } = useStellar()
-  const [token, setToken] = useState<SelectedToken>({
-    address: "native",
-    symbol: "XLM",
-    decimals: 7,
-  })
+  const [token, setToken] = useState<SelectedToken>(
+    tokenFromPrefill(prefill?.token) ?? { address: "native", symbol: "XLM", decimals: 7 }
+  )
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
   // Creator is always the first member (read-only), others are editable
   const initialMembers = prefill?.members?.filter((m: string) => m !== address) ?? [""]
   const [members, setMembers] = useState<string[]>(
@@ -236,6 +242,17 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
     { label: "Members (2+)", valid: validMembers.length >= 2 },
   ]
 
+  const templateToken = token.address === "native" ? "XLM" : token.address
+  const templateConfig: PoolTemplateConfig = {
+    name: formData.name,
+    description: formData.description || null,
+    poolType: "rotational",
+    amount: formData.contributionAmount,
+    frequency: formData.frequency,
+    members: validMembers,
+    token: templateToken,
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {isCreating && (
@@ -299,7 +316,7 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
         />
       </div>
 
-      <TokenSelect onChange={setToken} />
+      <TokenSelect onChange={setToken} defaultToken={tokenFromPrefill(prefill?.token)} />
       {/* Bulk Import Component */}
       <BulkImport onMembersChange={setMembers} />
 
@@ -459,7 +476,24 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
             "Create Rotational Group"
           )}
         </Button>
+
+        <button
+          type="button"
+          onClick={() => setSaveTemplateOpen(true)}
+          disabled={isCreating}
+          className="w-full mt-2 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+        >
+          <LayoutTemplate className="h-4 w-4" />
+          Save as Template
+        </button>
       </div>
+
+      <SaveTemplateDialog
+        open={saveTemplateOpen}
+        onOpenChange={setSaveTemplateOpen}
+        config={templateConfig}
+        creatorAddress={address}
+      />
     </form>
   )
 }

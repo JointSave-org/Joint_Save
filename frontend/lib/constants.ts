@@ -75,6 +75,52 @@ export const RECENT_DUPLICATE_WINDOW_MS = (2 * 60 * 1000) as const
  */
 export const DROPPED_TX_WINDOW_MS = (5 * 60 * 1000) as const
 
+// ── Transaction Retry & Pending Tracking ────────────────────────────────────
+
+/**
+ * Maximum number of submission attempts before `submitWithRetry` gives up on
+ * retriable failures (network congestion, timeouts, stale sequence numbers).
+ */
+export const TX_RETRY_MAX_ATTEMPTS = 3 as const
+
+/**
+ * Exponential backoff delays between retry attempts, in milliseconds.
+ * 2s → 4s → 8s. The delay for attempt `i` is `TX_RETRY_BACKOFF_MS[i]`.
+ */
+export const TX_RETRY_BACKOFF_MS = [2000, 4000, 8000] as const
+
+/**
+ * Number of times `submitWithRetry` polls the RPC for a broadcast
+ * transaction's inclusion in a ledger before returning it as still-pending
+ * (the tracker keeps polling Horizon afterwards).
+ */
+export const TX_CONFIRM_POLL_ATTEMPTS = 30 as const
+
+/**
+ * Delay between confirmation polls inside `submitWithRetry`.
+ * Unit: **milliseconds**.
+ */
+export const TX_CONFIRM_POLL_INTERVAL_MS = 1500 as const
+
+/**
+ * Maximum number of pending transactions kept in the tracker (localStorage
+ * key `jointsave_pending_txs`). Oldest entries are evicted first.
+ */
+export const PENDING_TX_MAX = 10 as const
+
+/**
+ * Pending transaction entries older than this are removed from the tracker.
+ * Unit: **milliseconds** (1 hour).
+ */
+export const PENDING_TX_MAX_AGE_MS = 3_600_000 as const
+
+/**
+ * Interval at which the pending transaction tracker polls Horizon for
+ * confirmation of each tracked transaction.
+ * Unit: **milliseconds** (10 seconds).
+ */
+export const PENDING_TX_POLL_INTERVAL_MS = 10_000 as const
+
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 
 /**
