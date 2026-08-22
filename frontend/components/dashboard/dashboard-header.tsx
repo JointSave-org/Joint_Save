@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -92,7 +92,7 @@ export function DashboardHeader() {
             </Button>
             <ThemeToggle />
 
-            {/* Notification bell — only shown when wallet is connected */}
+            {/* Notification bell â€” only shown when wallet is connected */}
             {address && (
               <DropdownMenu
                 onOpenChange={(open) => {
@@ -185,6 +185,13 @@ export function DashboardHeader() {
                       </DropdownMenuItem>
                     </>
                   )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    asChild
+                    className="justify-center text-sm text-muted-foreground cursor-pointer"
+                  >
+                    <Link href="/settings/notifications">Email Preferences</Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
