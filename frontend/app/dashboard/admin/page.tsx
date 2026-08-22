@@ -16,8 +16,7 @@ import { Shield, AlertTriangle, BarChart3, Zap } from "lucide-react"
 
 function AdminDashboardContent() {
   const { address } = useStellar()
-  const { pools, totalAnomalies, isLoading, error, refetch, exportPools, sendMessage } =
-    useAdminPools(address)
+  const { pools, totalAnomalies, isLoading, exportPools, sendMessage } = useAdminPools(address)
 
   const [selectedPoolIds, setSelectedPoolIds] = useState<Set<string>>(new Set())
 
@@ -144,7 +143,6 @@ function AdminDashboardContent() {
             <BulkOperations
               pools={pools}
               selectedPoolIds={selectedPoolIds}
-              onToggleSelect={handleToggleSelect}
               onSelectAll={handleSelectAll}
               onDeselectAll={handleDeselectAll}
               onExport={exportPools}

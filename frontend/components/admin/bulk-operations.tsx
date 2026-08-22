@@ -12,14 +12,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { Download, MessageSquare, Pause, CheckSquare, Square, X } from "lucide-react"
+import { Download, MessageSquare, CheckSquare, Square } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { AdminPoolData } from "@/app/api/admin/pools/route"
 
 export function BulkOperations({
   pools,
   selectedPoolIds,
-  onToggleSelect,
   onSelectAll,
   onDeselectAll,
   onExport,
@@ -27,7 +26,6 @@ export function BulkOperations({
 }: {
   pools: AdminPoolData[]
   selectedPoolIds: Set<string>
-  onToggleSelect: (id: string) => void
   onSelectAll: () => void
   onDeselectAll: () => void
   onExport: (poolIds: string[]) => Promise<void>
