@@ -36,44 +36,29 @@ export type ContractErrorCode = (typeof ContractErrorCode)[keyof typeof Contract
 // ── Friendly messages ────────────────────────────────────────────────────────
 
 const FRIENDLY_MESSAGES: Record<ContractErrorCode, string> = {
-  [ContractErrorCode.POOL_PAUSED]:
-    "This pool is currently paused. Deposits are not accepted.",
-  [ContractErrorCode.NOT_A_MEMBER]:
-    "You are not a member of this pool.",
-  [ContractErrorCode.ALREADY_DEPOSITED]:
-    "You have already deposited for this round.",
-  [ContractErrorCode.DEADLINE_PASSED]:
-    "The deposit deadline has passed. Contact your pool admin.",
+  [ContractErrorCode.POOL_PAUSED]: "This pool is currently paused. Deposits are not accepted.",
+  [ContractErrorCode.NOT_A_MEMBER]: "You are not a member of this pool.",
+  [ContractErrorCode.ALREADY_DEPOSITED]: "You have already deposited for this round.",
+  [ContractErrorCode.DEADLINE_PASSED]: "The deposit deadline has passed. Contact your pool admin.",
   [ContractErrorCode.DEADLINE_NOT_PASSED]:
     "The pool deadline has not passed yet. Refunds are not available at this time.",
   [ContractErrorCode.TARGET_NOT_REACHED]:
     "The pool target has not been reached yet. Withdrawals are locked.",
-  [ContractErrorCode.NOTHING_TO_WITHDRAW]:
-    "You have no balance to withdraw from this pool.",
-  [ContractErrorCode.INSUFFICIENT_BALANCE]:
-    "Your wallet balance is insufficient for this action.",
+  [ContractErrorCode.NOTHING_TO_WITHDRAW]: "You have no balance to withdraw from this pool.",
+  [ContractErrorCode.INSUFFICIENT_BALANCE]: "Your wallet balance is insufficient for this action.",
   [ContractErrorCode.INSUFFICIENT_POOL_BALANCE]:
     "The pool does not have enough funds for this action.",
   [ContractErrorCode.BELOW_MINIMUM_DEPOSIT]:
     "Your deposit is below the pool's minimum requirement.",
-  [ContractErrorCode.UNAUTHORIZED]:
-    "Only the pool admin can perform this action.",
-  [ContractErrorCode.POOL_NOT_PAUSED]:
-    "This pool is not currently paused.",
-  [ContractErrorCode.ALREADY_A_MEMBER]:
-    "This address is already a member of this pool.",
-  [ContractErrorCode.POOL_INACTIVE]:
-    "This pool is no longer active.",
-  [ContractErrorCode.AMOUNT_MUST_BE_POSITIVE]:
-    "The amount must be greater than zero.",
-  [ContractErrorCode.YIELD_DISABLED]:
-    "Yield distribution is not enabled for this pool.",
-  [ContractErrorCode.TOKEN_NOT_SUPPORTED]:
-    "This token is not supported by the pool.",
-  [ContractErrorCode.POOL_UNLOCKED]:
-    "The pool target has been reached. Use withdrawal instead.",
-  [ContractErrorCode.UNKNOWN]:
-    "Transaction would fail. No changes will be made.",
+  [ContractErrorCode.UNAUTHORIZED]: "Only the pool admin can perform this action.",
+  [ContractErrorCode.POOL_NOT_PAUSED]: "This pool is not currently paused.",
+  [ContractErrorCode.ALREADY_A_MEMBER]: "This address is already a member of this pool.",
+  [ContractErrorCode.POOL_INACTIVE]: "This pool is no longer active.",
+  [ContractErrorCode.AMOUNT_MUST_BE_POSITIVE]: "The amount must be greater than zero.",
+  [ContractErrorCode.YIELD_DISABLED]: "Yield distribution is not enabled for this pool.",
+  [ContractErrorCode.TOKEN_NOT_SUPPORTED]: "This token is not supported by the pool.",
+  [ContractErrorCode.POOL_UNLOCKED]: "The pool target has been reached. Use withdrawal instead.",
+  [ContractErrorCode.UNKNOWN]: "Transaction would fail. No changes will be made.",
 }
 
 // ── Pattern matching table ───────────────────────────────────────────────────

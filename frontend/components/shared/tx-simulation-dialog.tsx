@@ -77,9 +77,7 @@ export function TxSimulationDialog({
             <div className="flex items-start gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-4">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-green-700">
-                  Transaction looks good!
-                </p>
+                <p className="text-sm font-medium text-green-700">Transaction looks good!</p>
                 {simulation?.cost && (
                   <p className="text-sm text-green-600">
                     Estimated fee: {stroopsToXlm(simulation.cost.feeStroops)} XLM
@@ -99,9 +97,7 @@ export function TxSimulationDialog({
             <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
               <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-destructive">
-                  Transaction would fail
-                </p>
+                <p className="text-sm font-medium text-destructive">Transaction would fail</p>
                 <p className="text-sm text-destructive/80">
                   {simulation?.friendlyMessage || "No changes will be made."}
                 </p>
@@ -116,12 +112,10 @@ export function TxSimulationDialog({
             <div className="flex items-start gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-yellow-700">
-                  Simulation unavailable
-                </p>
+                <p className="text-sm font-medium text-yellow-700">Simulation unavailable</p>
                 <p className="text-sm text-yellow-600">
-                  The network could not be reached for pre-validation. The
-                  transaction may fail on-chain.
+                  The network could not be reached for pre-validation. The transaction may fail
+                  on-chain.
                 </p>
               </div>
             </div>
@@ -130,11 +124,7 @@ export function TxSimulationDialog({
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isSimulating}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSimulating}>
             {phase === "failure" ? "Close" : "Cancel"}
           </Button>
 

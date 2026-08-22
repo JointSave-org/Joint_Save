@@ -199,7 +199,7 @@ export async function buildContractCallTx(
     .build()
 }
 
-/** Simulate → assemble → sign → send → poll. Returns tx hash. */
+/**
  * Simulate → assemble → sign → send → poll with automatic retry.
  *
  * `buildTx` receives a freshly fetched account on every attempt so each
@@ -304,9 +304,6 @@ async function submitTxWithSponsorship(
     }
     preparedTx = rpc.assembleTransaction(tx, simResult).build()
   }
-
-  const { signedTxXdr } = await enqueueSign(preparedTx.toXDR(), {
-  const preparedTx = rpc.assembleTransaction(tx, simResult).build()
 
   // Request fee-bump from sponsor server
   const sponsorRes = await fetch("/api/sponsor/fee-bump", {
