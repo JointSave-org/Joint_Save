@@ -289,8 +289,9 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
           }}
           onBlur={(e) => handleBlur("name", e.target.value)}
           aria-describedby="name-error"
+          aria-required="true"
         />
-        {touched.name && <FieldError message={fieldErrors.name} />}
+        {touched.name && <FieldError id="name-error" message={fieldErrors.name} />}
       </div>
 
       <div className="space-y-1">
@@ -340,8 +341,10 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
               if (touched.contributionAmount) validateField("contributionAmount", e.target.value)
             }}
             onBlur={(e) => handleBlur("contributionAmount", e.target.value)}
+            aria-required="true"
+            aria-describedby="amount-error"
           />
-          {touched.contributionAmount && <FieldError message={fieldErrors.contributionAmount} />}
+          {touched.contributionAmount && <FieldError id="amount-error" message={fieldErrors.contributionAmount} />}
         </div>
 
         <div className="space-y-1">
@@ -419,6 +422,9 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
                   placeholder="G... (56-character Stellar address)"
                   value={member}
                   onChange={(e) => updateMember(i, e.target.value)}
+                  aria-label={`Member ${i + 2} address`}
+                  aria-required="true"
+                  aria-describedby={`member-error-${i}`}
                   className={
                     memberErrors[i]
                       ? "border-destructive"
@@ -428,12 +434,12 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
                   }
                 />
                 {members.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)}>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)} aria-label={`Remove member ${i + 2}`}>
                     <X className="h-4 w-4" />
                   </Button>
                 )}
               </div>
-              {memberErrors[i] && <FieldError message={memberErrors[i]} />}
+              {memberErrors[i] && <FieldError id={`member-error-${i}`} message={memberErrors[i]} />}
               {!memberErrors[i] && member && isValidStellarAddress(member) && (
                 <p className="text-green-600 text-xs flex items-center gap-1">✓ Valid address</p>
               )}

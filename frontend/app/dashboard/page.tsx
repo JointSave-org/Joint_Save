@@ -43,9 +43,13 @@ function DashboardContent() {
 
   return (
     <ErrorBoundary sectionName="Dashboard" walletAddress={address}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-background focus:text-foreground">
+        Skip to main content
+      </a>
       <div className="min-h-screen bg-background">
         <DashboardHeader />
-        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main id="main-content" className="container mx-auto px-4 sm:px-6 lg:px-8 py-8" tabIndex={-1}>
+          <h1 className="sr-only">JointSave Dashboard</h1>
           <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6 items-start">
             {/* Onboarding checklist sidebar (hidden on mobile, collapsible) */}
             <aside className="hidden lg:block sticky top-20">

@@ -31,6 +31,7 @@ export function DashboardHeader() {
   const [copied, setCopied] = useState(false)
   const { recentPools } = useRecentPools(address)
   const { notifications, initialLoading, unreadCount, markAllRead } = useNotifications(address)
+  const [notificationOpen, setNotificationOpen] = useState(false)
 
   const truncatedAddress = address ? `${address.slice(0, 4)}...${address.slice(-4)}` : ""
 
@@ -95,7 +96,9 @@ export function DashboardHeader() {
             {/* Notification bell — only shown when wallet is connected */}
             {address && (
               <DropdownMenu
+                open={notificationOpen}
                 onOpenChange={(open) => {
+                  setNotificationOpen(open)
                   if (open && unreadCount > 0) markAllRead()
                 }}
               >
@@ -105,6 +108,7 @@ export function DashboardHeader() {
                     size="icon"
                     className="relative"
                     aria-label="Notifications"
+                    aria-expanded={notificationOpen}
                   >
                     <Bell className="h-5 w-5" />
                     {unreadCount > 0 && (

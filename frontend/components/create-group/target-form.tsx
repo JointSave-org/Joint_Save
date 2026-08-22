@@ -307,8 +307,10 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
             if (touched.name) validateField("name", e.target.value)
           }}
           onBlur={(e) => handleBlur("name", e.target.value)}
+          aria-required="true"
+          aria-describedby="name-error"
         />
-        {touched.name && <FieldError message={fieldErrors.name} />}
+        {touched.name && <FieldError id="name-error" message={fieldErrors.name} />}
       </div>
 
       <div className="space-y-1">
@@ -358,8 +360,10 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
               if (touched.targetAmount) validateField("targetAmount", e.target.value)
             }}
             onBlur={(e) => handleBlur("targetAmount", e.target.value)}
+            aria-required="true"
+            aria-describedby="target-error"
           />
-          {touched.targetAmount && <FieldError message={fieldErrors.targetAmount} />}
+          {touched.targetAmount && <FieldError id="target-error" message={fieldErrors.targetAmount} />}
         </div>
 
         <div className="space-y-1">
@@ -382,6 +386,8 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
               if (touched.deadlineDays) validateField("deadlineDays", e.target.value)
             }}
             onBlur={(e) => handleBlur("deadlineDays", e.target.value)}
+            aria-required="true"
+            aria-describedby="deadline-error"
           />
           {days > 0 && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -391,7 +397,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
                 : "Fetching current ledger…"}
             </p>
           )}
-          {touched.deadlineDays && <FieldError message={fieldErrors.deadlineDays} />}
+          {touched.deadlineDays && <FieldError id="deadline-error" message={fieldErrors.deadlineDays} />}
         </div>
       </div>
 
@@ -445,6 +451,9 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
                   placeholder="G... (56-character Stellar address)"
                   value={member}
                   onChange={(e) => updateMember(i, e.target.value)}
+                  aria-label={`Member ${i + 2} address`}
+                  aria-required="true"
+                  aria-describedby={`member-error-${i}`}
                   className={
                     memberErrors[i]
                       ? "border-destructive"
@@ -454,12 +463,12 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
                   }
                 />
                 {members.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)}>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeMember(i)} aria-label={`Remove member ${i + 2}`}>
                     <X className="h-4 w-4" />
                   </Button>
                 )}
               </div>
-              {memberErrors[i] && <FieldError message={memberErrors[i]} />}
+              {memberErrors[i] && <FieldError id={`member-error-${i}`} message={memberErrors[i]} />}
               {!memberErrors[i] && member && isValidStellarAddress(member) && (
                 <p className="text-green-600 text-xs flex items-center gap-1">✓ Valid address</p>
               )}
