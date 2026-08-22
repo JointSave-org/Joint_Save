@@ -13,8 +13,7 @@ function validateWalletParam(wallet: string | null): string | null {
 function validatePutBody(
   body: unknown
 ):
-  | { wallet_address: string; email: string; frequency: string }
-  | { error: string; status: number } {
+  { wallet_address: string; email: string; frequency: string } | { error: string; status: number } {
   if (!body || typeof body !== "object") return { error: "wallet_address required", status: 400 }
   const { wallet_address, email, frequency } = body as Record<string, unknown>
 

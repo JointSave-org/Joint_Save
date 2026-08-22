@@ -77,4 +77,3 @@ export async function sendDigestEmail(to: string, digest: Digest): Promise<void>
     throw new Error(error.message)
   }
 }
-

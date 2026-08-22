@@ -185,8 +185,11 @@ export function DashboardHeader() {
                       </DropdownMenuItem>
                     </>
                   )}
-                                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild className="justify-center text-sm text-muted-foreground cursor-pointer">
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    asChild
+                    className="justify-center text-sm text-muted-foreground cursor-pointer"
+                  >
                     <Link href="/settings/notifications">Email Preferences</Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -285,4 +288,3 @@ export function DashboardHeader() {
     </header>
   )
 }
-
