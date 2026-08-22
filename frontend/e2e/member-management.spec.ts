@@ -52,6 +52,7 @@ test("admin can add a member", async ({ page }) => {
   await expect(page.getByText("Manage Members")).toBeVisible()
 
   // Fill in a new member address
+  await page.locator("#new-member").fill("GDXOINK23J7YV2E3ZHKWKW6CWYD2OYBWYO7GWAJ3H5XQ6SJBXMZ6IYJH")
   await page.locator("#new-member").fill(NEW_MEMBER)
 
   // Click the add member button (UserPlus icon button with aria-label)

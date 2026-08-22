@@ -1435,6 +1435,7 @@ export function useAddPoolMember(contractId: string) {
 
   const addMember = async (newMember: string): Promise<string | undefined> => {
     if (!kit || !address || !contractId || !newMember) return
+    if (IS_E2E) return E2E_TX_HASH
     setIsLoading(true)
     try {
       return await submitTx(address, (account) =>
