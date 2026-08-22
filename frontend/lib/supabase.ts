@@ -536,6 +536,46 @@ export type Database = {
         }
         Relationships: []
       }
+      security_alerts: {
+        Row: {
+          id: string
+          rule_id: string
+          severity: "info" | "warning" | "critical"
+          description: string
+          affected_pools: string[]
+          affected_wallets: string[]
+          status: "new" | "investigating" | "resolved" | "false_positive"
+          resolved_by: string | null
+          resolution_notes: string | null
+          created_at: string
+          resolved_at: string | null
+        }
+        Insert: {
+          id?: string
+          rule_id: string
+          severity: "info" | "warning" | "critical"
+          description: string
+          affected_pools?: string[]
+          affected_wallets?: string[]
+          status?: "new" | "investigating" | "resolved" | "false_positive"
+          resolved_by?: string | null
+          resolution_notes?: string | null
+          created_at?: string
+          resolved_at?: string | null
+        }
+        Update: {
+          rule_id?: string
+          severity?: "info" | "warning" | "critical"
+          description?: string
+          affected_pools?: string[]
+          affected_wallets?: string[]
+          status?: "new" | "investigating" | "resolved" | "false_positive"
+          resolved_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
     }
     // supabase-js v2 requires these keys on the schema type; without them the
     // client can't match GenericSchema and every table degrades to `never`.
