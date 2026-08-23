@@ -1,7 +1,7 @@
 import { getAdminClient } from "@/lib/supabase-admin"
 import { NextRequest, NextResponse } from "next/server"
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   try {
     const supabase = getAdminClient()
 
