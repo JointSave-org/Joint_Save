@@ -494,10 +494,9 @@ impl RotationalPool {
         if storage.has(&DataKey::ReputationTracker) {
             storage.extend_ttl(&DataKey::ReputationTracker, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
-<<<<<<< HEAD
         if storage.has(&DataKey::SupportedTokens) {
             storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
-=======
+        }
         if storage.has(&DataKey::IsCustom) {
             storage.extend_ttl(&DataKey::IsCustom, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
@@ -574,7 +573,6 @@ impl RotationalPool {
             is_custom,
             custom_deadlines,
             next_round_deadline,
->>>>>>> 8430380 (feat(rotational): flexible contribution scheduling and recurring deposit reminders)
         }
     }
 

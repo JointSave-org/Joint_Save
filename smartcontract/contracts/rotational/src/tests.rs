@@ -7,6 +7,44 @@ use soroban_sdk::{
 };
 
 #[test]
+fn test_migrate_succeeds_to_next_version() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &86400u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    assert_eq!(client.get_version(), 1);
+    client.migrate(&admin, &2);
+    // VERSION const is still 1 so get_version returns 1,
+    // but the migrate call succeeded without panicking.
+}
+
+#[test]
 fn test_happy_path() {
     let env = Env::default();
     env.mock_all_auths();
@@ -1192,63 +1230,6 @@ fn test_bump_state() {
 }
 
 #[test]
-<<<<<<< HEAD
-fn test_migrate_succeeds_to_next_version() {
-=======
-fn test_update_schedule_and_custom_deadlines() {
->>>>>>> 8430380 (feat(rotational): flexible contribution scheduling and recurring deposit reminders)
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, RotationalPool);
-    let client = RotationalPoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-<<<<<<< HEAD
-=======
-
->>>>>>> 8430380 (feat(rotational): flexible contribution scheduling and recurring deposit reminders)
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, RotationalPool);
-    let client = RotationalPoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin,
-        &members,
-        &100i128,
-        &86400u64,
-        &0u32,
-        &0u32,
-        &treasury,
-    );
-
-    assert_eq!(client.get_version(), 1);
-    client.migrate(&admin, &2);
-    // VERSION const is still 1 so get_version returns 1,
-    // but the migrate call succeeded without panicking.
-}
-
-#[test]
 fn test_migrate_idempotent_at_current_version() {
     let env = Env::default();
     env.mock_all_auths();
@@ -1284,7 +1265,7 @@ fn test_migrate_idempotent_at_current_version() {
 }
 
 #[test]
-#[should_panic(expected = "unauthorized")]
+#[should_panic(expected = "not admin")]
 fn test_migrate_rejects_non_admin() {
     let env = Env::default();
     env.mock_all_auths();
@@ -1321,7 +1302,7 @@ fn test_migrate_rejects_non_admin() {
 }
 
 #[test]
-#[should_panic(expected = "target_version cannot skip past next available version")]
+#[should_panic(expected = "version must be incremented by exactly 1")]
 fn test_migrate_rejects_skipping_versions() {
     let env = Env::default();
     env.mock_all_auths();
