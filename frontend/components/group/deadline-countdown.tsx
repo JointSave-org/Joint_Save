@@ -26,8 +26,7 @@ export function DeadlineCountdown({
   }>({ days: 0, hours: 0, minutes: 0, seconds: 0, totalSeconds: 0 })
 
   useEffect(() => {
-    const targetMs =
-      targetTimestamp > 1e11 ? targetTimestamp : targetTimestamp * 1000
+    const targetMs = targetTimestamp > 1e11 ? targetTimestamp : targetTimestamp * 1000
 
     const updateTimer = () => {
       const now = Date.now()
@@ -53,7 +52,8 @@ export function DeadlineCountdown({
 
   // Color progression: Green (>24h) -> Yellow/Amber (6-24h) -> Red (<6h)
   const getBadgeColor = () => {
-    if (timeLeft.totalSeconds === 0) return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+    if (timeLeft.totalSeconds === 0)
+      return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
     if (isUrgent) return "bg-red-500 text-white dark:bg-red-600"
     if (isImminent) return "bg-amber-500 text-white dark:bg-amber-600"
     return "bg-emerald-500 text-white dark:bg-emerald-600"
@@ -75,14 +75,12 @@ export function DeadlineCountdown({
         {/* Timer section */}
         <div className="flex items-center gap-3.5">
           <div
-            className={`p-2.5 rounded-full ${
-              isImminent ? "animate-pulse" : ""
-            } ${
+            className={`p-2.5 rounded-full ${isImminent ? "animate-pulse" : ""} ${
               isUrgent
                 ? "bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300"
                 : isImminent
-                ? "bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-300"
-                : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-300"
+                  ? "bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-300"
+                  : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-300"
             }`}
           >
             <Clock className="h-6 w-6" />
@@ -94,14 +92,18 @@ export function DeadlineCountdown({
                 Next Deposit Deadline
               </span>
               {isImminent && (
-                <Badge className={`text-[10px] px-1.5 py-0 font-bold ${getBadgeColor()} ${isUrgent ? "animate-pulse" : ""}`}>
+                <Badge
+                  className={`text-[10px] px-1.5 py-0 font-bold ${getBadgeColor()} ${isUrgent ? "animate-pulse" : ""}`}
+                >
                   {isUrgent ? "URGENT" : "IMMINENT"}
                 </Badge>
               )}
             </div>
 
             {timeLeft.totalSeconds === 0 ? (
-              <p className="text-base font-semibold text-muted-foreground">Round deadline reached</p>
+              <p className="text-base font-semibold text-muted-foreground">
+                Round deadline reached
+              </p>
             ) : (
               <div className="flex items-baseline gap-2 mt-0.5">
                 <div className="flex items-center gap-1 text-2xl font-bold tracking-tight">
@@ -136,8 +138,8 @@ export function DeadlineCountdown({
                 isUrgent
                   ? "bg-red-600 hover:bg-red-700 text-white animate-bounce"
                   : isImminent
-                  ? "bg-amber-600 hover:bg-amber-700 text-white"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    ? "bg-amber-600 hover:bg-amber-700 text-white"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
               }`}
             >
               Deposit Now

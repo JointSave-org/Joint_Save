@@ -168,12 +168,12 @@ export function ScheduleManager({
               {daysCount === 1
                 ? "Daily"
                 : daysCount === 7
-                ? "Weekly"
-                : daysCount === 14
-                ? "Biweekly"
-                : daysCount === 30
-                ? "Monthly"
-                : `Every ${daysCount} Days`}
+                  ? "Weekly"
+                  : daysCount === 14
+                    ? "Biweekly"
+                    : daysCount === 30
+                      ? "Monthly"
+                      : `Every ${daysCount} Days`}
             </p>
           </div>
 
@@ -201,7 +201,8 @@ export function ScheduleManager({
                 <div className="flex items-start gap-2.5 p-3 text-xs rounded-md bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>
-                    Changing the schedule affects future rounds only. The current round deadline remains unchanged.
+                    Changing the schedule affects future rounds only. The current round deadline
+                    remains unchanged.
                   </span>
                 </div>
 
@@ -271,7 +272,9 @@ export function ScheduleManager({
                         type="number"
                         min={currentRound + 1}
                         value={targetRound}
-                        onChange={(e) => setTargetRound(parseInt(e.target.value) || currentRound + 1)}
+                        onChange={(e) =>
+                          setTargetRound(parseInt(e.target.value) || currentRound + 1)
+                        }
                       />
                     </div>
                     <div className="col-span-2 space-y-1">

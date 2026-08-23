@@ -24,9 +24,12 @@ export async function POST(_req: NextRequest) {
       const deadlineVal = pool.next_payout_time || pool.deadline
       if (!deadlineVal) continue
 
-      const deadlineMs = typeof deadlineVal === "number" 
-        ? (deadlineVal > 1e11 ? deadlineVal : deadlineVal * 1000)
-        : new Date(deadlineVal).getTime()
+      const deadlineMs =
+        typeof deadlineVal === "number"
+          ? deadlineVal > 1e11
+            ? deadlineVal
+            : deadlineVal * 1000
+          : new Date(deadlineVal).getTime()
 
       const timeDiff = deadlineMs - now
       const hoursRemaining = timeDiff / (1000 * 60 * 60)
