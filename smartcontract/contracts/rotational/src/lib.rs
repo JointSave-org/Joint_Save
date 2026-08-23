@@ -1,8 +1,17 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, Map, Symbol, Vec,
 };
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct ScheduleInfo {
+    pub round_duration: u64,
+    pub is_custom: bool,
+    pub custom_deadlines: Map<u32, u64>,
+    pub next_round_deadline: u64,
+}
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
@@ -27,6 +36,8 @@ pub enum DataKey {
     TokenDecimals,
     MigratedFrom,
     SupportedTokens,
+    IsCustom,
+    CustomDeadlines,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -215,10 +226,17 @@ impl RotationalPool {
                 .publish((symbol_short!("complete"),), Symbol::new(&env, "pool_done"));
         } else {
             storage.set(&DataKey::CurrentRound, &next_round);
-            storage.set(
-                &DataKey::NextPayoutTime,
-                &(env.ledger().timestamp() + round_duration),
-            );
+            let custom_deadlines_opt: Option<Map<u32, u64>> = storage.get(&DataKey::CustomDeadlines);
+            let next_payout = if let Some(cd) = custom_deadlines_opt {
+                if let Some(custom_dl) = cd.get(next_round) {
+                    custom_dl
+                } else {
+                    env.ledger().timestamp() + round_duration
+                }
+            } else {
+                env.ledger().timestamp() + round_duration
+            };
+            storage.set(&DataKey::NextPayoutTime, &next_payout);
         }
         Self::bump_config_state_internal(&env);
     }
@@ -476,8 +494,87 @@ impl RotationalPool {
         if storage.has(&DataKey::ReputationTracker) {
             storage.extend_ttl(&DataKey::ReputationTracker, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
+<<<<<<< HEAD
         if storage.has(&DataKey::SupportedTokens) {
             storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
+=======
+        if storage.has(&DataKey::IsCustom) {
+            storage.extend_ttl(&DataKey::IsCustom, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::CustomDeadlines) {
+            storage.extend_ttl(&DataKey::CustomDeadlines, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+    }
+
+    /// Allows admin to change the round duration for future rounds.
+    pub fn update_schedule(env: Env, admin: Address, new_round_duration: u64) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        assert!(
+            new_round_duration >= 86_400 && new_round_duration <= 31_536_000,
+            "round_duration must be between 1 day and 365 days"
+        );
+
+        storage.set(&DataKey::RoundDuration, &new_round_duration);
+        env.events().publish(
+            (symbol_short!("upd_sched"), admin),
+            new_round_duration,
+        );
+        Self::bump_config_state_internal(&env);
+    }
+
+    /// Allows admin to set a specific deadline for a specific round.
+    pub fn set_custom_deadline(env: Env, admin: Address, round: u32, deadline: u64) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let mut custom_deadlines: Map<u32, u64> = storage
+            .get(&DataKey::CustomDeadlines)
+            .unwrap_or_else(|| Map::new(&env));
+
+        custom_deadlines.set(round, deadline);
+        storage.set(&DataKey::IsCustom, &true);
+        storage.set(&DataKey::CustomDeadlines, &custom_deadlines);
+
+        let current_round: u32 = storage.get(&DataKey::CurrentRound).unwrap_or(0);
+        if round == current_round {
+            storage.set(&DataKey::NextPayoutTime, &deadline);
+        }
+
+        env.events().publish(
+            (symbol_short!("cst_dead"), round),
+            deadline,
+        );
+        Self::bump_config_state_internal(&env);
+    }
+
+    /// Returns current schedule configuration.
+    pub fn get_schedule_info(env: Env) -> ScheduleInfo {
+        let storage = env.storage().persistent();
+        let round_duration: u64 = storage.get(&DataKey::RoundDuration).unwrap_or(0);
+        let is_custom: bool = storage.get(&DataKey::IsCustom).unwrap_or(false);
+        let custom_deadlines: Map<u32, u64> = storage
+            .get(&DataKey::CustomDeadlines)
+            .unwrap_or_else(|| Map::new(&env));
+        let next_round_deadline: u64 = storage.get(&DataKey::NextPayoutTime).unwrap_or(0);
+
+        ScheduleInfo {
+            round_duration,
+            is_custom,
+            custom_deadlines,
+            next_round_deadline,
+>>>>>>> 8430380 (feat(rotational): flexible contribution scheduling and recurring deposit reminders)
         }
     }
 
