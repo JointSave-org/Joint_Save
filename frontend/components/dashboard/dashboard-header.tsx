@@ -49,7 +49,10 @@ export function DashboardHeader() {
     if (!address) return
     await navigator.clipboard.writeText(address)
     setCopied(true)
-    toast({ title: t("wallet.addressCopiedTitle"), description: t("wallet.addressCopiedDescription") })
+    toast({
+      title: t("wallet.addressCopiedTitle"),
+      description: t("wallet.addressCopiedDescription"),
+    })
     setTimeout(() => setCopied(false), 2500)
   }
 
@@ -80,10 +83,7 @@ export function DashboardHeader() {
                 ?
               </kbd>{" "}
               {t("shortcutsHintSuffix")}
-              <ContextualHelp
-                content={t("dashboardHelpContent")}
-                title={t("dashboardHelpTitle")}
-              />
+              <ContextualHelp content={t("dashboardHelpContent")} title={t("dashboardHelpTitle")} />
             </span>
             <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
               <Link href="/explore">{t("explore")}</Link>

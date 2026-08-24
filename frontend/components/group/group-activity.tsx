@@ -298,7 +298,9 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
                     {formatRelativeTime(lastIndexed.indexedAt, locale)}
                   </time>
                 </TooltipTrigger>
-                <TooltipContent>{formatExactDateTime(lastIndexed.indexedAt, locale)}</TooltipContent>
+                <TooltipContent>
+                  {formatExactDateTime(lastIndexed.indexedAt, locale)}
+                </TooltipContent>
               </Tooltip>
             </>
           ) : (

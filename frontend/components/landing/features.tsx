@@ -6,14 +6,7 @@ import { Users, Target, Zap, Shield, TrendingUp, Clock } from "lucide-react"
 import { motion } from "framer-motion"
 
 const FEATURE_ICONS = [Users, Target, Zap, Shield, TrendingUp, Clock] as const
-const FEATURE_KEYS = [
-  "rotational",
-  "target",
-  "flexible",
-  "escrow",
-  "yield",
-  "enforcement",
-] as const
+const FEATURE_KEYS = ["rotational", "target", "flexible", "escrow", "yield", "enforcement"] as const
 
 const container = {
   hidden: { opacity: 0 },

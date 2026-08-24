@@ -222,9 +222,7 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
       case "rotational":
         return (
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground font-medium">
-              {t("depositRequirement")}
-            </p>
+            <p className="text-sm text-muted-foreground font-medium">{t("depositRequirement")}</p>
             <p className="text-2xl font-bold text-foreground">
               {group.contribution_amount?.toFixed(2)} {tokenSymbol}
             </p>
@@ -267,9 +265,7 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
       case "flexible":
         return (
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground font-medium">
-              {t("depositRequirement")}
-            </p>
+            <p className="text-sm text-muted-foreground font-medium">{t("depositRequirement")}</p>
             <p className="text-2xl font-bold text-foreground">
               {group.minimum_deposit
                 ? t("flexibleMin", { amount: group.minimum_deposit.toFixed(2), token: tokenSymbol })
@@ -404,9 +400,7 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
               {/* Creator & Contract Info */}
               <div className="space-y-3.5 text-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/40 pb-3 gap-1">
-                  <span className="text-muted-foreground font-medium">
-                    {t("creatorAddress")}
-                  </span>
+                  <span className="text-muted-foreground font-medium">{t("creatorAddress")}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono text-xs text-foreground bg-muted px-2 py-0.5 rounded break-all font-semibold">
                       {formattedCreator}
@@ -430,9 +424,7 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                  <span className="text-muted-foreground font-medium">
-                    {t("contractAddress")}
-                  </span>
+                  <span className="text-muted-foreground font-medium">{t("contractAddress")}</span>
                   <span className="font-mono text-xs text-foreground bg-muted px-2 py-0.5 rounded break-all max-w-[280px] sm:max-w-none truncate">
                     {group.contract_address}
                   </span>

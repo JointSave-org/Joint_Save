@@ -34,9 +34,7 @@ const YieldDashboard = dynamic(
 
 function AdminAuditLogLoading() {
   const t = useTranslations("group.page")
-  return (
-    <div className="p-4 bg-muted/20 animate-pulse rounded-lg h-32">{t("loadingAuditLog")}</div>
-  )
+  return <div className="p-4 bg-muted/20 animate-pulse rounded-lg h-32">{t("loadingAuditLog")}</div>
 }
 
 const AdminAuditLog = dynamic(
@@ -58,9 +56,7 @@ const AdminActionsLog = dynamic(
 
 function LendingTabLoading() {
   const t = useTranslations("group.page")
-  return (
-    <div className="p-4 bg-muted/20 animate-pulse rounded-lg h-48">{t("loadingLending")}</div>
-  )
+  return <div className="p-4 bg-muted/20 animate-pulse rounded-lg h-48">{t("loadingLending")}</div>
 }
 
 const LendingTab = dynamic(
@@ -189,10 +185,16 @@ export default function GroupPage({
             <TabsContent value="overview">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
-                  <SectionErrorBoundary sectionName={t("sectionPoolDetails")} walletAddress={address}>
+                  <SectionErrorBoundary
+                    sectionName={t("sectionPoolDetails")}
+                    walletAddress={address}
+                  >
                     <GroupDetails groupId={id} contractAddress={cacheKey} poolAdmin={poolAdmin} />
                   </SectionErrorBoundary>
-                  <SectionErrorBoundary sectionName={t("sectionActivityFeed")} walletAddress={address}>
+                  <SectionErrorBoundary
+                    sectionName={t("sectionActivityFeed")}
+                    walletAddress={address}
+                  >
                     <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
                   </SectionErrorBoundary>
                   {/* Admin audit log with CSV export — only shown to the pool creator */}
@@ -200,13 +202,19 @@ export default function GroupPage({
                     <AdminAuditLog groupId={id} creatorAddress={pool.creator_address} />
                   </SectionErrorBoundary>
                   {/* Admin actions log — visible to all pool members */}
-                  <SectionErrorBoundary sectionName={t("sectionAdminActions")} walletAddress={address}>
+                  <SectionErrorBoundary
+                    sectionName={t("sectionAdminActions")}
+                    walletAddress={address}
+                  >
                     <AdminActionsLog groupId={id} />
                   </SectionErrorBoundary>
                 </div>
 
                 <div className="space-y-6">
-                  <SectionErrorBoundary sectionName={t("sectionGroupActions")} walletAddress={address}>
+                  <SectionErrorBoundary
+                    sectionName={t("sectionGroupActions")}
+                    walletAddress={address}
+                  >
                     <GroupActions
                       groupId={id}
                       poolAddress={pool.contract_address}
@@ -226,7 +234,10 @@ export default function GroupPage({
                       <YieldDashboard poolAddress={pool.contract_address} />
                     </SectionErrorBoundary>
                   )}
-                  <SectionErrorBoundary sectionName={t("sectionMembersList")} walletAddress={address}>
+                  <SectionErrorBoundary
+                    sectionName={t("sectionMembersList")}
+                    walletAddress={address}
+                  >
                     <GroupMembers groupId={id} contractAddress={cacheKey} poolType={pool.type} />
                   </SectionErrorBoundary>
                 </div>

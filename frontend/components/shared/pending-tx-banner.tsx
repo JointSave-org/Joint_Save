@@ -117,7 +117,8 @@ export function PendingTxBanner() {
                       {tBanner(record.attempts === 1 ? "attempt" : "attempts", {
                         count: record.attempts,
                       })}{" "}
-                      · {tBanner("checkedPrefix")} {formatCheckedAt(record.lastChecked, now, tBanner)}
+                      · {tBanner("checkedPrefix")}{" "}
+                      {formatCheckedAt(record.lastChecked, now, tBanner)}
                     </span>
                   </div>
                 ))}

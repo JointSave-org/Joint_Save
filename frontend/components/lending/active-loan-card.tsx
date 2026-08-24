@@ -485,9 +485,7 @@ export function ActiveLoanCard({
                   <DialogDescription>
                     {t.rich("markDefaultedDesc", {
                       strong: (chunks) => <strong>{chunks}</strong>,
-                      borrower: (
-                        <span className="font-mono">{shortAddress(loan.borrower)}</span>
-                      ),
+                      borrower: <span className="font-mono">{shortAddress(loan.borrower)}</span>,
                     })}
                   </DialogDescription>
                 </DialogHeader>

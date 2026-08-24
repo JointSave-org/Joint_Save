@@ -327,11 +327,7 @@ export function GroupActions({
 
     if (pendingTx.status === "confirmed") {
       const txHash = pendingTx.txHash
-      toastManager.success(
-        t("confirmedSuffix", { type: pendingTx.type }),
-        undefined,
-        txHash
-      )
+      toastManager.success(t("confirmedSuffix", { type: pendingTx.type }), undefined, txHash)
       setDepositAmount("")
       setWithdrawAmount("")
     } else if (pendingTx.status === "failed") {
@@ -428,7 +424,9 @@ export function GroupActions({
             groupId,
             "event_deposit",
             t("pushDepositTitle"),
-            t("pushDepositBody", { amountSuffix: depositAmount ? ` ${depositAmount} ${tokenSymbol}` : "" })
+            t("pushDepositBody", {
+              amountSuffix: depositAmount ? ` ${depositAmount} ${tokenSymbol}` : "",
+            })
           )
           toastManager.info(t("depositSubmitted"))
         }

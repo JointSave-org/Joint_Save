@@ -206,7 +206,9 @@ function CompareContent() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{pool.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {t("poolTypeSuffix", { type: tPool(`type.${pool.type}` as "type.rotational") })}
+                          {t("poolTypeSuffix", {
+                            type: tPool(`type.${pool.type}` as "type.rotational"),
+                          })}
                         </p>
                       </div>
                       <Plus

@@ -54,10 +54,7 @@ export async function checkTxOnHorizon(
 }
 
 /** English fallback used outside React render (e.g. default prop values). */
-export function pendingTxLabel(
-  type: PendingTxType,
-  t?: (key: PendingTxType) => string
-): string {
+export function pendingTxLabel(type: PendingTxType, t?: (key: PendingTxType) => string): string {
   if (t) return t(type)
   switch (type) {
     case "deposit":

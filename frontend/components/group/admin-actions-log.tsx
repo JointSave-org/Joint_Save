@@ -232,7 +232,9 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
                           {formatRelativeTime(action.created_at, locale)}
                         </time>
                       </TooltipTrigger>
-                      <TooltipContent>{formatExactDateTime(action.created_at, locale)}</TooltipContent>
+                      <TooltipContent>
+                        {formatExactDateTime(action.created_at, locale)}
+                      </TooltipContent>
                     </Tooltip>
                     {action.tx_hash && (
                       <>

@@ -99,7 +99,12 @@ async function fetchProfileStats(address: string): Promise<ProfileStats> {
   }
 }
 
-const PREF_KEYS = ["email_on_payout", "email_on_deposit", "email_on_round", "email_on_target"] as const
+const PREF_KEYS = [
+  "email_on_payout",
+  "email_on_deposit",
+  "email_on_round",
+  "email_on_target",
+] as const
 
 export function Profile() {
   const t = useTranslations("settings.profile")

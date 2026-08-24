@@ -254,7 +254,10 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
                 />
                 <p className="text-xs text-muted-foreground">
                   {selectedType === "rotational"
-                    ? t("defaultRotational", { amount: SMART_DEFAULTS.rotational.amount, members: 5 })
+                    ? t("defaultRotational", {
+                        amount: SMART_DEFAULTS.rotational.amount,
+                        members: 5,
+                      })
                     : t("defaultTarget", { amount: SMART_DEFAULTS.target.amount, members: 10 })}
                 </p>
               </div>

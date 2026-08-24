@@ -285,7 +285,9 @@ export function Transactions() {
                           {formatRelativeTime(activity.created_at, locale)}
                         </time>
                       </TooltipTrigger>
-                      <TooltipContent>{formatExactDateTime(activity.created_at, locale)}</TooltipContent>
+                      <TooltipContent>
+                        {formatExactDateTime(activity.created_at, locale)}
+                      </TooltipContent>
                     </Tooltip>
                   </div>
                 </div>

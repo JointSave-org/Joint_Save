@@ -248,9 +248,7 @@ export function LoanRequestCard({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("dueDate")}</span>
-                  <span className="font-medium">
-                    {t("dueDateValue", { days: loan.termDays })}
-                  </span>
+                  <span className="font-medium">{t("dueDateValue", { days: loan.termDays })}</span>
                 </div>
               </div>
 

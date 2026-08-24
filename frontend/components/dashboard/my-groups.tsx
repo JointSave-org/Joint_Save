@@ -186,10 +186,7 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
           <p className="text-sm text-muted-foreground max-w-sm">
             {t.rich("noSearchResultsHint", {
               clear: (chunks) => (
-                <button
-                  onClick={() => setSearchInput("")}
-                  className="text-primary hover:underline"
-                >
+                <button onClick={() => setSearchInput("")} className="text-primary hover:underline">
                   {chunks}
                 </button>
               ),

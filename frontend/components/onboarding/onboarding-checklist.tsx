@@ -41,9 +41,7 @@ export function OnboardingChecklist() {
           />
         </button>
       </div>
-      <p className="text-xs text-muted-foreground mb-3">
-        {t("progress", { completed, total })}
-      </p>
+      <p className="text-xs text-muted-foreground mb-3">{t("progress", { completed, total })}</p>
 
       <AnimatePresence initial={false}>
         {!collapsed && (

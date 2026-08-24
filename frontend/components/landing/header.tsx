@@ -42,7 +42,10 @@ export function Header() {
     if (!address) return
     await navigator.clipboard.writeText(address)
     setCopied(true)
-    toast({ title: t("wallet.addressCopiedTitle"), description: t("wallet.addressCopiedDescription") })
+    toast({
+      title: t("wallet.addressCopiedTitle"),
+      description: t("wallet.addressCopiedDescription"),
+    })
     setTimeout(() => setCopied(false), 2500)
   }
 

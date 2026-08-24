@@ -98,9 +98,7 @@ export function CreateGroup() {
             {GROUP_TYPE_KEYS.map((type) => (
               <li key={type} className="flex gap-2">
                 <span className="font-medium min-w-[120px]">{t(`types.${type}.guideLabel`)}</span>
-                <span className="text-muted-foreground">
-                  {t(`types.${type}.guideDescription`)}
-                </span>
+                <span className="text-muted-foreground">{t(`types.${type}.guideDescription`)}</span>
               </li>
             ))}
           </ul>

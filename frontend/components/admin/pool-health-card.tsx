@@ -153,13 +153,19 @@ export function PoolHealthCard({
             {pool.next_payout && (
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5" />
-                <span>{t("nextPayout", { time: formatRelativeTime(new Date(pool.next_payout), locale) })}</span>
+                <span>
+                  {t("nextPayout", {
+                    time: formatRelativeTime(new Date(pool.next_payout), locale),
+                  })}
+                </span>
               </div>
             )}
             {lastActivity && (
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Activity className="h-3.5 w-3.5" />
-                <span>{t("activeLabel", { time: formatRelativeTime(new Date(lastActivity), locale) })}</span>
+                <span>
+                  {t("activeLabel", { time: formatRelativeTime(new Date(lastActivity), locale) })}
+                </span>
               </div>
             )}
           </div>

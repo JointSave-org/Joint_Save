@@ -141,12 +141,7 @@ export function AnalyticsDashboard() {
 
   // Export to CSV Function
   const handleExportCSV = () => {
-    const headers = [
-      t("csvDate"),
-      t("csvDeposits"),
-      t("csvWithdrawals"),
-      t("csvBalance"),
-    ]
+    const headers = [t("csvDate"), t("csvDeposits"), t("csvWithdrawals"), t("csvBalance")]
     const dataPoints =
       selectedPoolId === "overview" ? generalData?.globalChartData || [] : poolData?.chartData || []
 
@@ -459,9 +454,7 @@ export function AnalyticsDashboard() {
       isPoolLoading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground animate-pulse">
-            {t("loadingPoolAnalysis")}
-          </p>
+          <p className="text-sm text-muted-foreground animate-pulse">{t("loadingPoolAnalysis")}</p>
         </div>
       ) : poolError ? (
         <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-center text-destructive">

@@ -237,7 +237,10 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
       label: t("minimumDepositFieldLabel"),
       valid: validatePositiveAmount(formData.minimumDeposit, "Amount").valid,
     },
-    { label: t("withdrawalFeeFieldLabel"), valid: validateWithdrawalFee(formData.withdrawalFee).valid },
+    {
+      label: t("withdrawalFeeFieldLabel"),
+      valid: validateWithdrawalFee(formData.withdrawalFee).valid,
+    },
     { label: tc("progressMembers"), valid: validMembers.length >= 2 },
   ]
 
@@ -267,9 +270,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
       {prefill && (
         <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground">
           <CopyPlus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-          <span>
-            {t.rich("prefillNotice", { strong: (chunks) => <strong>{chunks}</strong> })}
-          </span>
+          <span>{t.rich("prefillNotice", { strong: (chunks) => <strong>{chunks}</strong> })}</span>
         </div>
       )}
 
@@ -433,9 +434,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
                 {tc("youLabel")}
               </span>
             </div>
-            {!address && (
-              <p className="text-xs text-amber-600">{tc("connectWalletToBeMember")}</p>
-            )}
+            {!address && <p className="text-xs text-amber-600">{tc("connectWalletToBeMember")}</p>}
           </div>
 
           {members.map((member, i) => (

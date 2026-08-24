@@ -45,9 +45,7 @@ function HealthTooltipBody({ health }: { health: PoolHealth }) {
       {health.state === "new" ? (
         <p className="text-background/80">{t("newPoolDescription")}</p>
       ) : (
-        <p className="text-background/80">
-          {t("description", { count: health.memberCount })}
-        </p>
+        <p className="text-background/80">{t("description", { count: health.memberCount })}</p>
       )}
       <p className="text-background/60 pt-0.5">
         {t("thresholds", {

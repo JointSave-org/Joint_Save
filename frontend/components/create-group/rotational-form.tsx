@@ -425,9 +425,7 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
                 {tc("youLabel")}
               </span>
             </div>
-            {!address && (
-              <p className="text-xs text-amber-600">{tc("connectWalletToBeMember")}</p>
-            )}
+            {!address && <p className="text-xs text-amber-600">{tc("connectWalletToBeMember")}</p>}
           </div>
 
           {members.map((member, i) => (
@@ -477,7 +475,9 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
                 token: "XLM",
               })}
             </li>
-            <li>{t("payoutFrequencySummary", { frequency: t(`frequency.${formData.frequency}`) })}</li>
+            <li>
+              {t("payoutFrequencySummary", { frequency: t(`frequency.${formData.frequency}`) })}
+            </li>
             <li>
               {t("totalPool", {
                 amount: (

@@ -375,11 +375,7 @@
           "rotational": {
             "title": "Ahorro Rotativo",
             "description": "El círculo de ahorro tradicional, en la blockchain. Los miembros se turnan para recibir los pagos automáticamente.",
-            "features": [
-              "Monto de aporte fijo",
-              "Pagos programados",
-              "Sistema por turnos"
-            ],
+            "features": ["Monto de aporte fijo", "Pagos programados", "Sistema por turnos"],
             "guideLabel": "Rotativo:",
             "guideDescription": "Ideal para grupos con ingresos regulares que buscan pagos predecibles"
           },

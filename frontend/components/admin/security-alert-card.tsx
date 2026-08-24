@@ -54,9 +54,7 @@ export function SecurityAlertCard({ alert, onStatusChange }: SecurityAlertCardPr
             >
               {alert.severity}
             </Badge>
-            <span className="font-medium text-sm">
-              {t(`ruleNames.${alert.rule_id}`)}
-            </span>
+            <span className="font-medium text-sm">{t(`ruleNames.${alert.rule_id}`)}</span>
             <Badge variant="outline" className="text-[10px]">
               {tStatus(alert.status)}
             </Badge>

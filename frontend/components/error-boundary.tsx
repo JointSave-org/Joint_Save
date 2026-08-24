@@ -151,7 +151,9 @@ export class ErrorBoundaryClass extends Component<ErrorBoundaryClassProps, Error
           <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
 
           <h2 className="text-xl font-semibold mb-2">{messages.fullTitle}</h2>
-          <p className="text-muted-foreground text-sm mb-6">{messages.fullDescription({ label })}</p>
+          <p className="text-muted-foreground text-sm mb-6">
+            {messages.fullDescription({ label })}
+          </p>
 
           {/* Expandable error details */}
           <button

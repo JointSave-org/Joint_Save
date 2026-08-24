@@ -163,7 +163,9 @@ export default function NotificationSettingsPage() {
                     <p className="mb-3 text-muted-foreground">
                       {t("digestSummary", {
                         frequency:
-                          frequency === "daily" ? t("frequencyDailyWord") : t("frequencyWeeklyWord"),
+                          frequency === "daily"
+                            ? t("frequencyDailyWord")
+                            : t("frequencyWeeklyWord"),
                         period: frequency === "daily" ? t("last24Hours") : t("last7Days"),
                       })}
                     </p>
@@ -178,7 +180,9 @@ export default function NotificationSettingsPage() {
                         </span>
                       </li>
                       <li>
-                        <span className="font-medium text-primary">{t("deadlineReminderTitle")}</span>
+                        <span className="font-medium text-primary">
+                          {t("deadlineReminderTitle")}
+                        </span>
                         <br />
                         <span className="text-muted-foreground">{t("deadlineReminderSample")}</span>
                       </li>

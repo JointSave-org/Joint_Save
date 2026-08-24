@@ -375,33 +375,21 @@
           "rotational": {
             "title": "Rotational Savings",
             "description": "Traditional savings circle onchain. Members take turns receiving payouts automatically.",
-            "features": [
-              "Fixed contribution amount",
-              "Scheduled payouts",
-              "Turn-based system"
-            ],
+            "features": ["Fixed contribution amount", "Scheduled payouts", "Turn-based system"],
             "guideLabel": "Rotational:",
             "guideDescription": "Best for regular income groups who want predictable payouts"
           },
           "target": {
             "title": "Target Pool",
             "description": "Save together toward a shared goal. Funds unlock when the target is reached.",
-            "features": [
-              "Shared savings goal",
-              "Locked until target",
-              "Equal distribution"
-            ],
+            "features": ["Shared savings goal", "Locked until target", "Equal distribution"],
             "guideLabel": "Target:",
             "guideDescription": "Perfect for saving toward a specific goal like a wedding or business"
           },
           "flexible": {
             "title": "Flexible Pool",
             "description": "Deposit and withdraw anytime with optional yield generation.",
-            "features": [
-              "Flexible deposits",
-              "Anytime withdrawal",
-              "Optional yield"
-            ],
+            "features": ["Flexible deposits", "Anytime withdrawal", "Optional yield"],
             "guideLabel": "Flexible:",
             "guideDescription": "Ideal for emergency funds or groups with varying income"
           }

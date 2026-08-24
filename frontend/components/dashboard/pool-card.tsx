@@ -236,9 +236,7 @@ export function PoolCard({ pool }: { pool: Pool }) {
               <Calendar className="h-4 w-4" />
               {pool.type === "rotational" ? t("frequency") : t("status")}
             </span>
-            <span className="font-medium">
-            {pool.frequency || tPool(`status.${pool.status}`)}
-          </span>
+            <span className="font-medium">{pool.frequency || tPool(`status.${pool.status}`)}</span>
           </div>
           {avgScore !== null &&
             (() => {

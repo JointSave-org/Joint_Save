@@ -295,7 +295,9 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
     if (group.type === "rotational" && onchainState) {
       const s = onchainState as RotationalPoolState
       const nextPayout =
-        s.nextPayoutTime > 0 ? new Date(s.nextPayoutTime * 1000).toLocaleDateString() : t("notAvailable")
+        s.nextPayoutTime > 0
+          ? new Date(s.nextPayoutTime * 1000).toLocaleDateString()
+          : t("notAvailable")
       base.unshift({
         icon: TrendingUp,
         label: t("round"),
