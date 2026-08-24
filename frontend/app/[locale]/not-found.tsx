@@ -1,17 +1,19 @@
 "use client"
 
 import Image from "next/image"
-import Link from "next/link"
+import { useTranslations } from "next-intl"
 import { ArrowRight } from "lucide-react"
 
 import { useStellar } from "@/components/web3-provider"
+import { Link } from "@/i18n/navigation"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 export default function NotFound() {
+  const t = useTranslations("common.notFound")
   const { isConnected, isInitializing } = useStellar()
   const destination = !isInitializing && isConnected ? "/dashboard" : "/"
-  const buttonLabel = !isInitializing && isConnected ? "Go to Dashboard" : "Back to Home"
+  const buttonLabel = !isInitializing && isConnected ? t("goToDashboard") : t("backToHome")
 
   return (
     <div className="min-h-screen bg-background">
@@ -42,11 +44,10 @@ export default function NotFound() {
         <section className="mx-auto max-w-3xl py-24 text-center">
           <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-primary">404</p>
           <h1 className="mb-6 text-5xl font-bold tracking-tight text-balance sm:text-6xl lg:text-7xl">
-            Page Not Found
+            {t("title")}
           </h1>
           <p className="mx-auto mb-10 max-w-2xl text-xl text-muted-foreground text-pretty sm:text-2xl">
-            This page may have moved, or the link might be out of date. Let&apos;s get you back to
-            JointSave.
+            {t("description")}
           </p>
           <Button size="lg" className="h-14 px-8 text-lg" asChild>
             <Link href={destination}>

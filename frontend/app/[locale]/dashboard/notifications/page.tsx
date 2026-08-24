@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useTranslations, useLocale } from "next-intl"
-import { Link } from "@/i18n/navigation"
-import { useRouter, useSearchParams } from "next/navigation"
+import { Link, useRouter } from "@/i18n/navigation"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"

@@ -10,7 +10,7 @@ import {
   type MouseEvent,
 } from "react"
 import { useTranslations } from "next-intl"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -44,7 +44,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import { Link } from "@/i18n/navigation"
+import { Link, useRouter } from "@/i18n/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { Checkbox } from "@/components/ui/checkbox"
