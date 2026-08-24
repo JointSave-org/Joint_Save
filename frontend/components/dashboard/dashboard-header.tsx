@@ -74,7 +74,7 @@ export function DashboardHeader() {
           </Link>
 
           <div className="flex min-w-0 items-center gap-1.5 sm:gap-4">
-            <span className="text-xs text-muted-foreground hidden lg:flex items-center gap-1">
+            <span className="text-xs text-muted-foreground hidden xl:flex items-center gap-1 whitespace-nowrap">
               {t("shortcutsHintPrefix")}{" "}
               <kbd className="rounded-sm border border-border bg-muted px-1 font-sans text-[10px] font-medium">
                 ?
