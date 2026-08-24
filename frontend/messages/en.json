@@ -1777,5 +1777,57 @@
       "markedDefaulted": "Loan marked as defaulted — reputation penalty applied",
       "defaultFailed": "Failed to default loan"
     }
+  },
+  "governance": {
+    "title": "Governance",
+    "subtitle": "Pool parameters are decided collectively by members.",
+    "quorumInfo": "{needed} of {total} members must vote For to meet the {quorum}% quorum",
+    "membersCount": "{total} members",
+    "createProposal": "New Proposal",
+    "emptyState": "No active proposals",
+    "emptyHint": "Start a proposal to change how this pool works.",
+    "recentTitle": "Recent proposals",
+    "showRecent": "Show recent",
+    "hideRecent": "Hide recent",
+    "votesFor": "For",
+    "votesAgainst": "Against",
+    "timeLeft": "Ends in {time}",
+    "voteFor": "Vote For",
+    "voteAgainst": "Vote Against",
+    "execute": "Execute",
+    "voting": "Voting...",
+    "executing": "Executing...",
+    "alreadyVoted": "You already voted",
+    "ownProposal": "You cannot vote on your own proposal",
+    "notMember": "Only pool members can participate",
+    "closed": "Voting closed",
+    "typeLabel": "Proposal type",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe the change you want to make...",
+    "paramLabel": "Value",
+    "submit": "Submit Proposal",
+    "submitting": "Submitting...",
+    "cancel": "Cancel",
+    "charCount": "{count}/{max}",
+    "fillRequired": "Fill in all required fields",
+    "toastCreated": "Proposal submitted",
+    "toastVoteRecorded": "Vote recorded on-chain",
+    "toastExecuted": "Proposal executed",
+    "toastError": "Transaction failed. Please try again.",
+    "statuses": {
+      "Active": "Active",
+      "Passed": "Passed",
+      "Executed": "Executed",
+      "Expired": "Expired",
+      "Rejected": "Rejected"
+    },
+    "types": {
+      "ChangeDepositAmount": "Change Deposit Amount",
+      "ExtendDeadline": "Extend Deadline",
+      "AddPenalty": "Add Penalty",
+      "RemovePenalty": "Remove Penalty",
+      "ChangeQuorum": "Change Quorum",
+      "Custom": "Custom"
+    }
   }
 }

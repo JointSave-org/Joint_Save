@@ -3,7 +3,7 @@
 use super::{RotationalPool, RotationalPoolClient};
 use soroban_sdk::{
     testutils::{Address as _, Ledger as _},
-    token, Address, Env, Vec,
+    token, Address, Env, Symbol, Vec,
 };
 
 #[test]
@@ -1408,4 +1408,50 @@ fn test_deposit_succeeds_when_pool_token_is_in_allowlist() {
 
     client.deposit(&member_a);
     assert!(client.has_deposited(&member_a));
+}
+
+// ── DAO governance integration ───────────────────────────────────────────────
+
+#[test]
+fn governance_contract_can_change_pool_parameters() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _a, _b) = setup_rotational_pool(&env);
+
+    let gov = Address::generate(&env);
+    client.set_governance_contract(&admin, &gov);
+    assert_eq!(client.governance_contract(), Some(gov.clone()));
+
+    client.apply_governance_proposal(&gov, &Symbol::new(&env, "change_deposit_amount"), &250i128);
+    client.apply_governance_proposal(&gov, &Symbol::new(&env, "extend_deadline"), &3600i128);
+    assert_eq!(client.deposit_amount(), 250i128);
+    assert_eq!(client.round_duration(), 3600u64);
+}
+
+#[test]
+fn admin_can_apply_penalty_proposals_directly() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _a, _b) = setup_rotational_pool(&env);
+
+    client.apply_governance_proposal(&admin, &Symbol::new(&env, "add_penalty"), &10i128);
+    assert_eq!(client.penalty_percentage(), 10u32);
+
+    client.apply_governance_proposal(&admin, &Symbol::new(&env, "remove_penalty"), &0i128);
+    assert_eq!(client.penalty_percentage(), 0u32);
+}
+
+#[test]
+#[should_panic(expected = "not authorized")]
+fn unauthorized_caller_cannot_apply_proposal() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, _admin, _a, _b) = setup_rotational_pool(&env);
+
+    let impostor = Address::generate(&env);
+    client.apply_governance_proposal(
+        &impostor,
+        &Symbol::new(&env, "change_deposit_amount"),
+        &250i128,
+    );
 }

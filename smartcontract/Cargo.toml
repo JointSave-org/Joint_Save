@@ -7,6 +7,7 @@ members = [
     "contracts/yield-strategy",
     "contracts/reputation",
     "contracts/microloan",
+    "contracts/governance",
     "migration",
 ]
 resolver = "2"

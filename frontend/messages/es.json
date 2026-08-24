@@ -1785,5 +1785,57 @@
       "markedDefaulted": "Préstamo marcado como incumplido — penalización de reputación aplicada",
       "defaultFailed": "Error al marcar el préstamo como incumplido"
     }
+  },
+  "governance": {
+    "title": "Gobernanza",
+    "subtitle": "Los parámetros del grupo se deciden colectivamente entre los miembros.",
+    "quorumInfo": "{needed} de {total} miembros deben votar A Favor para alcanzar el quórum del {quorum}%",
+    "membersCount": "{total} miembros",
+    "createProposal": "Nueva Propuesta",
+    "emptyState": "No hay propuestas activas",
+    "emptyHint": "Inicia una propuesta para cambiar cómo funciona este grupo.",
+    "recentTitle": "Propuestas recientes",
+    "showRecent": "Mostrar recientes",
+    "hideRecent": "Ocultar recientes",
+    "votesFor": "A favor",
+    "votesAgainst": "En contra",
+    "timeLeft": "Termina en {time}",
+    "voteFor": "Votar a favor",
+    "voteAgainst": "Votar en contra",
+    "execute": "Ejecutar",
+    "voting": "Votando...",
+    "executing": "Ejecutando...",
+    "alreadyVoted": "Ya votaste",
+    "ownProposal": "No puedes votar tu propia propuesta",
+    "notMember": "Solo los miembros pueden participar",
+    "closed": "Votación cerrada",
+    "typeLabel": "Tipo de propuesta",
+    "descriptionLabel": "Descripción",
+    "descriptionPlaceholder": "Describe el cambio que quieres realizar...",
+    "paramLabel": "Valor",
+    "submit": "Enviar propuesta",
+    "submitting": "Enviando...",
+    "cancel": "Cancelar",
+    "charCount": "{count}/{max}",
+    "fillRequired": "Completa todos los campos obligatorios",
+    "toastCreated": "Propuesta enviada",
+    "toastVoteRecorded": "Voto registrado en la blockchain",
+    "toastExecuted": "Propuesta ejecutada",
+    "toastError": "La transacción falló. Inténtalo de nuevo.",
+    "statuses": {
+      "Active": "Activa",
+      "Passed": "Aprobada",
+      "Executed": "Ejecutada",
+      "Expired": "Expirada",
+      "Rejected": "Rechazada"
+    },
+    "types": {
+      "ChangeDepositAmount": "Cambiar monto de depósito",
+      "ExtendDeadline": "Extender plazo",
+      "AddPenalty": "Agregar penalización",
+      "RemovePenalty": "Quitar penalización",
+      "ChangeQuorum": "Cambiar quórum",
+      "Custom": "Personalizada"
+    }
   }
 }

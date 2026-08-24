@@ -1085,7 +1085,7 @@
             "data": {
               "vec": [
                 {
-                  "string": "caught panic 'yield disabled' from contract function 'Symbol(obj#205)'"
+                  "string": "caught panic 'yield disabled' from contract function 'Symbol(obj#217)'"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"

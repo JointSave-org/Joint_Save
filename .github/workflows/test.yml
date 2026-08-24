@@ -91,6 +91,10 @@ jobs:
         working-directory: smartcontract
         run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/flexible/Cargo.toml
 
+      - name: Build Governance contract
+        working-directory: smartcontract
+        run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/governance/Cargo.toml
+
       - name: Verify WASM artifacts
         working-directory: smartcontract
         run: |

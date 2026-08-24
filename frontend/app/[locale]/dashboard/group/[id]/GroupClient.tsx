@@ -8,6 +8,7 @@ import { GroupActivity } from "@/components/group/group-activity"
 import { GroupActions } from "@/components/group/group-actions"
 import { RotationalTimelineContainer } from "@/components/group/rotational-timeline-container"
 import { PoolChat } from "@/components/group/pool-chat"
+import { GovernancePanel } from "@/components/governance/governance-panel"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -22,6 +23,7 @@ interface Pool {
   contract_address: string
   token_address: string
   pool_members?: { member_address: string }[]
+  governance_contract_id?: string | null
 }
 
 const isPendingAddress = (addr: string) => !addr || addr === "pending_deployment"
@@ -120,6 +122,18 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
             )}
             <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
             <PoolChat poolId={id} isMember={isMember} />
+            {pool.governance_contract_id && !isPendingAddress(pool.contract_address) && (
+              <GovernancePanel
+                poolId={pool.id}
+                governanceContractId={pool.governance_contract_id}
+                poolContractAddress={pool.contract_address}
+                poolType={pool.type}
+                isAdmin={
+                  !!address && !!poolAdmin && address.toLowerCase() === poolAdmin.toLowerCase()
+                }
+                isMember={isMember}
+              />
+            )}
           </div>
 
           {/* ── Right column: actions + members ──────────────────────────── */}
