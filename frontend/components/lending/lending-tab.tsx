@@ -13,6 +13,7 @@
  */
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,22 +40,39 @@ import { ActiveLoanCard } from "./active-loan-card"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function validateLoanForm(amount: string, rate: string, term: string): Record<string, string> {
+interface LoanFormMessages {
+  amountError: string
+  rateError: string
+  termError: string
+}
+
+const DEFAULT_LOAN_FORM_MESSAGES: LoanFormMessages = {
+  amountError: "Enter a valid amount greater than 0",
+  rateError: "Rate must be between 0% and 50%",
+  termError: "Term must be between 1 and 365 days",
+}
+
+function validateLoanForm(
+  amount: string,
+  rate: string,
+  term: string,
+  messages: LoanFormMessages = DEFAULT_LOAN_FORM_MESSAGES
+): Record<string, string> {
   const errors: Record<string, string> = {}
 
   const amtNum = parseFloat(amount)
   if (!amount || isNaN(amtNum) || amtNum <= 0) {
-    errors.amount = "Enter a valid amount greater than 0"
+    errors.amount = messages.amountError
   }
 
   const rateNum = parseFloat(rate)
   if (!rate || isNaN(rateNum) || rateNum < 0 || rateNum > 50) {
-    errors.rate = "Rate must be between 0% and 50%"
+    errors.rate = messages.rateError
   }
 
   const termNum = parseInt(term, 10)
   if (!term || isNaN(termNum) || termNum < 1 || termNum > 365) {
-    errors.term = "Term must be between 1 and 365 days"
+    errors.term = messages.termError
   }
 
   return errors
@@ -93,6 +111,7 @@ interface CreateLoanFormProps {
 }
 
 function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
+  const t = useTranslations("lending.form")
   const [amount, setAmount] = useState("")
   const [rate, setRate] = useState("")
   const [term, setTerm] = useState("")
@@ -101,7 +120,11 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const validationErrors = validateLoanForm(amount, rate, term)
+    const validationErrors = validateLoanForm(amount, rate, term, {
+      amountError: t("amountError"),
+      rateError: t("rateError"),
+      termError: t("termError"),
+    })
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
       return
@@ -124,17 +147,15 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <Plus className="h-4 w-4" />
-          Request a Loan
+          {t("requestLoan")}
         </CardTitle>
-        <CardDescription>
-          Post a loan request for other pool members to fund. Max 3 active loans per member.
-        </CardDescription>
+        <CardDescription>{t("requestLoanDesc")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Amount */}
           <div className="space-y-1.5">
-            <Label htmlFor="loan-amount">Amount (XLM)</Label>
+            <Label htmlFor="loan-amount">{t("amountLabel")}</Label>
             <Input
               id="loan-amount"
               type="number"
@@ -154,7 +175,7 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
           {/* Rate + Term — side by side on sm+ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="loan-rate">Interest Rate (%)</Label>
+              <Label htmlFor="loan-rate">{t("rateLabel")}</Label>
               <Input
                 id="loan-rate"
                 type="number"
@@ -170,11 +191,11 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
                 className={cn(errors.rate && "border-destructive")}
               />
               {errors.rate && <p className="text-xs text-destructive">{errors.rate}</p>}
-              <p className="text-xs text-muted-foreground">0% – 50%</p>
+              <p className="text-xs text-muted-foreground">{t("rateHint")}</p>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="loan-term">Term (days)</Label>
+              <Label htmlFor="loan-term">{t("termLabel")}</Label>
               <Input
                 id="loan-term"
                 type="number"
@@ -190,7 +211,7 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
                 className={cn(errors.term && "border-destructive")}
               />
               {errors.term && <p className="text-xs text-destructive">{errors.term}</p>}
-              <p className="text-xs text-muted-foreground">1 – 365 days</p>
+              <p className="text-xs text-muted-foreground">{t("termHint")}</p>
             </div>
           </div>
 
@@ -198,14 +219,14 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
           {amount && rate && term && !Object.values(errors).some(Boolean) && (
             <div className="rounded-md bg-muted/40 border px-3 py-2 text-sm space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Loan preview
+                {t("loanPreview")}
               </p>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">You borrow</span>
+                <span className="text-muted-foreground">{t("youBorrow")}</span>
                 <span className="font-medium">{amount} XLM</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">You repay</span>
+                <span className="text-muted-foreground">{t("youRepay")}</span>
                 <span className="font-medium">
                   {(parseFloat(amount) * (1 + parseFloat(rate) / 100)).toFixed(7)} XLM
                 </span>
@@ -219,7 +240,7 @@ function CreateLoanForm({ isMutating, onSubmit }: CreateLoanFormProps) {
             ) : (
               <HandCoins className="h-4 w-4" />
             )}
-            Post Loan Request
+            {t("postRequest")}
           </Button>
         </form>
       </CardContent>
@@ -263,6 +284,7 @@ export function LendingTab({
   isAdmin = false,
   walletAddress,
 }: LendingTabProps) {
+  const t = useTranslations("lending")
   const {
     poolLoans,
     myLoans,
@@ -321,11 +343,8 @@ export function LendingTab({
     return (
       <Alert className="mt-2">
         <Info className="h-4 w-4" />
-        <AlertTitle>Members only</AlertTitle>
-        <AlertDescription>
-          The lending marketplace is only visible to pool members. Join this pool to access
-          peer-to-peer loans.
-        </AlertDescription>
+        <AlertTitle>{t("membersOnlyTitle")}</AlertTitle>
+        <AlertDescription>{t("membersOnlyBody")}</AlertDescription>
       </Alert>
     )
   }
@@ -336,10 +355,11 @@ export function LendingTab({
     return (
       <Alert className="mt-2">
         <Info className="h-4 w-4" />
-        <AlertTitle>Microloan contract not configured</AlertTitle>
+        <AlertTitle>{t("notConfiguredTitle")}</AlertTitle>
         <AlertDescription>
-          Set <code className="font-mono text-xs">NEXT_PUBLIC_MICROLOAN_CONTRACT_ID</code> in your
-          environment variables to enable P2P lending.
+          {t.rich("notConfiguredBody", {
+            code: (chunks) => <code className="font-mono text-xs">{chunks}</code>,
+          })}
         </AlertDescription>
       </Alert>
     )
@@ -350,12 +370,12 @@ export function LendingTab({
   if (error) {
     return (
       <Alert variant="destructive" className="mt-2">
-        <AlertTitle>Failed to load loans</AlertTitle>
+        <AlertTitle>{t("loadFailedTitle")}</AlertTitle>
         <AlertDescription className="flex items-center justify-between gap-2">
           <span>{error}</span>
           <Button size="sm" variant="outline" onClick={refetch} className="flex-shrink-0 gap-1">
             <RefreshCw className="h-3 w-3" />
-            Retry
+            {t("retry")}
           </Button>
         </AlertDescription>
       </Alert>
@@ -369,11 +389,9 @@ export function LendingTab({
         <div>
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <PiggyBank className="h-5 w-5 text-primary" />
-            P2P Lending
+            {t("title")}
           </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Borrow from or lend to fellow pool members
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">{t("subtitle")}</p>
         </div>
         <Button
           size="sm"
@@ -383,7 +401,7 @@ export function LendingTab({
           className="gap-1.5"
         >
           <RefreshCw className={cn("h-3.5 w-3.5", (isLoading || isMutating) && "animate-spin")} />
-          Refresh
+          {t("refresh")}
         </Button>
       </div>
 
@@ -397,7 +415,7 @@ export function LendingTab({
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="marketplace" className="flex-1 sm:flex-none gap-1.5">
             <Landmark className="h-3.5 w-3.5" />
-            Marketplace
+            {t("marketplace")}
             {fundableCount > 0 && (
               <Badge
                 variant="secondary"
@@ -409,7 +427,7 @@ export function LendingTab({
           </TabsTrigger>
           <TabsTrigger value="my-loans" className="flex-1 sm:flex-none gap-1.5">
             <WalletMinimal className="h-3.5 w-3.5" />
-            My Loans
+            {t("myLoans")}
             {activeLoans.length > 0 && (
               <Badge
                 variant="secondary"
@@ -424,7 +442,7 @@ export function LendingTab({
         {/* ── Marketplace tab ────────────────────────────────────────────── */}
         <TabsContent value="marketplace" className="mt-4">
           {pendingLoans.length === 0 ? (
-            <EmptyState message="No pending loan requests right now. Be the first to post one above." />
+            <EmptyState message={t("noPendingRequests")} />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {pendingLoans.map((loan) => (
@@ -448,10 +466,10 @@ export function LendingTab({
           {/* Active */}
           <div>
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Active Loans
+              {t("activeLoans")}
             </h3>
             {activeLoans.length === 0 ? (
-              <EmptyState message="You have no active loans." />
+              <EmptyState message={t("noActiveLoans")} />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {activeLoans.map((loan) => (
@@ -476,7 +494,7 @@ export function LendingTab({
               <Separator />
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                  Loan History
+                  {t("loanHistory")}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                   {historicalLoans.map((loan) => (
@@ -496,9 +514,7 @@ export function LendingTab({
             </>
           )}
 
-          {myLoans.length === 0 && (
-            <EmptyState message="You haven't borrowed or lent anything yet." />
-          )}
+          {myLoans.length === 0 && <EmptyState message={t("noLoansYet")} />}
         </TabsContent>
       </Tabs>
     </div>

@@ -1,7 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
+import { useRouter } from "@/i18n/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Users, Target, Zap, Wallet, Rocket, PiggyBank, ArrowRight, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -24,27 +25,9 @@ const SMART_DEFAULTS: Record<
 }
 
 const POOL_TYPE_CARDS = [
-  {
-    type: "rotational" as const,
-    icon: Users,
-    title: "Rotational",
-    description:
-      "A fixed group that takes turns receiving the full pot each round. Great for regular savers.",
-  },
-  {
-    type: "target" as const,
-    icon: Target,
-    title: "Target",
-    description:
-      "Everyone saves toward one shared goal. Funds unlock once the target amount is reached.",
-  },
-  {
-    type: "flexible" as const,
-    icon: Zap,
-    title: "Flexible",
-    description:
-      "Deposit and withdraw anytime. Open membership with no fixed schedule — perfect for beginners.",
-  },
+  { type: "rotational" as const, icon: Users },
+  { type: "target" as const, icon: Target },
+  { type: "flexible" as const, icon: Zap },
 ]
 
 interface WizardProps {
@@ -53,6 +36,8 @@ interface WizardProps {
 }
 
 export function OnboardingWizard({ open, onClose }: WizardProps) {
+  const t = useTranslations("onboarding.wizard")
+  const tSteps = useTranslations("onboarding.steps")
   const router = useRouter()
   const { address, connect } = useStellar()
   const { state, completeStep, skip } = useOnboarding()
@@ -118,7 +103,7 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
     const defaults = SMART_DEFAULTS[selectedType]
     const params = new URLSearchParams()
     params.set("onboarding", "1")
-    params.set("name", poolName.trim() || defaults.name)
+    params.set("name", poolName.trim() || t(`defaultPoolNames.${selectedType}`))
     if (selectedType === "rotational" || selectedType === "target") {
       params.set("amount", poolAmount.trim() || defaults.amount)
       params.set("frequency", defaults.frequency)
@@ -139,28 +124,11 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
   }, [completeStep, createdPoolId, onClose, router])
 
   const stepCopy: Record<number, { title: string; subtitle: string }> = {
-    0: {
-      title: "Welcome to JointSave",
-      subtitle: "A quick tour — about 2 minutes — to set up your wallet and first savings pool.",
-    },
-    1: {
-      title: "Connect your wallet",
-      subtitle:
-        "JointSave runs on the Stellar network. Connect a wallet like Freighter or xBull to get started.",
-    },
-    2: {
-      title: "Choose a pool type",
-      subtitle: "Each pool type works differently. Pick the one that fits how you want to save.",
-    },
-    3: {
-      title: "Create your first pool",
-      subtitle: "We've pre-filled sensible defaults — review them on the next screen and create.",
-    },
-    4: {
-      title: "Make your first deposit",
-      subtitle:
-        "Your pool is ready. Head to your dashboard and make a deposit to get the cycle going.",
-    },
+    0: { title: t("step0Title"), subtitle: t("step0Subtitle") },
+    1: { title: t("step1Title"), subtitle: t("step1Subtitle") },
+    2: { title: t("step2Title"), subtitle: t("step2Subtitle") },
+    3: { title: t("step3Title"), subtitle: t("step3Subtitle") },
+    4: { title: t("step4Title"), subtitle: t("step4Subtitle") },
   }
 
   const renderStep = () => {
@@ -172,18 +140,15 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
               <Rocket className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <p className="text-muted-foreground">
-                Join a savings circle on Stellar, contribute with friends, and unlock the pot when
-                it&apos;s your turn. Let&apos;s get you set up.
-              </p>
+              <p className="text-muted-foreground">{t("welcomeBody")}</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Button onClick={handleStart} className="gap-2">
-                Get Started
+                {t("getStarted")}
                 <ArrowRight className="h-4 w-4" />
               </Button>
               <Button variant="ghost" onClick={skip}>
-                Skip Tour
+                {t("skipTour")}
               </Button>
             </div>
           </div>
@@ -196,19 +161,16 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
               <Wallet className="h-8 w-8 text-primary" />
             </div>
             <div className="space-y-3">
-              <p className="text-muted-foreground">
-                We support Freighter, xBull, Albedo and LOBSTR. Pick one from the wallet popup that
-                opens when you click connect.
-              </p>
+              <p className="text-muted-foreground">{t("walletBody")}</p>
               {address ? (
                 <p className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
                   <Check className="h-4 w-4" />
-                  Connected
+                  {t("connected")}
                 </p>
               ) : (
                 <Button onClick={() => connect()} className="gap-2">
                   <Wallet className="h-4 w-4" />
-                  Connect Wallet
+                  {t("connectWallet")}
                 </Button>
               )}
             </div>
@@ -217,7 +179,7 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
               onClick={() => completeStep("walletConnected")}
               disabled={!address}
             >
-              Continue
+              {t("continueBtn")}
             </Button>
           </div>
         )
@@ -236,9 +198,9 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
                   aria-pressed={selectedType === card.type}
                 >
                   <card.icon className="h-6 w-6 text-primary mb-2" />
-                  <p className="font-semibold">{card.title}</p>
+                  <p className="font-semibold">{t(`poolTypes.${card.type}.title`)}</p>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    {card.description}
+                    {t(`poolTypes.${card.type}.description`)}
                   </p>
                 </button>
               ))}
@@ -248,7 +210,7 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
               disabled={!selectedType}
               onClick={() => completeStep("poolTypeSelected")}
             >
-              Continue
+              {t("continueBtn")}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -259,19 +221,19 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
           <div className="space-y-5">
             {selectedType && (
               <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-2 text-sm">
-                <span className="font-medium capitalize">{selectedType} pool</span>
-                <span className="text-muted-foreground">
-                  — we&apos;ve pre-filled these defaults, you can change them next.
+                <span className="font-medium capitalize">
+                  {t(`poolTypes.${selectedType}.title`)} {t("poolTypeSuffix")}
                 </span>
+                <span className="text-muted-foreground">{t("prefilledNote")}</span>
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="onboarding-pool-name">Pool name</Label>
+              <Label htmlFor="onboarding-pool-name">{t("poolNameLabel")}</Label>
               <Input
                 id="onboarding-pool-name"
                 value={poolName}
                 onChange={(e) => setPoolName(e.target.value)}
-                placeholder={SMART_DEFAULTS[selectedType ?? "rotational"].name}
+                placeholder={t(`defaultPoolNames.${selectedType ?? "rotational"}`)}
                 maxLength={50}
               />
             </div>
@@ -279,8 +241,8 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
               <div className="space-y-2">
                 <Label htmlFor="onboarding-pool-amount">
                   {selectedType === "target"
-                    ? "Target amount (XLM)"
-                    : "Contribution per round (XLM)"}
+                    ? t("targetAmountLabel")
+                    : t("contributionAmountLabel")}
                 </Label>
                 <Input
                   id="onboarding-pool-amount"
@@ -292,18 +254,16 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
                 />
                 <p className="text-xs text-muted-foreground">
                   {selectedType === "rotational"
-                    ? `Default: ${SMART_DEFAULTS.rotational.amount} XLM weekly, 5 members.`
-                    : `Default: ${SMART_DEFAULTS.target.amount} XLM goal, 10 members, monthly.`}
+                    ? t("defaultRotational", { amount: SMART_DEFAULTS.rotational.amount, members: 5 })
+                    : t("defaultTarget", { amount: SMART_DEFAULTS.target.amount, members: 10 })}
                 </p>
               </div>
             )}
             <Button className="w-full gap-2" onClick={handleCreatePool}>
               <PiggyBank className="h-4 w-4" />
-              Create my pool
+              {t("createMyPool")}
             </Button>
-            <p className="text-center text-xs text-muted-foreground">
-              Creating a pool deploys a smart contract and asks you to approve a few wallet prompts.
-            </p>
+            <p className="text-center text-xs text-muted-foreground">{t("createPoolNote")}</p>
           </div>
         )
 
@@ -314,8 +274,7 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
               <PiggyBank className="h-8 w-8 text-emerald-500" />
             </div>
             <p className="text-muted-foreground">
-              Nice work! Your pool is live. The final step is making your first deposit — your pool
-              page has a highlighted <strong>Deposit</strong> button waiting for you.
+              {t.rich("depositBody", { strong: (chunks) => <strong>{chunks}</strong> })}
             </p>
             <Button
               onClick={handleGoDeposit}
@@ -325,11 +284,11 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
               {loadingPool && !createdPoolId ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Finding your pool…
+                  {t("findingPool")}
                 </span>
               ) : (
                 <>
-                  Go to my pool
+                  {t("goToMyPool")}
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -361,12 +320,12 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
             className="w-full max-w-lg"
             role="dialog"
             aria-modal="true"
-            aria-label="Onboarding wizard"
+            aria-label={t("dialogAriaLabel")}
           >
             <Card className="p-6 sm:p-8 relative">
               <button
                 onClick={skip}
-                aria-label="Skip onboarding"
+                aria-label={t("skipAria")}
                 className="absolute top-4 right-4 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <X className="h-4 w-4" />
@@ -376,9 +335,9 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
               <div className="mb-6">
                 <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                   <span className="font-medium capitalize">
-                    Step {step + 1} of {ONBOARDING_STEP_COUNT}
+                    {t("stepOf", { current: step + 1, total: ONBOARDING_STEP_COUNT })}
                   </span>
-                  <span className="capitalize">{stepName.replace(/([A-Z])/g, " $1").trim()}</span>
+                  <span className="capitalize">{tSteps(stepName)}</span>
                 </div>
                 <Progress value={progress} className="h-2" />
               </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import type { FC } from "react"
+import { useTranslations } from "next-intl"
 import { useStellar } from "@/components/web3-provider"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -21,7 +22,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
-import Link from "next/link"
+import { Link } from "@/i18n/navigation"
 import {
   formatTokenAmount,
   RotationalPoolState,
@@ -38,6 +39,8 @@ import { useToast } from "@/hooks/use-toast"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import { GroupMuteNotificationsToggle } from "@/components/group/GroupMuteNotificationsToggle"
 
+const FREQUENCY_KEYS = ["daily", "weekly", "biweekly", "monthly"] as const
+
 function VersionWarning({
   onchainState,
   poolType,
@@ -45,6 +48,7 @@ function VersionWarning({
   onchainState: RotationalPoolState | TargetPoolState | FlexiblePoolState
   poolType: string
 }) {
+  const t = useTranslations("group.details")
   if (!(poolType in KNOWN_CONTRACT_VERSIONS)) return null
   const cv = (onchainState as { contractVersion?: number | null }).contractVersion
   if (
@@ -56,10 +60,7 @@ function VersionWarning({
     return (
       <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 mb-4 text-sm font-medium">
         <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-        <span>
-          ⚠️ Contract v{cv} — This pool may run a newer version than expected. Some features may not
-          be supported.
-        </span>
+        <span>{t("versionWarning", { version: cv })}</span>
       </div>
     )
   }
@@ -104,12 +105,22 @@ interface GroupDetailsProps {
 }
 
 export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetailsProps) {
+  const t = useTranslations("group.details")
+  const tPool = useTranslations("pool")
+  const tFrequency = useTranslations("pool.create.rotational.frequency")
   const [copied, setCopied] = useState(false)
   const [copiedInvite, setCopiedInvite] = useState(false)
   const [currentLedger, setCurrentLedger] = useState<number | null>(null)
   const { toast } = useToast()
   const { address } = useStellar()
   const isAdmin = !!address && !!poolAdmin && address.toUpperCase() === poolAdmin.toUpperCase()
+
+  const frequencyLabel = (freq: string | null): string => {
+    if (!freq) return t("notAvailable")
+    return (FREQUENCY_KEYS as readonly string[]).includes(freq)
+      ? tFrequency(freq as (typeof FREQUENCY_KEYS)[number])
+      : freq
+  }
 
   // Use contract address as cache key when available; otherwise key on DB id.
   // The provider resolves DB data first, so the DB id key works fine too.
@@ -147,22 +158,22 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
       const txHash = await bumpPoolState()
       if (txHash) {
         toast({
-          title: "Storage Extended!",
-          description: "Pool storage lease has been successfully extended.",
+          title: t("storageExtended"),
+          description: t("storageExtendedDescription"),
         })
         refetch()
       } else {
         toast({
-          title: "Failed to extend storage",
-          description: "Could not extend storage. Please check your wallet connection.",
+          title: t("extendStorageFailed"),
+          description: t("extendStorageFailedDescription"),
           variant: "destructive",
         })
       }
     } catch (err: unknown) {
       console.error("Extend storage error:", err)
       toast({
-        title: "Error extending storage",
-        description: (err as Error).message || "An unexpected error occurred.",
+        title: t("extendStorageError"),
+        description: (err as Error).message || t("unexpectedError"),
         variant: "destructive",
       })
     }
@@ -170,7 +181,6 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
   const onchainState = data?.onchain ?? null
 
   const isPending = (addr: string) => !addr || addr === "pending_deployment"
-  const formatType = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
 
   const handleCopy = async () => {
     if (!group) return
@@ -178,8 +188,8 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
       await navigator.clipboard.writeText(group.contract_address)
       setCopied(true)
       const { dismiss } = toast({
-        title: "Copied!",
-        description: "Contract address copied to clipboard.",
+        title: t("copiedTitle"),
+        description: t("copiedDescription"),
       })
       setTimeout(() => {
         setCopied(false)
@@ -187,8 +197,8 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
       }, 2000)
     } catch {
       toast({
-        title: "Failed to copy",
-        description: "Please copy the address manually.",
+        title: t("copyFailedTitle"),
+        description: t("copyFailedDescription"),
         variant: "destructive",
       })
     }
@@ -201,8 +211,8 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
       await navigator.clipboard.writeText(inviteUrl)
       setCopiedInvite(true)
       const { dismiss } = toast({
-        title: "Link copied!",
-        description: "Invite link copied to clipboard.",
+        title: t("linkCopiedTitle"),
+        description: t("linkCopiedDescription"),
       })
       setTimeout(() => {
         setCopiedInvite(false)
@@ -210,8 +220,8 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
       }, 2000)
     } catch {
       toast({
-        title: "Failed to copy",
-        description: "Please copy the invite link manually.",
+        title: t("copyFailedTitle"),
+        description: t("copyInviteFailedDescription"),
         variant: "destructive",
       })
     }
@@ -219,7 +229,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
 
   if (isLoading && !group) {
     return (
-      <Card className="p-6" aria-label="Loading group details">
+      <Card className="p-6" aria-label={t("loadingLabel")}>
         {/* header */}
         <div className="flex items-start justify-between mb-6">
           <div className="space-y-3">
@@ -261,7 +271,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
   if (error || !group) {
     return (
       <Card className="p-6 bg-destructive/10 text-destructive">
-        <p>{error || "Group not found"}</p>
+        <p>{error || t("groupNotFound")}</p>
       </Card>
     )
   }
@@ -279,23 +289,23 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
       value: string | number
       isPending?: boolean
       isOptimistic?: boolean
-    }[] = [{ icon: Users, label: "Members", value: group.members_count || 0 }]
+    }[] = [{ icon: Users, label: t("membersLabel"), value: group.members_count || 0 }]
     const { pendingTx } = optimisticState
 
     if (group.type === "rotational" && onchainState) {
       const s = onchainState as RotationalPoolState
       const nextPayout =
-        s.nextPayoutTime > 0 ? new Date(s.nextPayoutTime * 1000).toLocaleDateString() : "N/A"
+        s.nextPayoutTime > 0 ? new Date(s.nextPayoutTime * 1000).toLocaleDateString() : t("notAvailable")
       base.unshift({
         icon: TrendingUp,
-        label: "Round",
+        label: t("round"),
         value: `${s.currentRound + 1} / ${s.members.length || group.members_count}`,
       })
-      base.push({ icon: Clock, label: "Next Payout", value: nextPayout })
+      base.push({ icon: Clock, label: t("nextPayout"), value: nextPayout })
       base.push({
         icon: Calendar,
-        label: "Frequency",
-        value: group.frequency || "N/A",
+        label: t("frequency"),
+        value: frequencyLabel(group.frequency),
       })
     } else if (group.type === "target" && onchainState) {
       const s = onchainState as TargetPoolState
@@ -316,24 +326,24 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
 
       base.unshift({
         icon: TrendingUp,
-        label: "Total Saved",
+        label: t("totalSaved"),
         value: totalSavedDisplay,
         isPending: isPendingValue,
         isOptimistic: isPendingValue,
       })
       base.push({
         icon: Calendar,
-        label: "Target",
+        label: t("target"),
         value: `${fmt(s.targetAmount).toFixed(2)} ${tokenSymbol}`,
       })
-      let deadlineValue = "N/A"
+      let deadlineValue = t("notAvailable")
       if (s.deadlineLedger && currentLedger) {
         const estimated = ledgerToEstimatedDate(s.deadlineLedger, currentLedger)
         deadlineValue = `${estimated.toLocaleDateString()} (ledger ${s.deadlineLedger.toLocaleString()})`
       } else if (group.deadline) {
         deadlineValue = new Date(group.deadline).toLocaleDateString()
       }
-      base.push({ icon: Clock, label: "Deadline", value: deadlineValue })
+      base.push({ icon: Clock, label: t("deadline"), value: deadlineValue })
     } else if (group.type === "flexible" && onchainState) {
       const s = onchainState as FlexiblePoolState
       let userBalanceDisplay = fmt(s.userBalance).toFixed(2)
@@ -354,55 +364,55 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
 
       base.unshift({
         icon: TrendingUp,
-        label: "Total Balance",
+        label: t("totalBalance"),
         value: `${fmt(s.totalBalance).toFixed(2)} ${tokenSymbol}`,
       })
       base.push({
         icon: Clock,
-        label: "Your Balance",
+        label: t("yourBalance"),
         value: userBalanceDisplay,
         isPending: isPendingValue,
         isOptimistic: isPendingValue,
       })
       base.push({
         icon: Calendar,
-        label: "Status",
-        value: s.isActive ? "Active" : "Inactive",
+        label: t("status"),
+        value: s.isActive ? t("active") : t("inactive"),
       })
     } else {
       // Fallback to DB data
       base.unshift({
         icon: TrendingUp,
-        label: "Total Saved",
+        label: t("totalSaved"),
         value: `${(group.total_saved || 0).toFixed(2)} ${tokenSymbol}`,
       })
       if (group.type === "rotational") {
         base.push({
           icon: Clock,
-          label: "Next Payout",
-          value: group.next_payout || "N/A",
+          label: t("nextPayout"),
+          value: group.next_payout || t("notAvailable"),
         })
         base.push({
           icon: Calendar,
-          label: "Frequency",
-          value: group.frequency || "N/A",
+          label: t("frequency"),
+          value: frequencyLabel(group.frequency),
         })
       } else if (group.type === "target") {
         base.push({
           icon: Calendar,
-          label: "Target",
+          label: t("target"),
           value: `${(group.target_amount || 0).toFixed(2)} ${tokenSymbol}`,
         })
         base.push({
           icon: Clock,
-          label: "Deadline",
-          value: group.deadline ? new Date(group.deadline).toLocaleDateString() : "N/A",
+          label: t("deadline"),
+          value: group.deadline ? new Date(group.deadline).toLocaleDateString() : t("notAvailable"),
         })
       } else {
-        base.push({ icon: Clock, label: "Status", value: group.status })
+        base.push({ icon: Clock, label: t("status"), value: tPool(`status.${group.status}`) })
         base.push({
           icon: Calendar,
-          label: "Created",
+          label: t("created"),
           value: new Date(group.created_at).toLocaleDateString(),
         })
       }
@@ -491,18 +501,18 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
           <div>
             <h1 className="text-3xl font-bold mb-2">{group.name}</h1>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">{formatType(group.type)}</Badge>
+              <Badge variant="secondary">{tPool(`type.${group.type}`)}</Badge>
               <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
-                {group.status}
+                {tPool(`status.${group.status}`)}
               </Badge>
               {onchainState && (
                 <Badge variant="outline" className="text-xs">
-                  Live onchain
+                  {t("liveOnchain")}
                 </Badge>
               )}
               {hasAutoTrigger && (
                 <Badge variant="outline" className="text-xs text-blue-600 border-blue-400">
-                  🤖 Auto-trigger enabled
+                  {t("autoTriggerEnabled")}
                 </Badge>
               )}
               {ttlDays !== null && (
@@ -512,12 +522,12 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
                     ttlDays < 7 ? "text-destructive border-destructive/40 bg-destructive/10" : ""
                   }`}
                 >
-                  State expires in {ttlDays} days
+                  {t("stateExpiresIn", { days: ttlDays })}
                 </Badge>
               )}
               {isStale && !isLoading && (
                 <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/40">
-                  Stale
+                  {t("stale")}
                 </Badge>
               )}
               {optimisticState.pendingTx && optimisticState.pendingTx.status === "pending" && (
@@ -525,7 +535,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
                   variant="outline"
                   className="text-xs text-yellow-600 border-yellow-600/40 bg-yellow-500/10"
                 >
-                  Pending…
+                  {t("pendingEllipsis")}
                 </Badge>
               )}
             </div>
@@ -536,7 +546,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
             size="icon"
             onClick={refetch}
             disabled={isLoading}
-            aria-label="Refresh pool data"
+            aria-label={t("refreshAria")}
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
@@ -547,17 +557,14 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
         {hasLowMemberCount && (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 mb-4 text-sm font-medium">
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            <span>
-              This pool has very few members remaining — consider inviting more members or planning
-              for a shorter cycle.
-            </span>
+            <span>{t("lowMemberWarning")}</span>
           </div>
         )}
 
         {isPaused && !isPending(group.contract_address) && (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive mb-4 text-sm font-medium">
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            <span>⚠️ Pool Paused — All deposits and withdrawals are currently disabled.</span>
+            <span>{t("poolPausedWarning")}</span>
           </div>
         )}
 
@@ -565,10 +572,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-destructive/10 text-destructive mb-4 text-sm font-medium">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-              <span>
-                ⚠️ Pool storage is expiring soon (less than 7 days remaining). Please extend its
-                storage life.
-              </span>
+              <span>{t("storageExpiringWarning")}</span>
             </div>
             <Button
               size="sm"
@@ -577,15 +581,14 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
               onClick={handleExtendStorage}
               disabled={isBumping}
             >
-              {isBumping ? "Extending..." : "Extend Storage"}
+              {isBumping ? t("extending") : t("extendStorage")}
             </Button>
           </div>
         )}
 
         {isPending(group.contract_address) && (
           <div className="p-3 rounded-lg bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 mb-4 text-sm">
-            Contract pending deployment. Run <code>scripts/deploy.sh</code> and update the contract
-            address.
+            {t.rich("pendingDeployment", { code: (chunks) => <code>{chunks}</code> })}
           </div>
         )}
 
@@ -596,7 +599,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
         {!isPending(group.contract_address) && (
           <div className="mb-4 p-2 rounded bg-muted/30 flex items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground font-mono break-all min-w-0">
-              Contract: {group.contract_address}
+              {t("contractLabel", { address: group.contract_address })}
             </p>
             <div className="flex items-center gap-1">
               <Button
@@ -604,7 +607,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
                 size="icon"
                 className="h-6 w-6 shrink-0"
                 onClick={handleCopy}
-                aria-label="Copy contract address"
+                aria-label={t("copyContractAria")}
               >
                 {copied ? (
                   <Check className="h-3 w-3 text-green-500" />
@@ -621,14 +624,13 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
             <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground">
               <CopyPlus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
               <span>
-                Starting a new cycle deploys a <strong>fresh, independent contract</strong> — the
-                original pool is unaffected.
+                {t.rich("newCycleNotice", { strong: (chunks) => <strong>{chunks}</strong> })}
               </span>
             </div>
             <Button variant="outline" size="sm" className="w-full gap-2" asChild>
               <Link href={duplicateHref}>
                 <CopyPlus className="h-4 w-4" />
-                Start New Cycle / Duplicate Pool
+                {t("startNewCycle")}
               </Link>
             </Button>
           </div>
@@ -646,7 +648,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
             ) : (
               <Share2 className="h-4 w-4" />
             )}
-            {copiedInvite ? "Link copied!" : "Share Invite Link"}
+            {copiedInvite ? t("linkCopiedButton") : t("shareInviteLink")}
           </Button>
         )}
 
@@ -674,7 +676,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
                 <span className="text-sm">{stat.label}</span>
                 {stat.isOptimistic && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 font-medium">
-                    pending
+                    {t("pending")}
                   </span>
                 )}
               </div>
@@ -690,24 +692,24 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
         {group.type === "target" && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progress to Target</span>
+              <span className="text-muted-foreground">{t("progressToTarget")}</span>
               <span className="font-medium">
                 {targetDisplay.saved.toFixed(2)} / {targetDisplay.target.toFixed(2)} {tokenSymbol}
                 {optimisticState.pendingTx?.status === "pending" &&
                   optimisticState.pendingTx.type === "deposit" && (
                     <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 font-medium">
-                      pending
+                      {t("pending")}
                     </span>
                   )}
               </span>
             </div>
             <Progress value={progress} className="h-3" />
             <p className="text-xs text-muted-foreground">
-              {progress.toFixed(1)}% complete
+              {t("percentComplete", { percent: progress.toFixed(1) })}
               {optimisticState.pendingTx?.status === "pending" &&
                 optimisticState.pendingTx.type === "deposit" && (
                   <span className="ml-2 text-yellow-600 dark:text-yellow-400">
-                    (optimistic update in progress)
+                    {t("optimisticUpdateInProgress")}
                   </span>
                 )}
             </p>

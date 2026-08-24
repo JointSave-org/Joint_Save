@@ -12,6 +12,7 @@
  */
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -78,6 +79,7 @@ export function LoanRequestCard({
   onCancel,
   className,
 }: LoanRequestCardProps) {
+  const t = useTranslations("lending.card")
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [isAccepting, setIsAccepting] = useState(false)
@@ -123,7 +125,7 @@ export function LoanRequestCard({
           variant="outline"
           className="text-xs font-medium text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30"
         >
-          Pending
+          {t("pending")}
         </Badge>
       </div>
 
@@ -134,13 +136,13 @@ export function LoanRequestCard({
             {loan.borrower.slice(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="text-sm text-muted-foreground leading-tight">Borrower</p>
+            <p className="text-sm text-muted-foreground leading-tight">{t("borrower")}</p>
             <Tooltip>
               <TooltipTrigger asChild>
                 <p className="text-sm font-medium font-mono truncate cursor-default">
                   {shortAddress(loan.borrower)}
                   {isOwnRequest && (
-                    <span className="ml-2 text-xs text-primary font-sans">(you)</span>
+                    <span className="ml-2 text-xs text-primary font-sans">{t("you")}</span>
                   )}
                 </p>
               </TooltipTrigger>
@@ -158,7 +160,7 @@ export function LoanRequestCard({
           <p className="text-2xl sm:text-3xl font-bold tracking-tight">
             {formatTokenAmount(loan.amount)}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">XLM requested</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t("xlmRequested")}</p>
         </div>
 
         <Separator />
@@ -168,21 +170,21 @@ export function LoanRequestCard({
           <div className="space-y-0.5">
             <div className="flex items-center justify-center gap-1 text-muted-foreground">
               <TrendingUp className="h-3 w-3" />
-              <span className="text-xs">Rate</span>
+              <span className="text-xs">{t("rate")}</span>
             </div>
             <p className="text-sm font-semibold">{formatInterestRate(loan.interestRateBps)}</p>
           </div>
           <div className="space-y-0.5">
             <div className="flex items-center justify-center gap-1 text-muted-foreground">
               <Calendar className="h-3 w-3" />
-              <span className="text-xs">Term</span>
+              <span className="text-xs">{t("term")}</span>
             </div>
             <p className="text-sm font-semibold">{loan.termDays}d</p>
           </div>
           <div className="space-y-0.5">
             <div className="flex items-center justify-center gap-1 text-muted-foreground">
               <Clock className="h-3 w-3" />
-              <span className="text-xs">Return</span>
+              <span className="text-xs">{t("return")}</span>
             </div>
             <p className="text-sm font-semibold text-green-600 dark:text-green-400">
               +{formatTokenAmount(netEarnings)}
@@ -192,7 +194,7 @@ export function LoanRequestCard({
 
         {/* Total repayment row */}
         <div className="flex justify-between items-center text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
-          <span>Total repayment</span>
+          <span>{t("totalRepayment")}</span>
           <span className="font-medium text-foreground">{formatTokenAmount(totalOwed)} XLM</span>
         </div>
       </CardContent>
@@ -212,46 +214,47 @@ export function LoanRequestCard({
                 ) : (
                   <HandCoins className="h-3.5 w-3.5" />
                 )}
-                Fund This Loan
+                {t("fundThisLoan")}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Confirm Loan Funding</DialogTitle>
+                <DialogTitle>{t("confirmFundingTitle")}</DialogTitle>
                 <DialogDescription>
-                  You are about to lend <strong>{formatTokenAmount(loan.amount)} XLM</strong> to{" "}
-                  <span className="font-mono">{shortAddress(loan.borrower)}</span> for{" "}
-                  <strong>{loan.termDays} days</strong> at{" "}
-                  <strong>{formatInterestRate(loan.interestRateBps)}</strong> interest.
+                  {t.rich("confirmFundingDesc", {
+                    strong: (chunks) => <strong>{chunks}</strong>,
+                    amount: formatTokenAmount(loan.amount),
+                    borrower: <span className="font-mono">{shortAddress(loan.borrower)}</span>,
+                    days: loan.termDays,
+                    rate: formatInterestRate(loan.interestRateBps),
+                  })}
                 </DialogDescription>
               </DialogHeader>
 
               {/* Funding summary */}
               <div className="rounded-md border bg-muted/30 p-4 space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">You lend</span>
+                  <span className="text-muted-foreground">{t("youLend")}</span>
                   <span className="font-medium">{formatTokenAmount(loan.amount)} XLM</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">You receive back</span>
+                  <span className="text-muted-foreground">{t("youReceiveBack")}</span>
                   <span className="font-medium">{formatTokenAmount(totalOwed)} XLM</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-green-600 dark:text-green-400">
-                  <span>Your earnings</span>
+                  <span>{t("yourEarnings")}</span>
                   <span className="font-semibold">+{formatTokenAmount(netEarnings)} XLM</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Due date</span>
-                  <span className="font-medium">{loan.termDays} days from acceptance</span>
+                  <span className="text-muted-foreground">{t("dueDate")}</span>
+                  <span className="font-medium">
+                    {t("dueDateValue", { days: loan.termDays })}
+                  </span>
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground">
-                Tokens will be transferred immediately from your wallet to the borrower. Repayment
-                is tracked on-chain. If the borrower defaults, their pool reputation is penalised by
-                200 points.
-              </p>
+              <p className="text-xs text-muted-foreground">{t("fundingNote")}</p>
 
               <DialogFooter className="gap-2">
                 <Button
@@ -259,11 +262,11 @@ export function LoanRequestCard({
                   onClick={() => setAcceptDialogOpen(false)}
                   disabled={isAccepting}
                 >
-                  Cancel
+                  {t("cancel")}
                 </Button>
                 <Button onClick={handleAccept} disabled={isAccepting} className="gap-1.5">
                   {isAccepting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Confirm Funding
+                  {t("confirmFunding")}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -285,16 +288,17 @@ export function LoanRequestCard({
                 ) : (
                   <X className="h-3.5 w-3.5" />
                 )}
-                Cancel Request
+                {t("cancelRequest")}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Cancel Loan Request?</DialogTitle>
+                <DialogTitle>{t("cancelRequestTitle")}</DialogTitle>
                 <DialogDescription>
-                  Your pending request for <strong>{formatTokenAmount(loan.amount)} XLM</strong>{" "}
-                  will be cancelled. No funds have been moved. You can create a new request at any
-                  time.
+                  {t.rich("cancelRequestDesc", {
+                    strong: (chunks) => <strong>{chunks}</strong>,
+                    amount: formatTokenAmount(loan.amount),
+                  })}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="gap-2">
@@ -303,7 +307,7 @@ export function LoanRequestCard({
                   onClick={() => setCancelDialogOpen(false)}
                   disabled={isCancelling}
                 >
-                  Keep Request
+                  {t("keepRequest")}
                 </Button>
                 <Button
                   variant="destructive"
@@ -312,7 +316,7 @@ export function LoanRequestCard({
                   className="gap-1.5"
                 >
                   {isCancelling && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Yes, Cancel
+                  {t("yesCancel")}
                 </Button>
               </DialogFooter>
             </DialogContent>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useTranslations, useLocale } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -36,6 +37,8 @@ interface AdminActionsLogProps {
 }
 
 export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
+  const t = useTranslations("group.actionsLog")
+  const locale = useLocale()
   const { address } = useStellar()
   const [actions, setActions] = useState<AdminAction[]>([])
   const [loading, setLoading] = useState(false)
@@ -43,7 +46,7 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
 
   const fetchActions = useCallback(async () => {
     if (!address) {
-      setError("Connect your wallet to view admin activity")
+      setError(t("connectWalletToView"))
       setActions([])
       return
     }
@@ -53,21 +56,21 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
     try {
       const res = await fetch(`/api/admin/actions?poolId=${groupId}&callerAddress=${address}`)
       if (res.status === 403) {
-        setError("Admin activity log is only visible to pool members")
+        setError(t("onlyVisibleToMembers"))
         setActions([])
         return
       }
       if (!res.ok) {
-        throw new Error("Failed to fetch admin actions")
+        throw new Error(t("failedToFetch"))
       }
       const data = await res.json()
       setActions(data.actions || [])
     } catch (e: unknown) {
-      setError((e as Error).message || "An error occurred")
+      setError((e as Error).message || t("errorOccurred"))
     } finally {
       setLoading(false)
     }
-  }, [groupId, address])
+  }, [groupId, address, t])
 
   useEffect(() => {
     fetchActions()
@@ -82,56 +85,64 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
     switch (action.action_type) {
       case "pause":
         return {
-          title: "Pool Paused",
-          description: "Admin paused the pool. Transactions are disabled.",
+          title: t("pauseTitle"),
+          description: t("pauseDescription"),
           icon: ShieldOff,
           iconColor: "text-destructive",
           bgColor: "bg-destructive/10",
         }
       case "unpause":
         return {
-          title: "Pool Unpaused",
-          description: "Admin unpaused the pool. Transactions are re-enabled.",
+          title: t("unpauseTitle"),
+          description: t("unpauseDescription"),
           icon: Shield,
           iconColor: "text-green-600",
           bgColor: "bg-green-600/10",
         }
       case "add_member":
         return {
-          title: "Member Added",
-          description: `Added address ${formatAddress(action.target_address)} to the pool.`,
+          title: t("addMemberTitle"),
+          description: t("addMemberDescription", {
+            address: formatAddress(action.target_address),
+          }),
           icon: UserPlus,
           iconColor: "text-primary",
           bgColor: "bg-primary/10",
         }
       case "remove_member":
         return {
-          title: "Member Removed",
-          description: `Removed address ${formatAddress(action.target_address)} from the pool.`,
+          title: t("removeMemberTitle"),
+          description: t("removeMemberDescription", {
+            address: formatAddress(action.target_address),
+          }),
           icon: UserMinus,
           iconColor: "text-amber-600",
           bgColor: "bg-amber-600/10",
         }
       case "emergency_withdraw":
         return {
-          title: "Emergency Withdraw",
-          description: `Triggered emergency withdrawal to recipient ${formatAddress(action.target_address)}.`,
+          title: t("emergencyWithdrawTitle"),
+          description: t("emergencyWithdrawDescription", {
+            address: formatAddress(action.target_address),
+          }),
           icon: AlertTriangle,
           iconColor: "text-destructive",
           bgColor: "bg-destructive/10",
         }
       case "set_treasury":
         return {
-          title: "Treasury Updated",
-          description: `Updated treasury address to ${formatAddress(action.target_address)}.`,
+          title: t("setTreasuryTitle"),
+          description: t("setTreasuryDescription", {
+            address: formatAddress(action.target_address),
+          }),
           icon: Settings,
           iconColor: "text-muted-foreground",
           bgColor: "bg-muted",
         }
       case "auto_trigger_payout":
         return {
-          title: "Auto Payout Triggered",
-          description: "The scheduled cron job automatically triggered this round's payout.",
+          title: t("autoTriggerTitle"),
+          description: t("autoTriggerDescription"),
           icon: Bot,
           iconColor: "text-blue-600",
           bgColor: "bg-blue-600/10",
@@ -139,7 +150,7 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
       default:
         return {
           title: action.action_type.replace("_", " "),
-          description: `Admin action: ${action.action_type}`,
+          description: t("genericActionDescription", { actionType: action.action_type }),
           icon: Settings,
           iconColor: "text-muted-foreground",
           bgColor: "bg-muted",
@@ -151,8 +162,8 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
     <Card className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Admin Activity</h3>
-          <p className="text-xs text-muted-foreground">Log of admin-only pool actions</p>
+          <h3 className="text-lg font-semibold">{t("title")}</h3>
+          <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Button
           variant="ghost"
@@ -160,7 +171,7 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
           onClick={fetchActions}
           disabled={loading || !address}
           className="h-8 w-8 p-0"
-          aria-label="Refresh admin activity"
+          aria-label={t("refreshAria")}
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
@@ -175,9 +186,7 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
       {error && <p className="text-sm text-muted-foreground text-center py-4">{error}</p>}
 
       {!loading && !error && actions.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-4">
-          No admin actions recorded yet.
-        </p>
+        <p className="text-sm text-muted-foreground text-center py-4">{t("noActionsYet")}</p>
       )}
 
       {actions.length > 0 && (
@@ -197,7 +206,7 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <p className="font-medium text-sm capitalize">{details.title}</p>
+                    <p className="font-medium text-sm">{details.title}</p>
                     <Badge
                       variant="outline"
                       className={`text-xs ${
@@ -207,8 +216,8 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
                       }`}
                     >
                       {action.action_type === "auto_trigger_payout"
-                        ? "🤖 Auto (Cron)"
-                        : `Admin: ${formatAddress(action.admin_address)}`}
+                        ? t("autoCron")
+                        : t("adminLabel", { address: formatAddress(action.admin_address) })}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">{details.description}</p>
@@ -220,10 +229,10 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
                           className="text-xs text-muted-foreground cursor-default"
                           tabIndex={0}
                         >
-                          {formatRelativeTime(action.created_at)}
+                          {formatRelativeTime(action.created_at, locale)}
                         </time>
                       </TooltipTrigger>
-                      <TooltipContent>{formatExactDateTime(action.created_at)}</TooltipContent>
+                      <TooltipContent>{formatExactDateTime(action.created_at, locale)}</TooltipContent>
                     </Tooltip>
                     {action.tx_hash && (
                       <>
@@ -234,7 +243,7 @@ export function AdminActionsLog({ groupId }: AdminActionsLogProps) {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline"
                         >
-                          Tx: {action.tx_hash.slice(0, 8)}…
+                          {t("txPrefix", { hash: action.tx_hash.slice(0, 8) })}…
                           <ExternalLink className="h-3 w-3" />
                         </a>
                       </>

@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { AlertTriangle, Info, AlertCircle, XCircle, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Anomaly } from "@/app/api/admin/pools/route"
@@ -32,6 +33,7 @@ function AnomalyItem({
   poolName: string
   poolId: string
 }) {
+  const t = useTranslations("admin.anomalyList")
   const config = SEVERITY_CONFIG[anomaly.severity]
   const Icon = config.icon
 
@@ -52,7 +54,7 @@ function AnomalyItem({
         <a
           href={`/dashboard/group/${poolId}`}
           className="shrink-0 p-1 rounded-md hover:bg-background/50 transition-colors"
-          title="View pool"
+          title={t("viewPool")}
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
@@ -66,11 +68,12 @@ export function AnomalyAlertList({
 }: {
   anomalies: { poolId: string; poolName: string; anomaly: Anomaly }[]
 }) {
+  const t = useTranslations("admin.anomalyList")
   if (anomalies.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">No anomalies detected across your pools.</p>
+        <p className="text-sm">{t("empty")}</p>
       </div>
     )
   }

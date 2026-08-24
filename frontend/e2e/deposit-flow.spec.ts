@@ -8,6 +8,7 @@ import {
   makePool,
   waitForPoolsResponse,
   E2E_CONTRACT_ID,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -43,7 +44,7 @@ test.beforeEach(async ({ page }) => {
 
 test("deposits into a flexible pool and reflects it in the UI", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/dashboard/group/${POOL_ID}`), { waitUntil: "networkidle" })
   await poolsResponse
 
   // Pool detail loads with the user's starting balance

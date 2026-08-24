@@ -14,6 +14,7 @@
  */
 
 import { useState } from "react"
+import { useTranslations, useLocale } from "next-intl"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -83,23 +84,23 @@ function parseAmount(val: string, decimals = 7): bigint | null {
 
 const STATUS_CONFIG = {
   Active: {
-    label: "Active",
+    messageKey: "statusActive",
     badgeClass: "text-blue-600 border-blue-300 bg-blue-50 dark:bg-blue-950/30",
   },
   Repaid: {
-    label: "Repaid",
+    messageKey: "statusRepaid",
     badgeClass: "text-green-600 border-green-300 bg-green-50 dark:bg-green-950/30",
   },
   Defaulted: {
-    label: "Defaulted",
+    messageKey: "statusDefaulted",
     badgeClass: "text-red-600 border-red-300 bg-red-50 dark:bg-red-950/30",
   },
   Pending: {
-    label: "Pending",
+    messageKey: "statusPending",
     badgeClass: "text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30",
   },
   Cancelled: {
-    label: "Cancelled",
+    messageKey: "statusCancelled",
     badgeClass: "text-muted-foreground border-border bg-muted/30",
   },
 } as const
@@ -135,6 +136,8 @@ export function ActiveLoanCard({
   onDefault,
   className,
 }: ActiveLoanCardProps) {
+  const t = useTranslations("lending.card")
+  const locale = useLocale()
   const [repayDialogOpen, setRepayDialogOpen] = useState(false)
   const [defaultDialogOpen, setDefaultDialogOpen] = useState(false)
   const [repayInput, setRepayInput] = useState("")
@@ -167,11 +170,11 @@ export function ActiveLoanCard({
     setInputError(null)
     const parsed = parseAmount(val)
     if (parsed === null) {
-      setInputError("Invalid amount")
+      setInputError(t("invalidAmount"))
     } else if (parsed <= 0n) {
-      setInputError("Amount must be greater than 0")
+      setInputError(t("amountMustBePositive"))
     } else if (parsed > remaining) {
-      setInputError(`Cannot exceed remaining balance (${formatTokenAmount(remaining)} XLM)`)
+      setInputError(t("cannotExceedRemaining", { amount: formatTokenAmount(remaining) }))
     }
   }
 
@@ -218,11 +221,11 @@ export function ActiveLoanCard({
             className="text-xs font-medium text-destructive border-destructive/40 bg-destructive/5"
           >
             <AlertTriangle className="h-3 w-3 mr-1" />
-            Overdue
+            {t("overdue")}
           </Badge>
         )}
         <Badge variant="outline" className={cn("text-xs font-medium", statusConfig.badgeClass)}>
-          {statusConfig.label}
+          {t(statusConfig.messageKey)}
         </Badge>
       </div>
 
@@ -230,12 +233,14 @@ export function ActiveLoanCard({
         {/* Parties */}
         <div className="flex items-start gap-2 flex-wrap">
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground">Borrower</p>
+            <p className="text-xs text-muted-foreground">{t("borrower")}</p>
             <Tooltip>
               <TooltipTrigger asChild>
                 <p className="text-sm font-mono font-medium truncate cursor-default">
                   {shortAddress(loan.borrower)}
-                  {isBorrower && <span className="ml-1 text-xs text-primary font-sans">(you)</span>}
+                  {isBorrower && (
+                    <span className="ml-1 text-xs text-primary font-sans">{t("you")}</span>
+                  )}
                 </p>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="font-mono text-xs break-all max-w-xs">
@@ -244,12 +249,14 @@ export function ActiveLoanCard({
             </Tooltip>
           </div>
           <div className="flex-1 min-w-0 text-right">
-            <p className="text-xs text-muted-foreground">Lender</p>
+            <p className="text-xs text-muted-foreground">{t("lender")}</p>
             <Tooltip>
               <TooltipTrigger asChild>
                 <p className="text-sm font-mono font-medium truncate cursor-default">
                   {shortAddress(loan.lender)}
-                  {isLender && <span className="ml-1 text-xs text-primary font-sans">(you)</span>}
+                  {isLender && (
+                    <span className="ml-1 text-xs text-primary font-sans">{t("you")}</span>
+                  )}
                 </p>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="font-mono text-xs break-all max-w-xs">
@@ -264,11 +271,11 @@ export function ActiveLoanCard({
         {/* Amount row */}
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">Principal</p>
+            <p className="text-xs text-muted-foreground">{t("principal")}</p>
             <p className="text-xl font-bold">{formatTokenAmount(loan.amount)} XLM</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-muted-foreground">Total owed</p>
+            <p className="text-xs text-muted-foreground">{t("totalOwed")}</p>
             <p className="text-sm font-semibold">{formatTokenAmount(totalOwed)} XLM</p>
           </div>
         </div>
@@ -277,7 +284,7 @@ export function ActiveLoanCard({
         {(loan.status === "Active" || loan.status === "Repaid") && (
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Repayment progress</span>
+              <span>{t("repaymentProgress")}</span>
               <span className="font-medium text-foreground">{Math.round(progress)}%</span>
             </div>
             <Progress
@@ -290,14 +297,14 @@ export function ActiveLoanCard({
             />
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">
-                Repaid:{" "}
+                {t("repaid")}{" "}
                 <span className="text-foreground font-medium">
                   {formatTokenAmount(loan.repaidAmount)} XLM
                 </span>
               </span>
               {loan.status === "Active" && (
                 <span className="text-muted-foreground">
-                  Remaining:{" "}
+                  {t("remaining")}{" "}
                   <span className="text-foreground font-medium">
                     {formatTokenAmount(remaining)} XLM
                   </span>
@@ -314,24 +321,24 @@ export function ActiveLoanCard({
           <div className="space-y-0.5">
             <div className="flex items-center justify-center gap-1 text-muted-foreground">
               <TrendingUp className="h-3 w-3" />
-              <span className="text-xs">Rate</span>
+              <span className="text-xs">{t("rate")}</span>
             </div>
             <p className="text-sm font-semibold">{formatInterestRate(loan.interestRateBps)}</p>
           </div>
           <div className="space-y-0.5">
             <div className="flex items-center justify-center gap-1 text-muted-foreground">
               <Clock className="h-3 w-3" />
-              <span className="text-xs">Term</span>
+              <span className="text-xs">{t("term")}</span>
             </div>
             <p className="text-sm font-semibold">{loan.termDays}d</p>
           </div>
           <div className="space-y-0.5">
             <div className="flex items-center justify-center gap-1 text-muted-foreground">
               <Wallet className="h-3 w-3" />
-              <span className="text-xs">Due</span>
+              <span className="text-xs">{t("due")}</span>
             </div>
             <p className={cn("text-sm font-semibold", overdue && "text-destructive")}>
-              {formatDueDate(loan.dueDate)}
+              {formatDueDate(loan.dueDate, locale)}
             </p>
           </div>
         </div>
@@ -340,7 +347,7 @@ export function ActiveLoanCard({
         {loan.status === "Repaid" && (
           <div className="flex items-center gap-2 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 rounded-md px-3 py-2 text-sm">
             <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-            <span>Fully repaid — reputation +10 points awarded</span>
+            <span>{t("fullyRepaidMessage")}</span>
           </div>
         )}
 
@@ -348,7 +355,7 @@ export function ActiveLoanCard({
         {loan.status === "Defaulted" && (
           <div className="flex items-center gap-2 text-destructive bg-destructive/10 rounded-md px-3 py-2 text-sm">
             <ShieldAlert className="h-4 w-4 flex-shrink-0" />
-            <span>Defaulted — borrower reputation −200 points</span>
+            <span>{t("defaultedMessage")}</span>
           </div>
         )}
       </CardContent>
@@ -365,47 +372,44 @@ export function ActiveLoanCard({
                   ) : (
                     <ArrowDownToLine className="h-3.5 w-3.5" />
                   )}
-                  Make Repayment
+                  {t("makeRepayment")}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Repay Loan</DialogTitle>
-                  <DialogDescription>
-                    Enter the amount you want to repay. You can make partial or full repayments. A
-                    full repayment will award +10 reputation points.
-                  </DialogDescription>
+                  <DialogTitle>{t("repayLoanTitle")}</DialogTitle>
+                  <DialogDescription>{t("repayLoanDesc")}</DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4">
                   {/* Balance info */}
                   <div className="rounded-md border bg-muted/30 p-3 space-y-1.5 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total owed</span>
+                      <span className="text-muted-foreground">{t("totalOwed")}</span>
                       <span className="font-medium">{formatTokenAmount(totalOwed)} XLM</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Already repaid</span>
+                      <span className="text-muted-foreground">{t("alreadyRepaid")}</span>
                       <span className="font-medium">
                         {formatTokenAmount(loan.repaidAmount)} XLM
                       </span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-semibold">
-                      <span>Remaining balance</span>
+                      <span>{t("remainingBalance")}</span>
                       <span>{formatTokenAmount(remaining)} XLM</span>
                     </div>
                   </div>
 
                   {/* Amount input */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="repay-amount">Repayment amount (XLM)</Label>
+                    <Label htmlFor="repay-amount">{t("repaymentAmountLabel")}</Label>
                     <Input
                       id="repay-amount"
                       type="number"
                       step="0.0000001"
                       min="0"
-                      placeholder={`Max: ${formatTokenAmount(remaining)}`}
+                      placeholder={t("maxPlaceholder", { amount: formatTokenAmount(remaining) })}
                       value={repayInput}
                       onChange={(e) => handleRepayInputChange(e.target.value)}
                       className={cn(inputError && "border-destructive")}
@@ -422,7 +426,7 @@ export function ActiveLoanCard({
                       className="flex-1 text-xs"
                       onClick={() => handleRepayInputChange(formatTokenAmount(remaining / 2n))}
                     >
-                      50%
+                      {t("half")}
                     </Button>
                     <Button
                       type="button"
@@ -431,7 +435,7 @@ export function ActiveLoanCard({
                       className="flex-1 text-xs"
                       onClick={() => handleRepayInputChange(formatTokenAmount(remaining))}
                     >
-                      Full amount
+                      {t("fullAmount")}
                     </Button>
                   </div>
                 </div>
@@ -442,7 +446,7 @@ export function ActiveLoanCard({
                     onClick={() => setRepayDialogOpen(false)}
                     disabled={isRepaying}
                   >
-                    Cancel
+                    {t("cancel")}
                   </Button>
                   <Button
                     onClick={handleRepay}
@@ -450,7 +454,7 @@ export function ActiveLoanCard({
                     className="gap-1.5"
                   >
                     {isRepaying && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Submit Repayment
+                    {t("submitRepayment")}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -472,17 +476,19 @@ export function ActiveLoanCard({
                   ) : (
                     <ShieldAlert className="h-3.5 w-3.5" />
                   )}
-                  Mark Defaulted
+                  {t("markDefaulted")}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Mark Loan as Defaulted?</DialogTitle>
+                  <DialogTitle>{t("markDefaultedTitle")}</DialogTitle>
                   <DialogDescription>
-                    This loan is past its due date. Marking it as defaulted will apply a reputation
-                    penalty of <strong>−200 points</strong> to the borrower (
-                    <span className="font-mono">{shortAddress(loan.borrower)}</span>). This action
-                    cannot be undone.
+                    {t.rich("markDefaultedDesc", {
+                      strong: (chunks) => <strong>{chunks}</strong>,
+                      borrower: (
+                        <span className="font-mono">{shortAddress(loan.borrower)}</span>
+                      ),
+                    })}
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2">
@@ -491,7 +497,7 @@ export function ActiveLoanCard({
                     onClick={() => setDefaultDialogOpen(false)}
                     disabled={isDefaulting}
                   >
-                    Cancel
+                    {t("cancel")}
                   </Button>
                   <Button
                     variant="destructive"
@@ -500,7 +506,7 @@ export function ActiveLoanCard({
                     className="gap-1.5"
                   >
                     {isDefaulting && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Confirm Default
+                    {t("confirmDefault")}
                   </Button>
                 </DialogFooter>
               </DialogContent>

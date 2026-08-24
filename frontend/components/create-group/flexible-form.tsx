@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -29,9 +30,10 @@ import {
   validatePositiveAmount,
   validateWithdrawalFee,
   findDuplicateAddresses,
+  type ValidationMessages,
 } from "@/lib/form-validation"
 import { MAX_POOL_MEMBERS, DEFAULT_TREASURY_FEE_BPS } from "@/lib/constants"
-import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
+import type { DuplicatePrefill } from "@/app/[locale]/dashboard/create/[type]/page"
 import type { PoolTemplateConfig } from "@/lib/templates"
 import { SaveTemplateDialog } from "@/components/templates/save-template-dialog"
 import { toastManager } from "@/lib/toast"
@@ -47,6 +49,9 @@ type FieldErrors = Partial<Record<"name" | "minimumDeposit" | "withdrawalFee", s
 type Touched = Partial<Record<"name" | "minimumDeposit" | "withdrawalFee", boolean>>
 
 export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
+  const t = useTranslations("pool.create.flexible")
+  const tc = useTranslations("pool.create.common")
+  const tv = useTranslations("pool.create.validation")
   const router = useRouter()
   const { address } = useStellar()
   const [token, setToken] = useState<SelectedToken>(
@@ -74,29 +79,53 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const { initFlexible } = useInitializePool()
   const { register } = useRegisterPool("flexible")
 
+  const validationMessages: ValidationMessages = {
+    groupNameRequired: tv("groupNameRequired"),
+    groupNameTooShort: tv("groupNameTooShort"),
+    groupNameTooLong: tv("groupNameTooLong"),
+    addressRequired: tv("addressRequired"),
+    addressMustStartWithG: tv("addressMustStartWithG"),
+    addressWrongLength: (length) => tv("addressWrongLength", { length }),
+    addressInvalidChars: tv("addressInvalidChars"),
+    addressInvalidChecksum: tv("addressInvalidChecksum"),
+    amountRequired: (label) => tv("amountRequired", { label }),
+    amountInvalidNumber: (label) => tv("amountInvalidNumber", { label }),
+    amountMustBePositive: (label) => tv("amountMustBePositive", { label }),
+    feeRequired: tv("feeRequired"),
+    feeInvalidNumber: tv("feeInvalidNumber"),
+    feeNegative: tv("feeNegative"),
+    feeTooHigh: tv("feeTooHigh"),
+  }
+
   const allMembers = address ? [address, ...members] : members
   const validMembers = Array.from(new Set(allMembers.filter(isValidStellarAddress)))
   const duplicateIndices = findDuplicateAddresses(allMembers)
   const memberErrors = members.map((m, i) => {
     if (!m) return ""
-    const format = validateStellarAddress(m)
+    const format = validateStellarAddress(m, validationMessages)
     if (!format.valid) return format.message
     const allMembersIndex = address ? i + 1 : i
-    return duplicateIndices.has(allMembersIndex)
-      ? "Duplicate address — already in this pool's member list"
-      : ""
+    return duplicateIndices.has(allMembersIndex) ? tv("duplicateAddress") : ""
   })
   const isCreating = step !== "idle"
   const isMemberLimitReached = members.length >= MAX_POOL_MEMBERS
 
-  const validateField = useCallback((name: keyof FieldErrors, value: string) => {
-    let message = ""
-    if (name === "name") message = validateGroupName(value).message
-    else if (name === "minimumDeposit")
-      message = validatePositiveAmount(value, "Minimum deposit").message
-    else if (name === "withdrawalFee") message = validateWithdrawalFee(value).message
-    setFieldErrors((prev) => ({ ...prev, [name]: message }))
-  }, [])
+  const validateField = useCallback(
+    (name: keyof FieldErrors, value: string) => {
+      let message = ""
+      if (name === "name") message = validateGroupName(value, validationMessages).message
+      else if (name === "minimumDeposit")
+        message = validatePositiveAmount(
+          value,
+          t("minimumDepositFieldLabel"),
+          validationMessages
+        ).message
+      else if (name === "withdrawalFee")
+        message = validateWithdrawalFee(value, validationMessages).message
+      setFieldErrors((prev) => ({ ...prev, [name]: message }))
+    },
+    [t, validationMessages]
+  )
 
   const handleBlur = (name: keyof FieldErrors, value: string) => {
     setTouched((prev) => ({ ...prev, [name]: true }))
@@ -121,22 +150,22 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
     e.preventDefault()
 
     setTouched({ name: true, minimumDeposit: true, withdrawalFee: true })
-    const nameResult = validateGroupName(formData.name)
-    const depositResult = validatePositiveAmount(formData.minimumDeposit, "Minimum deposit")
-    const feeResult = validateWithdrawalFee(formData.withdrawalFee)
+    const nameResult = validateGroupName(formData.name, validationMessages)
+    const depositResult = validatePositiveAmount(
+      formData.minimumDeposit,
+      t("minimumDepositFieldLabel"),
+      validationMessages
+    )
+    const feeResult = validateWithdrawalFee(formData.withdrawalFee, validationMessages)
     setFieldErrors({
       name: nameResult.message,
       minimumDeposit: depositResult.message,
       withdrawalFee: feeResult.message,
     })
 
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (duplicateIndices.size > 0)
-      return toastManager.error(
-        "Duplicate member addresses found — please remove duplicates before continuing"
-      )
-    if (validMembers.length < 2)
-      return toastManager.error("Need at least 2 valid Stellar addresses (you + 1 other)")
+    if (!address) return toastManager.error(tc("connectWalletFirst"))
+    if (duplicateIndices.size > 0) return toastManager.error(tc("duplicateMembersFound"))
+    if (validMembers.length < 2) return toastManager.error(tc("needAtLeastTwoMembers"))
     if (!nameResult.valid || !depositResult.valid || !feeResult.valid) return
 
     try {
@@ -185,31 +214,31 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
           yieldEnabled: formData.enableYield,
         }),
       })
-      if (!res.ok) throw new Error("Failed to save pool metadata")
+      if (!res.ok) throw new Error(tc("failedToSaveMetadata"))
       const pool = await res.json()
       router.push(`/dashboard/group/${pool.id}`)
     } catch (err: unknown) {
-      toastManager.error((err as Error).message || "Failed to create group")
+      toastManager.error((err as Error).message || tc("failedToCreateGroup"))
       setStep("idle")
     }
   }
 
   const stepLabel: Record<typeof step, string> = {
-    idle: "Create Flexible Pool",
-    deploying: "Deploying contract...",
-    initializing: "Initializing pool...",
-    registering: "Registering with factory...",
-    saving: "Saving metadata...",
+    idle: t("stepIdle"),
+    deploying: t("stepDeploying"),
+    initializing: t("stepInitializing"),
+    registering: t("stepRegistering"),
+    saving: t("stepSaving"),
   }
 
   const progressFields: ProgressField[] = [
-    { label: "Group name", valid: validateGroupName(formData.name).valid },
+    { label: tc("progressGroupName"), valid: validateGroupName(formData.name).valid },
     {
-      label: "Minimum deposit",
+      label: t("minimumDepositFieldLabel"),
       valid: validatePositiveAmount(formData.minimumDeposit, "Amount").valid,
     },
-    { label: "Withdrawal fee", valid: validateWithdrawalFee(formData.withdrawalFee).valid },
-    { label: "Members (2+)", valid: validMembers.length >= 2 },
+    { label: t("withdrawalFeeFieldLabel"), valid: validateWithdrawalFee(formData.withdrawalFee).valid },
+    { label: tc("progressMembers"), valid: validMembers.length >= 2 },
   ]
 
   const templateToken = token.address === "native" ? "XLM" : token.address
@@ -229,7 +258,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
       {isCreating && (
         <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary">
           <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-          <p className="text-sm">{stepLabel[step]} — approve each wallet prompt.</p>
+          <p className="text-sm">{tc("approveWalletPrompt", { step: stepLabel[step] })}</p>
         </div>
       )}
 
@@ -239,8 +268,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground">
           <CopyPlus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
           <span>
-            Pre-filled from the original pool — all values are editable. Submitting will deploy a{" "}
-            <strong>new, independent contract</strong> with no connection to the original.
+            {t.rich("prefillNotice", { strong: (chunks) => <strong>{chunks}</strong> })}
           </span>
         </div>
       )}
@@ -249,8 +277,8 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="flex items-center justify-between">
           <FieldTooltip
             htmlFor="name"
-            label="Group Name"
-            tooltip="A name for your flexible savings pool — e.g. 'Emergency Fund'. Visible to all members."
+            label={tc("groupNameLabel")}
+            tooltip={t("groupNameTooltip")}
             required
           />
           <span
@@ -261,7 +289,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
         </div>
         <Input
           id="name"
-          placeholder="e.g., Emergency Fund"
+          placeholder={t("groupNamePlaceholder")}
           maxLength={50}
           value={formData.name}
           onChange={(e) => {
@@ -277,8 +305,8 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="flex items-center justify-between">
           <FieldTooltip
             htmlFor="description"
-            label="Description"
-            tooltip="Optional notes about this pool's purpose, deposit rules, or any agreements between members."
+            label={tc("descriptionLabel")}
+            tooltip={t("descriptionTooltip")}
           />
           <span
             className={`text-xs tabular-nums ${formData.description.length > 270 ? "text-destructive" : "text-muted-foreground"}`}
@@ -288,7 +316,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
         </div>
         <Textarea
           id="description"
-          placeholder="Describe the purpose of this flexible pool"
+          placeholder={t("descriptionPlaceholder")}
           maxLength={300}
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -304,8 +332,8 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="space-y-1">
           <FieldTooltip
             htmlFor="minimum"
-            label={`Minimum Deposit (${token.symbol})`}
-            tooltip="The smallest amount a member can deposit in a single transaction. Helps maintain meaningful contributions."
+            label={t("minimumDepositLabel", { symbol: token.symbol })}
+            tooltip={t("minimumDepositTooltip")}
             required
           />
           <Input
@@ -327,8 +355,8 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="space-y-1">
           <FieldTooltip
             htmlFor="fee"
-            label="Withdrawal Fee (%)"
-            tooltip="A small fee charged on withdrawals to discourage early exits and build the pool's reserve. 0–10% allowed."
+            label={t("withdrawalFeeLabel")}
+            tooltip={t("withdrawalFeeTooltip")}
             required
           />
           <Input
@@ -353,12 +381,10 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="space-y-0.5">
           <FieldTooltip
             htmlFor="yield"
-            label="Enable Yield Generation"
-            tooltip="When enabled, idle funds are staked in Stellar DeFi protocols to earn passive income for the pool. Members share the yield proportionally."
+            label={t("enableYieldLabel")}
+            tooltip={t("enableYieldTooltip")}
           />
-          <p className="text-sm text-muted-foreground">
-            Stake idle funds in Stellar DeFi protocols for passive income
-          </p>
+          <p className="text-sm text-muted-foreground">{t("enableYieldDescription")}</p>
         </div>
         <input
           id="yield"
@@ -372,8 +398,8 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <FieldTooltip
-            label="Member Stellar Addresses"
-            tooltip="Add the public Stellar address (starts with G) for each person joining this pool. You are automatically included."
+            label={tc("memberAddressesLabel")}
+            tooltip={t("memberAddressesTooltip")}
             required
           />
           <Button
@@ -385,12 +411,12 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
             aria-describedby={isMemberLimitReached ? "flexible-member-limit" : undefined}
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add Member
+            {tc("addMember")}
           </Button>
         </div>
         {isMemberLimitReached && (
           <p id="flexible-member-limit" className="text-xs text-muted-foreground">
-            Maximum of {MAX_POOL_MEMBERS} members reached
+            {tc("maxMembersReached", { max: MAX_POOL_MEMBERS })}
           </p>
         )}
 
@@ -398,17 +424,17 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
           <div className="space-y-1">
             <div className="flex gap-2 items-center">
               <Input
-                value={address || "Connect your wallet"}
+                value={address || tc("connectWalletPlaceholder")}
                 readOnly
                 disabled
                 className="font-mono text-xs opacity-70"
               />
-              <span className="text-xs text-muted-foreground whitespace-nowrap">You</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {tc("youLabel")}
+              </span>
             </div>
             {!address && (
-              <p className="text-xs text-amber-600">
-                Connect your wallet to be included as a member
-              </p>
+              <p className="text-xs text-amber-600">{tc("connectWalletToBeMember")}</p>
             )}
           </div>
 
@@ -416,7 +442,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
             <div key={i} className="space-y-1">
               <div className="flex gap-2">
                 <Input
-                  placeholder="G... (56-character Stellar address)"
+                  placeholder={tc("addressPlaceholder")}
                   value={member}
                   onChange={(e) => updateMember(i, e.target.value)}
                   className={
@@ -435,27 +461,31 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
               </div>
               {memberErrors[i] && <FieldError message={memberErrors[i]} />}
               {!memberErrors[i] && member && isValidStellarAddress(member) && (
-                <p className="text-green-600 text-xs flex items-center gap-1">✓ Valid address</p>
+                <p className="text-green-600 text-xs flex items-center gap-1">
+                  ✓ {tc("validAddress")}
+                </p>
               )}
             </div>
           ))}
 
           {validMembers.length < 2 && members.some((m) => m) && (
-            <p className="text-xs text-muted-foreground">
-              At least 2 valid members are required (you + 1 other)
-            </p>
+            <p className="text-xs text-muted-foreground">{tc("atLeastTwoMembersRequired")}</p>
           )}
         </div>
       </div>
 
       <div className="pt-6 border-t border-border">
         <div className="bg-muted/30 rounded-lg p-4 mb-6">
-          <h4 className="font-semibold mb-2">Summary</h4>
+          <h4 className="font-semibold mb-2">{tc("summary")}</h4>
           <ul className="space-y-1 text-sm text-muted-foreground">
-            <li>Members: {validMembers.length}</li>
-            <li>Minimum Deposit: {formData.minimumDeposit || "0"} XLM</li>
-            <li>Withdrawal Fee: {formData.withdrawalFee}%</li>
-            <li>Yield Generation: {formData.enableYield ? "Enabled" : "Disabled"}</li>
+            <li>{tc("membersCount", { count: validMembers.length })}</li>
+            <li>{t("minimumDepositSummary", { amount: formData.minimumDeposit || "0" })}</li>
+            <li>{t("withdrawalFeeSummary", { fee: formData.withdrawalFee })}</li>
+            <li>
+              {t("yieldGenerationSummary", {
+                status: formData.enableYield ? t("enabled") : t("disabled"),
+              })}
+            </li>
           </ul>
         </div>
         <Button
@@ -469,7 +499,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
               {stepLabel[step]}
             </>
           ) : (
-            "Create Flexible Pool"
+            t("stepIdle")
           )}
         </Button>
 
@@ -480,7 +510,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
           className="w-full mt-2 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
         >
           <LayoutTemplate className="h-4 w-4" />
-          Save as Template
+          {tc("saveAsTemplate")}
         </button>
       </div>
 

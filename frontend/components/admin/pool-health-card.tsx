@@ -1,5 +1,6 @@
 "use client"
 
+import { useLocale, useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -79,6 +80,9 @@ export function PoolHealthCard({
   isSelected?: boolean
   onToggleSelect?: (id: string) => void
 }) {
+  const t = useTranslations("admin.healthCard")
+  const tPool = useTranslations("pool")
+  const locale = useLocale()
   const styles = BAND_STYLES[pool.health_band] ?? BAND_STYLES.new
   const memberCount = pool.pool_members?.length ?? pool.members_count
   const lastActivity = pool.pool_activity?.[0]?.created_at
@@ -97,9 +101,7 @@ export function PoolHealthCard({
           {pool.health_band === "new" ? (
             <div className="w-[88px] h-[88px] rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
               <span className="text-xs text-muted-foreground text-center leading-tight">
-                No
-                <br />
-                data
+                {t("noData")}
               </span>
             </div>
           ) : (
@@ -114,15 +116,15 @@ export function PoolHealthCard({
               <h3 className="font-semibold text-base truncate">{pool.name}</h3>
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="secondary" className="capitalize text-xs">
-                  {pool.type}
+                  {tPool(`type.${pool.type}`)}
                 </Badge>
                 <Badge variant="outline" className={cn("text-xs", styles.chip)}>
-                  {pool.health_band === "new" ? "New" : `${pool.health_score}%`}
+                  {pool.health_band === "new" ? t("newBand") : `${pool.health_score}%`}
                 </Badge>
                 {criticalAnomalies.length > 0 && (
                   <Badge variant="destructive" className="text-xs">
                     <AlertTriangle className="h-3 w-3 mr-1" />
-                    {criticalAnomalies.length} critical
+                    {t("criticalCount", { count: criticalAnomalies.length })}
                   </Badge>
                 )}
               </div>
@@ -140,7 +142,7 @@ export function PoolHealthCard({
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm mt-3">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Users className="h-3.5 w-3.5" />
-              <span>{memberCount} members</span>
+              <span>{t("membersLabel", { count: memberCount })}</span>
             </div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <TrendingUp className="h-3.5 w-3.5" />
@@ -151,13 +153,13 @@ export function PoolHealthCard({
             {pool.next_payout && (
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5" />
-                <span>Next: {formatRelativeTime(new Date(pool.next_payout))}</span>
+                <span>{t("nextPayout", { time: formatRelativeTime(new Date(pool.next_payout), locale) })}</span>
               </div>
             )}
             {lastActivity && (
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Activity className="h-3.5 w-3.5" />
-                <span>Active: {formatRelativeTime(new Date(lastActivity))}</span>
+                <span>{t("activeLabel", { time: formatRelativeTime(new Date(lastActivity), locale) })}</span>
               </div>
             )}
           </div>

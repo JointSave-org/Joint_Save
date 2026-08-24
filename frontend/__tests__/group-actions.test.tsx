@@ -192,7 +192,7 @@ describe("GroupActions Component", () => {
 
     await waitFor(() => {
       const link = screen.getByRole("link", { name: /bridge usdc to stellar/i })
-      expect(link).toHaveAttribute("href", "/bridge")
+      expect(link).toHaveAttribute("href", "/en/bridge")
     })
   })
 })

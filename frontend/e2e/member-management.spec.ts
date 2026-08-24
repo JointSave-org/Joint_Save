@@ -10,6 +10,7 @@ import {
   E2E_ADDRESS,
   E2E_MEMBER_2,
   E2E_CONTRACT_ID,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -44,7 +45,7 @@ test("admin can add a member", async ({ page }) => {
   await mockCommonApis(page)
 
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/dashboard/group/${POOL_ID}`), { waitUntil: "networkidle" })
   await poolsResponse
   await expect(page.getByRole("heading", { name: /Member Pool/i })).toBeVisible()
 
@@ -80,7 +81,7 @@ test("admin can remove a member", async ({ page }) => {
   await mockCommonApis(page)
 
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/dashboard/group/${POOL_ID}`), { waitUntil: "networkidle" })
   await poolsResponse
   await expect(page.getByText("Manage Members")).toBeVisible()
 
@@ -121,7 +122,7 @@ test("non-admin sees leave pool button", async ({ page }) => {
   await mockCommonApis(page)
 
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/dashboard/group/${POOL_ID}`), { waitUntil: "networkidle" })
   await poolsResponse
   await expect(page.getByRole("heading", { name: /Member Pool/i })).toBeVisible()
 

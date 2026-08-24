@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect } from "react"
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,7 @@ interface AdminAuditLogProps {
 }
 
 export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
+  const t = useTranslations("group.auditLog")
   const { address } = useStellar()
 
   const isCreator =
@@ -39,7 +41,7 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
     setLoading(true)
     fetch(`/api/admin/audit-log?poolId=${groupId}&callerAddress=${address}`)
       .then((r) => {
-        if (r.status === 403) throw new Error("You are not authorized to view this audit log")
+        if (r.status === 403) throw new Error(t("notAuthorized"))
         return r.json()
       })
       .then((data) => {
@@ -51,18 +53,18 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [isCreator, groupId, address])
+  }, [isCreator, groupId, address, t])
 
   if (!isCreator) return null
 
   const handleExport = () => {
     const headers = [
-      "Date",
-      "Activity Type",
-      "User Address",
-      "Amount (XLM)",
-      "Tx Hash",
-      "Description",
+      t("csvDate"),
+      t("csvActivityType"),
+      t("csvUserAddress"),
+      t("csvAmount"),
+      t("csvTxHash"),
+      t("csvDescription"),
     ]
     const data = rows.map((r) => [
       new Date(r.created_at).toISOString().slice(0, 19).replace("T", " "),
@@ -80,8 +82,8 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
     <Card className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h3 className="text-lg font-semibold">Admin Audit Log</h3>
-          <p className="text-xs text-muted-foreground">Visible to pool creator only</p>
+          <h3 className="text-lg font-semibold">{t("title")}</h3>
+          <p className="text-xs text-muted-foreground">{t("visibleToCreatorOnly")}</p>
         </div>
         <Button
           variant="outline"
@@ -91,7 +93,7 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
           className="gap-2"
         >
           <Download className="h-4 w-4" />
-          Export CSV
+          {t("exportCsv")}
         </Button>
       </div>
 
@@ -109,8 +111,11 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
           )}
           <span>
             {inconsistent
-              ? `Balance inconsistency: activity net ${activityNet.toFixed(2)} XLM ≠ recorded ${recorded.toFixed(2)} XLM`
-              : `Balance consistent: ${recorded.toFixed(2)} XLM`}
+              ? t("balanceInconsistent", {
+                  activityNet: activityNet.toFixed(2),
+                  recorded: recorded.toFixed(2),
+                })
+              : t("balanceConsistent", { recorded: recorded.toFixed(2) })}
           </span>
         </div>
       )}
@@ -124,7 +129,7 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {!loading && !error && rows.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-4">No activity recorded.</p>
+        <p className="text-sm text-muted-foreground text-center py-4">{t("noActivityRecorded")}</p>
       )}
 
       {!loading && !error && rows.length > 0 && (
@@ -133,13 +138,13 @@ export function AdminAuditLog({ groupId, creatorAddress }: AdminAuditLogProps) {
             <div key={r.id} className="py-3 flex items-start justify-between gap-4 flex-wrap">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium capitalize">{r.activity_type}</span>
+                  <span className="font-medium">{r.activity_type}</span>
                   {r.amount != null && <Badge variant="secondary">{r.amount.toFixed(2)} XLM</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {r.user_address
                     ? `${r.user_address.slice(0, 8)}…${r.user_address.slice(-6)}`
-                    : "System"}
+                    : t("system")}
                 </p>
                 {r.tx_hash && (
                   <a

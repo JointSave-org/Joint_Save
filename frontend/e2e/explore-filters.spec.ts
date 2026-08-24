@@ -8,6 +8,7 @@ import {
   makePool,
   waitForPoolsResponse,
   E2E_CONTRACT_ID,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -56,7 +57,7 @@ test.beforeEach(async ({ page }) => {
 
 test("search filters by pool name", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/explore", { waitUntil: "networkidle" })
+  await page.goto(localePath("/explore"), { waitUntil: "networkidle" })
   await poolsResponse
 
   await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
@@ -72,7 +73,7 @@ test("search filters by pool name", async ({ page }) => {
 
 test("type filter shows only matching pools", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/explore", { waitUntil: "networkidle" })
+  await page.goto(localePath("/explore"), { waitUntil: "networkidle" })
   await poolsResponse
   await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
 
@@ -85,7 +86,7 @@ test("type filter shows only matching pools", async ({ page }) => {
 
 test("status filter shows only matching pools", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/explore", { waitUntil: "networkidle" })
+  await page.goto(localePath("/explore"), { waitUntil: "networkidle" })
   await poolsResponse
   await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
 
@@ -99,7 +100,7 @@ test("status filter shows only matching pools", async ({ page }) => {
 
 test("empty state when no pools match", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/explore", { waitUntil: "networkidle" })
+  await page.goto(localePath("/explore"), { waitUntil: "networkidle" })
   await poolsResponse
   await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
 
@@ -111,7 +112,7 @@ test("empty state when no pools match", async ({ page }) => {
 
 test("pool cards have view and request to join buttons", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/explore", { waitUntil: "networkidle" })
+  await page.goto(localePath("/explore"), { waitUntil: "networkidle" })
   await poolsResponse
   await expect(page.getByText(/Alpha Rotational/i)).toBeVisible()
 

@@ -2,6 +2,7 @@
 
 import React, { Component, type ErrorInfo, type ReactNode } from "react"
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 import { AlertTriangle, ChevronDown, ChevronUp, Home, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -10,6 +11,20 @@ import { reportClientError } from "@/lib/error-reporting"
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+interface ErrorBoundaryMessages {
+  defaultSectionLabel: string
+  compactFailedToLoad: (values: { label: string }) => string
+  compactDescription: string
+  showDetails: string
+  hideDetails: string
+  tryAgain: string
+  fullTitle: string
+  fullDescription: (values: { label: string }) => string
+  showErrorDetails: string
+  hideErrorDetails: string
+  goToDashboard: string
+}
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -23,6 +38,10 @@ interface ErrorBoundaryProps {
   walletAddress?: string | null
 }
 
+interface ErrorBoundaryClassProps extends ErrorBoundaryProps {
+  messages: ErrorBoundaryMessages
+}
+
 interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
@@ -31,10 +50,12 @@ interface ErrorBoundaryState {
 
 // ---------------------------------------------------------------------------
 // ErrorBoundary (class component — required by React's componentDidCatch API)
+// next-intl's useTranslations is a hook, so translated strings are supplied
+// via props from the functional wrapper below rather than called in here.
 // ---------------------------------------------------------------------------
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+export class ErrorBoundaryClass extends Component<ErrorBoundaryClassProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryClassProps) {
     super(props)
     this.state = { hasError: false, error: null, showDetails: false }
   }
@@ -75,9 +96,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return this.props.children
     }
 
-    const { sectionName, compact } = this.props
+    const { sectionName, compact, messages } = this.props
     const { error, showDetails } = this.state
-    const label = sectionName ?? "this section"
+    const label = sectionName ?? messages.defaultSectionLabel
 
     // ── Compact fallback (inner section boundaries) ─────────────────────
     if (compact) {
@@ -86,10 +107,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-destructive">Failed to load {label}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                An unexpected error occurred in this section.
+              <p className="text-sm font-medium text-destructive">
+                {messages.compactFailedToLoad({ label })}
               </p>
+              <p className="text-xs text-muted-foreground mt-1">{messages.compactDescription}</p>
 
               {/* Expandable error details */}
               <button
@@ -101,7 +122,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 ) : (
                   <ChevronDown className="h-3 w-3" />
                 )}
-                {showDetails ? "Hide details" : "Show details"}
+                {showDetails ? messages.hideDetails : messages.showDetails}
               </button>
 
               {showDetails && error && (
@@ -114,7 +135,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <div className="mt-3">
                 <Button variant="outline" size="sm" onClick={this.handleReset}>
                   <RefreshCw className="h-3 w-3 mr-1" />
-                  Try Again
+                  {messages.tryAgain}
                 </Button>
               </div>
             </div>
@@ -129,11 +150,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <Card className="max-w-lg w-full p-8 text-center border-destructive/30 bg-destructive/5">
           <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
 
-          <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
-          <p className="text-muted-foreground text-sm mb-6">
-            An unexpected error occurred while loading {label}. You can try again or return to the
-            dashboard.
-          </p>
+          <h2 className="text-xl font-semibold mb-2">{messages.fullTitle}</h2>
+          <p className="text-muted-foreground text-sm mb-6">{messages.fullDescription({ label })}</p>
 
           {/* Expandable error details */}
           <button
@@ -141,7 +159,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors mx-auto"
           >
             {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            {showDetails ? "Hide error details" : "Show error details"}
+            {showDetails ? messages.hideErrorDetails : messages.showErrorDetails}
           </button>
 
           {showDetails && error && (
@@ -154,12 +172,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="flex items-center justify-center gap-3">
             <Button onClick={this.handleReset}>
               <RefreshCw className="h-4 w-4 mr-2" />
-              Try Again
+              {messages.tryAgain}
             </Button>
             <Button variant="outline" asChild>
               <Link href="/dashboard">
                 <Home className="h-4 w-4 mr-2" />
-                Go to Dashboard
+                {messages.goToDashboard}
               </Link>
             </Button>
           </div>
@@ -167,6 +185,31 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       </div>
     )
   }
+}
+
+// ---------------------------------------------------------------------------
+// ErrorBoundary — functional wrapper supplying translated strings as props,
+// since useTranslations (a hook) can't be called inside the class above.
+// ---------------------------------------------------------------------------
+
+export function ErrorBoundary(props: ErrorBoundaryProps) {
+  const t = useTranslations("common.errorBoundary")
+
+  const messages: ErrorBoundaryMessages = {
+    defaultSectionLabel: t("defaultSectionLabel"),
+    compactFailedToLoad: (values) => t("compactFailedToLoad", values),
+    compactDescription: t("compactDescription"),
+    showDetails: t("showDetails"),
+    hideDetails: t("hideDetails"),
+    tryAgain: t("tryAgain"),
+    fullTitle: t("fullTitle"),
+    fullDescription: (values) => t("fullDescription", values),
+    showErrorDetails: t("showErrorDetails"),
+    hideErrorDetails: t("hideErrorDetails"),
+    goToDashboard: t("goToDashboard"),
+  }
+
+  return <ErrorBoundaryClass {...props} messages={messages} />
 }
 
 // ---------------------------------------------------------------------------

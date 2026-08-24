@@ -7,6 +7,7 @@
  * and "Dismiss".
  */
 
+import { useTranslations } from "next-intl"
 import { AlertTriangle, ExternalLink, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -47,6 +48,8 @@ export function TxRecoveryDialog({
   onRetry,
   onDismiss,
 }: TxRecoveryDialogProps) {
+  const t = useTranslations("common.txRecovery")
+  const tPendingTx = useTranslations("common.pendingTx")
   const record = failed[0]
   if (!record) return null
 
@@ -60,17 +63,20 @@ export function TxRecoveryDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-destructive" />
-            Transaction needs attention
+            {t("title")}
           </DialogTitle>
           <DialogDescription>
-            Your {pendingTxLabel(record.type)} on {record.poolName} did not complete after{" "}
-            {record.attempts} attempt(s).
+            {t("description", {
+              label: pendingTxLabel(record.type, (k) => tPendingTx(k)),
+              pool: record.poolName,
+              attempts: record.attempts,
+            })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 text-sm">
           <div className="rounded-lg border border-border p-3 bg-muted/20">
-            <p className="text-muted-foreground text-xs mb-1">Transaction hash</p>
+            <p className="text-muted-foreground text-xs mb-1">{t("hashLabel")}</p>
             <p className="font-mono text-xs break-all" title={record.hash}>
               {shortHash(record.hash)}
             </p>
@@ -78,24 +84,18 @@ export function TxRecoveryDialog({
 
           {record.error && <p className="text-destructive text-xs">{record.error}</p>}
 
-          {wasDropped && (
-            <p className="text-xs text-muted-foreground">
-              The transaction never reached the network. You can safely retry it.
-            </p>
-          )}
+          {wasDropped && <p className="text-xs text-muted-foreground">{t("droppedNotice")}</p>}
 
           {record.type === "deposit" && (
             <p className="rounded-md border border-green-600/30 bg-green-600/10 px-3 py-2 text-xs text-green-700 dark:text-green-400">
-              {wasDropped
-                ? "Your funds were NOT deducted. Retrying is safe."
-                : "Your deposit did not go through — your funds were NOT deducted."}
+              {wasDropped ? t("depositSafeDropped") : t("depositNotDeducted")}
             </p>
           )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={() => onDismiss(record.hash)} disabled={isRetrying}>
-            Dismiss
+            {t("dismiss")}
           </Button>
           <Button
             variant="outline"
@@ -103,18 +103,18 @@ export function TxRecoveryDialog({
             disabled={isRetrying}
           >
             <ExternalLink className="mr-2 h-4 w-4" />
-            View on Explorer
+            {t("viewOnExplorer")}
           </Button>
           <Button onClick={() => onRetry(record.hash)} disabled={isRetrying || !retryAvailable}>
             {isRetrying ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Retrying…
+                {t("retrying")}
               </>
             ) : (
               <>
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Retry Now
+                {t("retryNow")}
               </>
             )}
           </Button>

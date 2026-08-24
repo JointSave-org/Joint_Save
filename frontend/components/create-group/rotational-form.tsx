@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -36,8 +37,9 @@ import {
   validateStellarAddress,
   validatePositiveAmount,
   findDuplicateAddresses,
+  type ValidationMessages,
 } from "@/lib/form-validation"
-import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
+import type { DuplicatePrefill } from "@/app/[locale]/dashboard/create/[type]/page"
 import type { PoolTemplateConfig } from "@/lib/templates"
 import { SaveTemplateDialog } from "@/components/templates/save-template-dialog"
 import {
@@ -66,6 +68,9 @@ type FieldErrors = Partial<Record<"name" | "contributionAmount", string>>
 type Touched = Partial<Record<"name" | "contributionAmount", boolean>>
 
 export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
+  const t = useTranslations("pool.create.rotational")
+  const tc = useTranslations("pool.create.common")
+  const tv = useTranslations("pool.create.validation")
   const router = useRouter()
   const { address } = useStellar()
   const [token, setToken] = useState<SelectedToken>(
@@ -94,29 +99,44 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const { register } = useRegisterPool("rotational")
   const { setTracker } = useSetReputationTracker()
 
+  const validationMessages: ValidationMessages = {
+    groupNameRequired: tv("groupNameRequired"),
+    groupNameTooShort: tv("groupNameTooShort"),
+    groupNameTooLong: tv("groupNameTooLong"),
+    addressRequired: tv("addressRequired"),
+    addressMustStartWithG: tv("addressMustStartWithG"),
+    addressWrongLength: (length) => tv("addressWrongLength", { length }),
+    addressInvalidChars: tv("addressInvalidChars"),
+    addressInvalidChecksum: tv("addressInvalidChecksum"),
+    amountRequired: (label) => tv("amountRequired", { label }),
+    amountInvalidNumber: (label) => tv("amountInvalidNumber", { label }),
+    amountMustBePositive: (label) => tv("amountMustBePositive", { label }),
+  }
+
   // Always include creator as first member
   const allMembers = address ? [address, ...members] : members
   const validMembers = Array.from(new Set(allMembers.filter(isValidStellarAddress)))
   const duplicateIndices = findDuplicateAddresses(allMembers)
   const memberErrors = members.map((m, i) => {
     if (!m) return ""
-    const format = validateStellarAddress(m)
+    const format = validateStellarAddress(m, validationMessages)
     if (!format.valid) return format.message
     const allMembersIndex = address ? i + 1 : i
-    return duplicateIndices.has(allMembersIndex)
-      ? "Duplicate address — already in this pool's member list"
-      : ""
+    return duplicateIndices.has(allMembersIndex) ? tv("duplicateAddress") : ""
   })
   const isCreating = step !== "idle"
   const isMemberLimitReached = members.length >= MAX_POOL_MEMBERS
 
-  const validateField = useCallback((name: keyof FieldErrors, value: string) => {
-    const result =
-      name === "name"
-        ? validateGroupName(value)
-        : validatePositiveAmount(value, "Contribution amount")
-    setFieldErrors((prev) => ({ ...prev, [name]: result.valid ? "" : result.message }))
-  }, [])
+  const validateField = useCallback(
+    (name: keyof FieldErrors, value: string) => {
+      const result =
+        name === "name"
+          ? validateGroupName(value, validationMessages)
+          : validatePositiveAmount(value, tc("contributionAmountFieldLabel"), validationMessages)
+      setFieldErrors((prev) => ({ ...prev, [name]: result.valid ? "" : result.message }))
+    },
+    [tc, validationMessages]
+  )
 
   const handleBlur = (name: keyof FieldErrors, value: string) => {
     setTouched((prev) => ({ ...prev, [name]: true }))
@@ -143,20 +163,20 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
 
     // Mark all as touched and validate
     setTouched({ name: true, contributionAmount: true })
-    const nameResult = validateGroupName(formData.name)
-    const amountResult = validatePositiveAmount(formData.contributionAmount, "Contribution amount")
+    const nameResult = validateGroupName(formData.name, validationMessages)
+    const amountResult = validatePositiveAmount(
+      formData.contributionAmount,
+      tc("contributionAmountFieldLabel"),
+      validationMessages
+    )
     setFieldErrors({
       name: nameResult.valid ? "" : nameResult.message,
       contributionAmount: amountResult.valid ? "" : amountResult.message,
     })
 
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (duplicateIndices.size > 0)
-      return toastManager.error(
-        "Duplicate member addresses found — please remove duplicates before continuing"
-      )
-    if (validMembers.length < 2)
-      return toastManager.error("Need at least 2 valid Stellar addresses (you + 1 other)")
+    if (!address) return toastManager.error(tc("connectWalletFirst"))
+    if (duplicateIndices.size > 0) return toastManager.error(tc("duplicateMembersFound"))
+    if (validMembers.length < 2) return toastManager.error(tc("needAtLeastTwoMembers"))
     if (!nameResult.valid || !amountResult.valid) return
 
     try {
@@ -213,31 +233,31 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
           frequency: formData.frequency,
         }),
       })
-      if (!res.ok) throw new Error("Failed to save pool metadata")
+      if (!res.ok) throw new Error(tc("failedToSaveMetadata"))
       const pool = await res.json()
       router.push(`/dashboard/group/${pool.id}`)
     } catch (err: unknown) {
-      toastManager.error((err as Error).message || "Failed to create group")
+      toastManager.error((err as Error).message || tc("failedToCreateGroup"))
       setStep("idle")
     }
   }
 
   const stepLabel: Record<typeof step, string> = {
-    idle: "Create Rotational Group",
-    deploying: "Deploying contract...",
-    initializing: "Initializing pool...",
-    registering: "Registering with factory...",
-    saving: "Saving metadata...",
+    idle: t("stepIdle"),
+    deploying: t("stepDeploying"),
+    initializing: t("stepInitializing"),
+    registering: t("stepRegistering"),
+    saving: t("stepSaving"),
   }
 
   const progressFields: ProgressField[] = [
-    { label: "Group name", valid: validateGroupName(formData.name).valid },
+    { label: tc("progressGroupName"), valid: validateGroupName(formData.name).valid },
     {
-      label: "Contribution amount",
+      label: tc("progressContributionAmount"),
       valid: validatePositiveAmount(formData.contributionAmount, "Amount").valid,
     },
-    { label: "Frequency", valid: !!formData.frequency },
-    { label: "Members (2+)", valid: validMembers.length >= 2 },
+    { label: t("progressFrequency"), valid: !!formData.frequency },
+    { label: tc("progressMembers"), valid: validMembers.length >= 2 },
   ]
 
   const templateToken = token.address === "native" ? "XLM" : token.address
@@ -256,7 +276,7 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
       {isCreating && (
         <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary">
           <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-          <p className="text-sm">{stepLabel[step]} — approve each wallet prompt.</p>
+          <p className="text-sm">{t("approveWalletPrompt", { step: stepLabel[step] })}</p>
         </div>
       )}
 
@@ -266,8 +286,8 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="flex items-center justify-between">
           <FieldTooltip
             htmlFor="name"
-            label="Group Name"
-            tooltip="A short, memorable name for your savings circle — e.g. 'Family Trip Fund'. Visible to all members."
+            label={tc("groupNameLabel")}
+            tooltip={tc("groupNameTooltip")}
             required
           />
           <span
@@ -278,7 +298,7 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
         </div>
         <Input
           id="name"
-          placeholder="e.g., Family Savings Circle"
+          placeholder={tc("groupNamePlaceholder")}
           maxLength={50}
           value={formData.name}
           onChange={(e) => {
@@ -295,8 +315,8 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="flex items-center justify-between">
           <FieldTooltip
             htmlFor="description"
-            label="Description"
-            tooltip="Optional details about the group's purpose, rules, or goals. Helps members understand what they're joining."
+            label={tc("descriptionLabel")}
+            tooltip={tc("descriptionTooltip")}
           />
           <span
             className={`text-xs tabular-nums ${formData.description.length > 270 ? "text-destructive" : "text-muted-foreground"}`}
@@ -306,7 +326,7 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
         </div>
         <Textarea
           id="description"
-          placeholder="Describe the purpose of this savings group"
+          placeholder={tc("descriptionPlaceholder")}
           maxLength={300}
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -322,8 +342,8 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="space-y-1">
           <FieldTooltip
             htmlFor="amount"
-            label={`Contribution Amount (${token.symbol})`}
-            tooltip="How much each member deposits per round. Every member pays the same amount, and one member receives the full pool each round."
+            label={t("contributionAmountLabel", { symbol: token.symbol })}
+            tooltip={t("contributionAmountTooltip")}
             required
           />
           <Input
@@ -345,8 +365,8 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="space-y-1">
           <FieldTooltip
             htmlFor="frequency"
-            label="Payout Frequency"
-            tooltip="How often one member receives the pooled funds. Members take turns in rotation until everyone has received a payout."
+            label={t("payoutFrequencyLabel")}
+            tooltip={t("payoutFrequencyTooltip")}
             required
           />
           <Select
@@ -357,10 +377,10 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="weekly">Weekly</SelectItem>
-              <SelectItem value="biweekly">Bi-weekly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="daily">{t("frequency.daily")}</SelectItem>
+              <SelectItem value="weekly">{t("frequency.weekly")}</SelectItem>
+              <SelectItem value="biweekly">{t("frequency.biweekly")}</SelectItem>
+              <SelectItem value="monthly">{t("frequency.monthly")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -369,8 +389,8 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <FieldTooltip
-            label="Member Stellar Addresses"
-            tooltip="Add the public Stellar address (starts with G) for each person joining this pool. You are automatically included as the first member."
+            label={tc("memberAddressesLabel")}
+            tooltip={tc("memberAddressesTooltip")}
             required
           />
           <Button
@@ -382,12 +402,12 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
             aria-describedby={isMemberLimitReached ? "rotational-member-limit" : undefined}
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add Member
+            {tc("addMember")}
           </Button>
         </div>
         {isMemberLimitReached && (
           <p id="rotational-member-limit" className="text-xs text-muted-foreground">
-            Maximum of {MAX_POOL_MEMBERS} members reached
+            {tc("maxMembersReached", { max: MAX_POOL_MEMBERS })}
           </p>
         )}
 
@@ -396,17 +416,17 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
           <div className="space-y-1">
             <div className="flex gap-2 items-center">
               <Input
-                value={address || "Connect your wallet"}
+                value={address || tc("connectWalletPlaceholder")}
                 readOnly
                 disabled
                 className="font-mono text-xs opacity-70"
               />
-              <span className="text-xs text-muted-foreground whitespace-nowrap">You</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {tc("youLabel")}
+              </span>
             </div>
             {!address && (
-              <p className="text-xs text-amber-600">
-                Connect your wallet to be included as a member
-              </p>
+              <p className="text-xs text-amber-600">{tc("connectWalletToBeMember")}</p>
             )}
           </div>
 
@@ -414,7 +434,7 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
             <div key={i} className="space-y-1">
               <div className="flex gap-2">
                 <Input
-                  placeholder="G... (56-character Stellar address)"
+                  placeholder={tc("addressPlaceholder")}
                   value={member}
                   onChange={(e) => updateMember(i, e.target.value)}
                   className={
@@ -433,30 +453,38 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
               </div>
               {memberErrors[i] && <FieldError message={memberErrors[i]} />}
               {!memberErrors[i] && member && isValidStellarAddress(member) && (
-                <p className="text-green-600 text-xs flex items-center gap-1">✓ Valid address</p>
+                <p className="text-green-600 text-xs flex items-center gap-1">
+                  ✓ {tc("validAddress")}
+                </p>
               )}
             </div>
           ))}
 
           {validMembers.length < 2 && members.some((m) => m) && (
-            <p className="text-xs text-muted-foreground">
-              At least 2 valid members are required (you + 1 other)
-            </p>
+            <p className="text-xs text-muted-foreground">{tc("atLeastTwoMembersRequired")}</p>
           )}
         </div>
       </div>
 
       <div className="pt-6 border-t border-border">
         <div className="bg-muted/30 rounded-lg p-4 mb-6">
-          <h4 className="font-semibold mb-2">Summary</h4>
+          <h4 className="font-semibold mb-2">{tc("summary")}</h4>
           <ul className="space-y-1 text-sm text-muted-foreground">
-            <li>Members: {validMembers.length}</li>
-            <li>Contribution per Member: {formData.contributionAmount || "0"} XLM</li>
-            <li>Payout Frequency: {formData.frequency}</li>
+            <li>{tc("membersCount", { count: validMembers.length })}</li>
             <li>
-              Total Pool:{" "}
-              {(parseFloat(formData.contributionAmount || "0") * validMembers.length).toFixed(2)}{" "}
-              XLM
+              {t("contributionPerMember", {
+                amount: formData.contributionAmount || "0",
+                token: "XLM",
+              })}
+            </li>
+            <li>{t("payoutFrequencySummary", { frequency: t(`frequency.${formData.frequency}`) })}</li>
+            <li>
+              {t("totalPool", {
+                amount: (
+                  parseFloat(formData.contributionAmount || "0") * validMembers.length
+                ).toFixed(2),
+                token: "XLM",
+              })}
             </li>
           </ul>
         </div>
@@ -471,7 +499,7 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
               {stepLabel[step]}
             </>
           ) : (
-            "Create Rotational Group"
+            t("stepIdle")
           )}
         </Button>
 
@@ -482,7 +510,7 @@ export function RotationalForm({ prefill }: { prefill?: DuplicatePrefill }) {
           className="w-full mt-2 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
         >
           <LayoutTemplate className="h-4 w-4" />
-          Save as Template
+          {tc("saveAsTemplate")}
         </button>
       </div>
 

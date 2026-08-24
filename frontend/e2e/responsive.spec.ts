@@ -9,6 +9,7 @@ import {
   waitForPoolsResponse,
   E2E_ADDRESS,
   E2E_CONTRACT_ID,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -56,7 +57,7 @@ for (const vp of VIEWPORTS) {
   test(`dashboard renders without overflow at ${vp.label} (${vp.width}px)`, async ({ page }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height })
     const poolsResponse = waitForPoolsResponse(page)
-    await page.goto("/dashboard", { waitUntil: "networkidle" })
+    await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
     await poolsResponse
     await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
     await expect(page.getByText(/Responsive Pool/i)).toBeVisible()
@@ -66,7 +67,7 @@ for (const vp of VIEWPORTS) {
   test(`group detail renders without overflow at ${vp.label} (${vp.width}px)`, async ({ page }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height })
     const poolsResponse = waitForPoolsResponse(page)
-    await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+    await page.goto(localePath(`/dashboard/group/${POOL_ID}`), { waitUntil: "networkidle" })
     await poolsResponse
     await expect(page.getByRole("heading", { name: /Responsive Pool/i })).toBeVisible()
     await expectNoHorizontalOverflow(page)

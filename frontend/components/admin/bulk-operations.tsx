@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -31,6 +32,7 @@ export function BulkOperations({
   onExport: (poolIds: string[]) => Promise<void>
   onSendMessage: (poolIds: string[], message: string) => Promise<{ sent: number; failed: number }>
 }) {
+  const t = useTranslations("admin.bulkOps")
   const { toast } = useToast()
   const [messageDialogOpen, setMessageDialogOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
@@ -46,12 +48,12 @@ export function BulkOperations({
     setIsExporting(true)
     try {
       await onExport(Array.from(selectedPoolIds))
-      toast({ title: "Export complete", description: "CSV file has been downloaded." })
+      toast({ title: t("toastExportCompleteTitle"), description: t("toastExportCompleteBody") })
       setExportDialogOpen(false)
     } catch (err) {
       toast({
-        title: "Export failed",
-        description: err instanceof Error ? err.message : "Failed to export data",
+        title: t("toastExportFailedTitle"),
+        description: err instanceof Error ? err.message : t("toastExportFailedBody"),
         variant: "destructive",
       })
     } finally {
@@ -65,15 +67,19 @@ export function BulkOperations({
     try {
       const result = await onSendMessage(Array.from(selectedPoolIds), messageText)
       toast({
-        title: "Messages sent",
-        description: `Sent to ${result.sent} pool(s). ${result.failed > 0 ? `${result.failed} failed.` : ""}`,
+        title: t("toastMessagesSentTitle"),
+        description: t("toastMessagesSentBody", {
+          sent: result.sent,
+          failedSuffix:
+            result.failed > 0 ? t("toastMessagesSentFailedSuffix", { failed: result.failed }) : "",
+        }),
       })
       setMessageText("")
       setMessageDialogOpen(false)
     } catch (err) {
       toast({
-        title: "Send failed",
-        description: err instanceof Error ? err.message : "Failed to send messages",
+        title: t("toastSendFailedTitle"),
+        description: err instanceof Error ? err.message : t("toastSendFailedBody"),
         variant: "destructive",
       })
     } finally {
@@ -91,9 +97,11 @@ export function BulkOperations({
             ) : (
               <Square className="h-4 w-4 mr-1" />
             )}
-            {allSelected ? "Deselect All" : "Select All"}
+            {allSelected ? t("deselectAll") : t("selectAll")}
           </Button>
-          {selectedCount > 0 && <Badge variant="secondary">{selectedCount} selected</Badge>}
+          {selectedCount > 0 && (
+            <Badge variant="secondary">{t("selected", { count: selectedCount })}</Badge>
+          )}
         </div>
 
         <Button
@@ -103,7 +111,7 @@ export function BulkOperations({
           onClick={() => setExportDialogOpen(true)}
         >
           <Download className="h-4 w-4 mr-1" />
-          Export CSV
+          {t("exportCsv")}
         </Button>
 
         <Button
@@ -113,7 +121,7 @@ export function BulkOperations({
           onClick={() => setMessageDialogOpen(true)}
         >
           <MessageSquare className="h-4 w-4 mr-1" />
-          Send Message
+          {t("sendMessage")}
         </Button>
       </div>
 
@@ -121,23 +129,20 @@ export function BulkOperations({
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Export Pool Data</DialogTitle>
+            <DialogTitle>{t("exportDialogTitle")}</DialogTitle>
             <DialogDescription>
-              Download a combined CSV of all activity from {selectedCount} selected pool(s).
+              {t("exportDialogDescription", { count: selectedCount })}
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            <p className="text-sm text-muted-foreground">
-              The export will include all activity records (deposits, withdrawals, payouts, etc.)
-              from the selected pools.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("exportDialogBody")}</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setExportDialogOpen(false)}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button onClick={handleExport} disabled={isExporting}>
-              {isExporting ? "Exporting..." : "Download CSV"}
+              {isExporting ? t("exporting") : t("downloadCsv")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -147,14 +152,14 @@ export function BulkOperations({
       <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Message to Pools</DialogTitle>
+            <DialogTitle>{t("messageDialogTitle")}</DialogTitle>
             <DialogDescription>
-              Your message will be posted to the chat of {selectedCount} selected pool(s).
+              {t("messageDialogDescription", { count: selectedCount })}
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
             <Textarea
-              placeholder="Type your message here..."
+              placeholder={t("messagePlaceholder")}
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
               rows={4}
@@ -166,10 +171,10 @@ export function BulkOperations({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMessageDialogOpen(false)}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button onClick={handleSendMessage} disabled={isSending || !messageText.trim()}>
-              {isSending ? "Sending..." : "Send Message"}
+              {isSending ? t("sending") : t("sendMessageBtn")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useCallback, useEffect } from "react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -29,9 +30,10 @@ import {
   validateStellarAddress,
   validatePositiveAmount,
   findDuplicateAddresses,
+  type ValidationMessages,
 } from "@/lib/form-validation"
 import { MAX_POOL_MEMBERS, MAX_DEADLINE_DAYS } from "@/lib/constants"
-import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
+import type { DuplicatePrefill } from "@/app/[locale]/dashboard/create/[type]/page"
 import type { PoolTemplateConfig } from "@/lib/templates"
 import { SaveTemplateDialog } from "@/components/templates/save-template-dialog"
 import { toastManager } from "@/lib/toast"
@@ -52,6 +54,9 @@ type FieldErrors = Partial<Record<"name" | "targetAmount" | "deadlineDays", stri
 type Touched = Partial<Record<"name" | "targetAmount" | "deadlineDays", boolean>>
 
 export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
+  const t = useTranslations("pool.create.target")
+  const tc = useTranslations("pool.create.common")
+  const tv = useTranslations("pool.create.validation")
   const router = useRouter()
   const { address } = useStellar()
   const [token, setToken] = useState<SelectedToken>(
@@ -86,35 +91,54 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const { initTarget } = useInitializePool()
   const { register } = useRegisterPool("target")
 
+  const validationMessages: ValidationMessages = {
+    groupNameRequired: tv("groupNameRequired"),
+    groupNameTooShort: tv("groupNameTooShort"),
+    groupNameTooLong: tv("groupNameTooLong"),
+    addressRequired: tv("addressRequired"),
+    addressMustStartWithG: tv("addressMustStartWithG"),
+    addressWrongLength: (length) => tv("addressWrongLength", { length }),
+    addressInvalidChars: tv("addressInvalidChars"),
+    addressInvalidChecksum: tv("addressInvalidChecksum"),
+    amountRequired: (label) => tv("amountRequired", { label }),
+    amountInvalidNumber: (label) => tv("amountInvalidNumber", { label }),
+    amountMustBePositive: (label) => tv("amountMustBePositive", { label }),
+  }
+
   const allMembers = address ? [address, ...members] : members
   const validMembers = Array.from(new Set(allMembers.filter(isValidStellarAddress)))
   const duplicateIndices = findDuplicateAddresses(allMembers)
   const memberErrors = members.map((m, i) => {
     if (!m) return ""
-    const format = validateStellarAddress(m)
+    const format = validateStellarAddress(m, validationMessages)
     if (!format.valid) return format.message
     const allMembersIndex = address ? i + 1 : i
-    return duplicateIndices.has(allMembersIndex)
-      ? "Duplicate address — already in this pool's member list"
-      : ""
+    return duplicateIndices.has(allMembersIndex) ? tv("duplicateAddress") : ""
   })
   const isCreating = step !== "idle"
   const isMemberLimitReached = members.length >= MAX_POOL_MEMBERS
 
-  const validateField = useCallback((name: keyof FieldErrors, value: string) => {
-    let message = ""
-    if (name === "name") message = validateGroupName(value).message
-    else if (name === "targetAmount")
-      message = validatePositiveAmount(value, "Target amount").message
-    else if (name === "deadlineDays") {
-      const d = parseInt(value)
-      if (!value) message = "Deadline is required"
-      else if (isNaN(d) || d < 1) message = "Deadline must be at least 1 day"
-      else if (d > MAX_DEADLINE_DAYS)
-        message = `Deadline cannot exceed ${MAX_DEADLINE_DAYS / 365} years`
-    }
-    setFieldErrors((prev) => ({ ...prev, [name]: message }))
-  }, [])
+  const validateField = useCallback(
+    (name: keyof FieldErrors, value: string) => {
+      let message = ""
+      if (name === "name") message = validateGroupName(value, validationMessages).message
+      else if (name === "targetAmount")
+        message = validatePositiveAmount(
+          value,
+          t("targetAmountFieldLabel"),
+          validationMessages
+        ).message
+      else if (name === "deadlineDays") {
+        const d = parseInt(value)
+        if (!value) message = tv("deadlineRequired")
+        else if (isNaN(d) || d < 1) message = t("deadlineTooShort")
+        else if (d > MAX_DEADLINE_DAYS)
+          message = t("deadlineTooLong", { years: MAX_DEADLINE_DAYS / 365 })
+      }
+      setFieldErrors((prev) => ({ ...prev, [name]: message }))
+    },
+    [t, tv, validationMessages]
+  )
 
   const handleBlur = (name: keyof FieldErrors, value: string) => {
     setTouched((prev) => ({ ...prev, [name]: true }))
@@ -139,8 +163,12 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
     e.preventDefault()
 
     setTouched({ name: true, targetAmount: true, deadlineDays: true })
-    const nameResult = validateGroupName(formData.name)
-    const amountResult = validatePositiveAmount(formData.targetAmount, "Target amount")
+    const nameResult = validateGroupName(formData.name, validationMessages)
+    const amountResult = validatePositiveAmount(
+      formData.targetAmount,
+      t("targetAmountFieldLabel"),
+      validationMessages
+    )
     const deadlineDays = parseInt(formData.deadlineDays)
     const deadlineDaysValid =
       formData.deadlineDays &&
@@ -153,17 +181,13 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       deadlineDays: deadlineDaysValid
         ? ""
         : formData.deadlineDays
-          ? `Deadline must be between 1 and ${MAX_DEADLINE_DAYS} days`
-          : "Deadline is required",
+          ? t("deadlineOutOfRange", { max: MAX_DEADLINE_DAYS })
+          : tv("deadlineRequired"),
     })
 
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (duplicateIndices.size > 0)
-      return toastManager.error(
-        "Duplicate member addresses found — please remove duplicates before continuing"
-      )
-    if (validMembers.length < 2)
-      return toastManager.error("Need at least 2 valid Stellar addresses (you + 1 other)")
+    if (!address) return toastManager.error(tc("connectWalletFirst"))
+    if (duplicateIndices.size > 0) return toastManager.error(tc("duplicateMembersFound"))
+    if (validMembers.length < 2) return toastManager.error(tc("needAtLeastTwoMembers"))
     if (!nameResult.valid || !amountResult.valid || !deadlineDaysValid) return
 
     try {
@@ -214,21 +238,21 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
           deadline: estimatedDeadlineISO,
         }),
       })
-      if (!res.ok) throw new Error("Failed to save pool metadata")
+      if (!res.ok) throw new Error(tc("failedToSaveMetadata"))
       const pool = await res.json()
       router.push(`/dashboard/group/${pool.id}`)
     } catch (err: unknown) {
-      toastManager.error((err as Error).message || "Failed to create group")
+      toastManager.error((err as Error).message || tc("failedToCreateGroup"))
       setStep("idle")
     }
   }
 
   const stepLabel: Record<typeof step, string> = {
-    idle: "Create Target Pool",
-    deploying: "Deploying contract...",
-    initializing: "Initializing pool...",
-    registering: "Registering with factory...",
-    saving: "Saving metadata...",
+    idle: t("stepIdle"),
+    deploying: t("stepDeploying"),
+    initializing: t("stepInitializing"),
+    registering: t("stepRegistering"),
+    saving: t("stepSaving"),
   }
 
   const contributionPerMember =
@@ -241,13 +265,13 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
     currentLedger !== null && days > 0 ? currentLedger + daysToLedgers(days) : null
 
   const progressFields: ProgressField[] = [
-    { label: "Group name", valid: validateGroupName(formData.name).valid },
+    { label: tc("progressGroupName"), valid: validateGroupName(formData.name).valid },
     {
-      label: "Target amount",
+      label: t("targetAmountFieldLabel"),
       valid: validatePositiveAmount(formData.targetAmount, "Amount").valid,
     },
-    { label: "Deadline (days)", valid: days >= 1 && days <= MAX_DEADLINE_DAYS },
-    { label: "Members (2+)", valid: validMembers.length >= 2 },
+    { label: t("deadlineDaysLabel"), valid: days >= 1 && days <= MAX_DEADLINE_DAYS },
+    { label: tc("progressMembers"), valid: validMembers.length >= 2 },
   ]
 
   const templateToken = token.address === "native" ? "XLM" : token.address
@@ -266,7 +290,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       {isCreating && (
         <div className="flex gap-2 p-3 rounded-lg bg-primary/10 text-primary">
           <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-          <p className="text-sm">{stepLabel[step]} — approve each wallet prompt.</p>
+          <p className="text-sm">{tc("approveWalletPrompt", { step: stepLabel[step] })}</p>
         </div>
       )}
 
@@ -276,8 +300,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground">
           <CopyPlus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
           <span>
-            Pre-filled from the original pool — all values are editable. Submitting will deploy a{" "}
-            <strong>new, independent contract</strong> with no connection to the original.
+            {t.rich("prefillNotice", { strong: (chunks) => <strong>{chunks}</strong> })}
           </span>
         </div>
       )}
@@ -286,8 +309,8 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="flex items-center justify-between">
           <FieldTooltip
             htmlFor="name"
-            label="Group Name"
-            tooltip="A descriptive name for your savings goal — e.g. 'Wedding Fund'. Visible to all members."
+            label={tc("groupNameLabel")}
+            tooltip={t("groupNameTooltip")}
             required
           />
           <span
@@ -298,7 +321,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
         </div>
         <Input
           id="name"
-          placeholder="e.g., Wedding Fund"
+          placeholder={t("groupNamePlaceholder")}
           maxLength={50}
           value={formData.name}
           onChange={(e) => {
@@ -314,8 +337,8 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="flex items-center justify-between">
           <FieldTooltip
             htmlFor="description"
-            label="Description"
-            tooltip="Optional context about the savings goal — what you're saving for, any rules, or milestones to reach."
+            label={tc("descriptionLabel")}
+            tooltip={t("descriptionTooltip")}
           />
           <span
             className={`text-xs tabular-nums ${formData.description.length > 270 ? "text-destructive" : "text-muted-foreground"}`}
@@ -325,7 +348,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
         </div>
         <Textarea
           id="description"
-          placeholder="Describe the savings goal"
+          placeholder={t("descriptionPlaceholder")}
           maxLength={300}
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -341,8 +364,8 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="space-y-1">
           <FieldTooltip
             htmlFor="target"
-            label={`Target Amount (${token.symbol})`}
-            tooltip="The total amount the group aims to save collectively. Members contribute until this amount is reached."
+            label={t("targetAmountLabel", { symbol: token.symbol })}
+            tooltip={t("targetAmountTooltip")}
             required
           />
           <Input
@@ -364,8 +387,8 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
         <div className="space-y-1">
           <FieldTooltip
             htmlFor="deadlineDays"
-            label="Deadline (days from now)"
-            tooltip="How many days until the savings target deadline. Stored as a Stellar ledger sequence number (~6 sec/ledger)."
+            label={t("deadlineDaysLabel")}
+            tooltip={t("deadlineDaysTooltip")}
             required
           />
           <Input
@@ -386,8 +409,11 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Info className="h-3 w-3" />
               {estimatedDeadlineLedger
-                ? `Ledger ~${estimatedDeadlineLedger.toLocaleString()} · Est. ${new Date(Date.now() + days * 86_400_000).toLocaleDateString()}`
-                : "Fetching current ledger…"}
+                ? t("ledgerEstimate", {
+                    ledger: estimatedDeadlineLedger.toLocaleString(),
+                    date: new Date(Date.now() + days * 86_400_000).toLocaleDateString(),
+                  })
+                : t("fetchingLedger")}
             </p>
           )}
           {touched.deadlineDays && <FieldError message={fieldErrors.deadlineDays} />}
@@ -397,8 +423,8 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <FieldTooltip
-            label="Member Stellar Addresses"
-            tooltip="Add the public Stellar address (starts with G) for each person joining this pool. You are automatically included."
+            label={tc("memberAddressesLabel")}
+            tooltip={t("memberAddressesTooltip")}
             required
           />
           <Button
@@ -410,12 +436,12 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
             aria-describedby={isMemberLimitReached ? "target-member-limit" : undefined}
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add Member
+            {tc("addMember")}
           </Button>
         </div>
         {isMemberLimitReached && (
           <p id="target-member-limit" className="text-xs text-muted-foreground">
-            Maximum of {MAX_POOL_MEMBERS} members reached
+            {tc("maxMembersReached", { max: MAX_POOL_MEMBERS })}
           </p>
         )}
 
@@ -423,17 +449,17 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
           <div className="space-y-1">
             <div className="flex gap-2 items-center">
               <Input
-                value={address || "Connect your wallet"}
+                value={address || tc("connectWalletPlaceholder")}
                 readOnly
                 disabled
                 className="font-mono text-xs opacity-70"
               />
-              <span className="text-xs text-muted-foreground whitespace-nowrap">You</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {tc("youLabel")}
+              </span>
             </div>
             {!address && (
-              <p className="text-xs text-amber-600">
-                Connect your wallet to be included as a member
-              </p>
+              <p className="text-xs text-amber-600">{tc("connectWalletToBeMember")}</p>
             )}
           </div>
 
@@ -441,7 +467,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
             <div key={i} className="space-y-1">
               <div className="flex gap-2">
                 <Input
-                  placeholder="G... (56-character Stellar address)"
+                  placeholder={tc("addressPlaceholder")}
                   value={member}
                   onChange={(e) => updateMember(i, e.target.value)}
                   className={
@@ -460,31 +486,34 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
               </div>
               {memberErrors[i] && <FieldError message={memberErrors[i]} />}
               {!memberErrors[i] && member && isValidStellarAddress(member) && (
-                <p className="text-green-600 text-xs flex items-center gap-1">✓ Valid address</p>
+                <p className="text-green-600 text-xs flex items-center gap-1">
+                  ✓ {tc("validAddress")}
+                </p>
               )}
             </div>
           ))}
 
           {validMembers.length < 2 && members.some((m) => m) && (
-            <p className="text-xs text-muted-foreground">
-              At least 2 valid members are required (you + 1 other)
-            </p>
+            <p className="text-xs text-muted-foreground">{tc("atLeastTwoMembersRequired")}</p>
           )}
         </div>
       </div>
 
       <div className="pt-6 border-t border-border">
         <div className="bg-muted/30 rounded-lg p-4 mb-6">
-          <h4 className="font-semibold mb-2">Summary</h4>
+          <h4 className="font-semibold mb-2">{tc("summary")}</h4>
           <ul className="space-y-1 text-sm text-muted-foreground">
-            <li>Members: {validMembers.length}</li>
-            <li>Target Amount: {formData.targetAmount || "0"} XLM</li>
-            <li>Each member contributes: {contributionPerMember} XLM</li>
+            <li>{tc("membersCount", { count: validMembers.length })}</li>
+            <li>{t("targetAmountSummary", { amount: formData.targetAmount || "0" })}</li>
+            <li>{t("perMemberContribution", { amount: contributionPerMember })}</li>
             <li>
-              Deadline:{" "}
-              {days > 0
-                ? `~${days} day${days !== 1 ? "s" : ""}${estimatedDeadlineLedger ? ` (ledger ~${estimatedDeadlineLedger.toLocaleString()})` : ""}`
-                : "Not set"}
+              {t("deadlineSummary", {
+                days,
+                ledgerSuffix:
+                  days > 0 && estimatedDeadlineLedger
+                    ? t("ledgerSuffix", { ledger: estimatedDeadlineLedger.toLocaleString() })
+                    : "",
+              })}
             </li>
           </ul>
         </div>
@@ -499,7 +528,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
               {stepLabel[step]}
             </>
           ) : (
-            "Create Target Pool"
+            t("stepIdle")
           )}
         </Button>
 
@@ -510,7 +539,7 @@ export function TargetForm({ prefill }: { prefill?: DuplicatePrefill }) {
           className="w-full mt-2 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
         >
           <LayoutTemplate className="h-4 w-4" />
-          Save as Template
+          {tc("saveAsTemplate")}
         </button>
       </div>
 

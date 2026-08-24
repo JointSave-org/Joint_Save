@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -98,14 +99,10 @@ async function fetchProfileStats(address: string): Promise<ProfileStats> {
   }
 }
 
-const PREF_LABELS: Record<string, string> = {
-  email_on_payout: "Payout received",
-  email_on_deposit: "Member deposited",
-  email_on_round: "Round advanced",
-  email_on_target: "Target reached",
-}
+const PREF_KEYS = ["email_on_payout", "email_on_deposit", "email_on_round", "email_on_target"] as const
 
 export function Profile() {
+  const t = useTranslations("settings.profile")
   const { address } = useStellar()
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -159,8 +156,8 @@ export function Profile() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold">Profile</h2>
-        <p className="text-muted-foreground mt-1">Your on-chain savings reputation</p>
+        <h2 className="text-3xl font-bold">{t("title")}</h2>
+        <p className="text-muted-foreground mt-1">{t("subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -170,9 +167,9 @@ export function Profile() {
               <Wallet className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg">Wallet Address</h3>
+              <h3 className="font-semibold text-lg">{t("walletAddress")}</h3>
               <p className="text-sm text-muted-foreground font-mono">
-                {address ? `${address.slice(0, 10)}...${address.slice(-8)}` : "Not connected"}
+                {address ? `${address.slice(0, 10)}...${address.slice(-8)}` : t("notConnected")}
               </p>
             </div>
           </div>
@@ -180,7 +177,7 @@ export function Profile() {
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-muted-foreground">Reputation Score</span>
+                <span className="text-sm text-muted-foreground">{t("reputationScore")}</span>
                 {loading ? (
                   <Skeleton className="h-8 w-14" />
                 ) : (
@@ -201,19 +198,19 @@ export function Profile() {
               <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
                 <Award className="h-3 w-3 mr-1" />
                 {(stats?.reputation ?? 0) >= 80
-                  ? "Trusted Member"
+                  ? t("trustedMember")
                   : (stats?.reputation ?? 0) >= 60
-                    ? "Active Saver"
-                    : "New Member"}
+                    ? t("activeSaver")
+                    : t("newMember")}
               </Badge>
             </div>
           </div>
         </Card>
 
         <Card className="p-6">
-          <h3 className="font-semibold text-lg mb-6">Savings Statistics</h3>
+          <h3 className="font-semibold text-lg mb-6">{t("savingsStatistics")}</h3>
           {loading ? (
-            <div className="space-y-4" aria-label="Loading statistics">
+            <div className="space-y-4" aria-label={t("loadingStatisticsAria")}>
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
@@ -234,7 +231,7 @@ export function Profile() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                     <TrendingUp className="h-5 w-5 text-primary" />
                   </div>
-                  <span className="text-sm text-muted-foreground">Total Saved</span>
+                  <span className="text-sm text-muted-foreground">{t("totalSaved")}</span>
                 </div>
                 <span className="text-lg font-bold">{fmt(stats?.totalSaved ?? 0)}</span>
               </div>
@@ -244,7 +241,7 @@ export function Profile() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                     <Users className="h-5 w-5 text-primary" />
                   </div>
-                  <span className="text-sm text-muted-foreground">Groups Joined</span>
+                  <span className="text-sm text-muted-foreground">{t("groupsJoined")}</span>
                 </div>
                 <span className="text-lg font-bold">{stats?.groupsJoined ?? 0}</span>
               </div>
@@ -254,7 +251,7 @@ export function Profile() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                     <Award className="h-5 w-5 text-primary" />
                   </div>
-                  <span className="text-sm text-muted-foreground">Successful Payouts</span>
+                  <span className="text-sm text-muted-foreground">{t("successfulPayouts")}</span>
                 </div>
                 <span className="text-lg font-bold">{stats?.successfulPayouts ?? 0}</span>
               </div>
@@ -264,11 +261,11 @@ export function Profile() {
       </div>
 
       <Card className="p-6">
-        <h3 className="font-semibold text-lg mb-6">Reputation Breakdown</h3>
+        <h3 className="font-semibold text-lg mb-6">{t("reputationBreakdown")}</h3>
         {loading ? (
           <div
             className="grid grid-cols-1 sm:grid-cols-3 gap-4"
-            aria-label="Loading reputation breakdown"
+            aria-label={t("loadingReputationAria")}
           >
             {[0, 1, 2].map((i) => (
               <div key={i} className="p-4 rounded-lg bg-muted/30 space-y-2">
@@ -280,17 +277,17 @@ export function Profile() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 rounded-lg bg-muted/30">
-              <p className="text-sm text-muted-foreground">On-Time Rate</p>
+              <p className="text-sm text-muted-foreground">{t("onTimeRate")}</p>
               <p className="text-2xl font-bold mt-1">
                 {((stats?.onChain.onTimeRate ?? 10000) / 100).toFixed(0)}%
               </p>
             </div>
             <div className="p-4 rounded-lg bg-muted/30">
-              <p className="text-sm text-muted-foreground">Pools Completed</p>
+              <p className="text-sm text-muted-foreground">{t("poolsCompleted")}</p>
               <p className="text-2xl font-bold mt-1">{stats?.onChain.poolsCompleted ?? 0}</p>
             </div>
             <div className="p-4 rounded-lg bg-muted/30">
-              <p className="text-sm text-muted-foreground">Missed Rounds</p>
+              <p className="text-sm text-muted-foreground">{t("missedRounds")}</p>
               <p className="text-2xl font-bold mt-1">{stats?.onChain.missedRounds ?? 0}</p>
             </div>
           </div>
@@ -304,10 +301,8 @@ export function Profile() {
             <Mail className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-lg">Email Address</h3>
-            <p className="text-sm text-muted-foreground">
-              Receive pool event notifications by email
-            </p>
+            <h3 className="font-semibold text-lg">{t("emailAddress")}</h3>
+            <p className="text-sm text-muted-foreground">{t("emailAddressDescription")}</p>
           </div>
         </div>
 
@@ -320,14 +315,16 @@ export function Profile() {
             className="flex-1"
           />
           <Button onClick={handleSaveEmail} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : emailSaved ? "Saved!" : "Save"}
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : emailSaved ? (
+              t("savedExclaim")
+            ) : (
+              t("save")
+            )}
           </Button>
         </div>
-        {!profile?.email && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Add an email to receive notifications. Your address is never shared.
-          </p>
-        )}
+        {!profile?.email && <p className="mt-2 text-xs text-muted-foreground">{t("emailHint")}</p>}
       </Card>
 
       {/* ── Notification preferences ───────────────────────────────────── */}
@@ -337,15 +334,15 @@ export function Profile() {
             <Bell className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-lg">Notifications</h3>
-            <p className="text-sm text-muted-foreground">Choose which events send you an email</p>
+            <h3 className="font-semibold text-lg">{t("notifications")}</h3>
+            <p className="text-sm text-muted-foreground">{t("notificationsDescription")}</p>
           </div>
         </div>
 
         <div className="space-y-4">
-          {Object.entries(PREF_LABELS).map(([key, label]) => (
+          {PREF_KEYS.map((key) => (
             <div key={key} className="flex items-center justify-between">
-              <span className="text-sm">{label}</span>
+              <span className="text-sm">{t(`prefLabels.${key}`)}</span>
               <Switch
                 checked={
                   profile?.notification_preferences?.[
@@ -361,26 +358,19 @@ export function Profile() {
 
         {!profile?.email && (
           <p className="mt-4 text-xs text-muted-foreground border-t border-border pt-4">
-            Add an email above to receive these notifications.
+            {t("addEmailToReceive")}
           </p>
         )}
       </Card>
 
       <Card className="p-6 bg-muted/30">
-        <h3 className="text-lg font-semibold mb-2">About Reputation Score</h3>
-        <p className="text-muted-foreground text-sm mb-4">
-          Your reputation score is calculated from your on-chain savings activity — deposits,
-          payouts, and group participation.
-        </p>
+        <h3 className="text-lg font-semibold mb-2">{t("aboutReputationScore")}</h3>
+        <p className="text-muted-foreground text-sm mb-4">{t("aboutReputationDescription")}</p>
         <ul className="space-y-2 text-sm">
-          {[
-            "Access to premium savings groups",
-            "Lower fees on transactions",
-            "Eligibility for microcredit loans",
-          ].map((benefit) => (
+          {(["premiumGroups", "lowerFees", "microcreditEligibility"] as const).map((benefit) => (
             <li key={benefit} className="flex gap-2">
               <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-              <span className="text-muted-foreground">{benefit}</span>
+              <span className="text-muted-foreground">{t(`benefits.${benefit}`)}</span>
             </li>
           ))}
         </ul>

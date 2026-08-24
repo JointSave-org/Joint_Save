@@ -7,6 +7,7 @@ import {
   mockPoolsApi,
   waitForPoolsResponse,
   E2E_ADDRESS,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -22,7 +23,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test("shows empty state when no notifications", async ({ page }) => {
-  await page.goto("/dashboard/notifications")
+  await page.goto(localePath("/dashboard/notifications"))
 
   // Page title
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible()
@@ -60,7 +61,7 @@ test("displays a list of notifications", async ({ page }) => {
     })
   })
 
-  await page.goto("/dashboard/notifications")
+  await page.goto(localePath("/dashboard/notifications"))
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible()
 
   // Summary shows total count
@@ -72,12 +73,12 @@ test("displays a list of notifications", async ({ page }) => {
 })
 
 test("shows back to dashboard link", async ({ page }) => {
-  await page.goto("/dashboard/notifications")
+  await page.goto(localePath("/dashboard/notifications"))
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible()
 
   // Back link
   const backLink = page.getByRole("link", { name: /back to dashboard/i })
   await expect(backLink).toBeVisible()
   await backLink.click()
-  await expect(page).toHaveURL(/\/dashboard$/)
+  await expect(page).toHaveURL(new RegExp(`${localePath("/dashboard")}$`))
 })

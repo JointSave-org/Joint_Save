@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react"
 import {
   Dialog,
@@ -38,8 +39,9 @@ export function TxSimulationDialog({
   simulation,
   isSimulating,
   onConfirm,
-  txLabel = "Transaction",
+  txLabel,
 }: TxSimulationDialogProps) {
+  const t = useTranslations("common.txSimulation")
   const phase: "simulating" | "success" | "failure" | "unavailable" = isSimulating
     ? "simulating"
     : simulation?.unavailable
@@ -52,12 +54,12 @@ export function TxSimulationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] bg-background border border-border">
         <DialogHeader>
-          <DialogTitle>{txLabel}</DialogTitle>
+          <DialogTitle>{txLabel || t("defaultLabel")}</DialogTitle>
           <DialogDescription>
-            {phase === "simulating" && "Simulating transaction on-chain…"}
-            {phase === "success" && "Pre-flight check passed. Review below before signing."}
-            {phase === "failure" && "This transaction would fail if submitted."}
-            {phase === "unavailable" && "Simulation is unavailable."}
+            {phase === "simulating" && t("simulating")}
+            {phase === "success" && t("successDescription")}
+            {phase === "failure" && t("failureDescription")}
+            {phase === "unavailable" && t("unavailableDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -65,9 +67,7 @@ export function TxSimulationDialog({
         {phase === "simulating" && (
           <div className="flex flex-col items-center gap-3 py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">
-              Checking transaction against the network…
-            </p>
+            <p className="text-sm text-muted-foreground">{t("checkingNetwork")}</p>
           </div>
         )}
 
@@ -77,17 +77,15 @@ export function TxSimulationDialog({
             <div className="flex items-start gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-4">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-green-700">Transaction looks good!</p>
+                <p className="text-sm font-medium text-green-700">{t("looksGood")}</p>
                 {simulation?.cost && (
                   <p className="text-sm text-green-600">
-                    Estimated fee: {stroopsToXlm(simulation.cost.feeStroops)} XLM
+                    {t("estimatedFee", { amount: stroopsToXlm(simulation.cost.feeStroops) })}
                   </p>
                 )}
               </div>
             </div>
-            <p className="text-xs text-muted-foreground text-center">
-              Sign the transaction in your wallet to submit it to the network.
-            </p>
+            <p className="text-xs text-muted-foreground text-center">{t("signInWallet")}</p>
           </div>
         )}
 
@@ -97,9 +95,9 @@ export function TxSimulationDialog({
             <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
               <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-destructive">Transaction would fail</p>
+                <p className="text-sm font-medium text-destructive">{t("wouldFail")}</p>
                 <p className="text-sm text-destructive/80">
-                  {simulation?.friendlyMessage || "No changes will be made."}
+                  {simulation?.friendlyMessage || t("noChanges")}
                 </p>
               </div>
             </div>
@@ -112,11 +110,8 @@ export function TxSimulationDialog({
             <div className="flex items-start gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-yellow-700">Simulation unavailable</p>
-                <p className="text-sm text-yellow-600">
-                  The network could not be reached for pre-validation. The transaction may fail
-                  on-chain.
-                </p>
+                <p className="text-sm font-medium text-yellow-700">{t("unavailableTitle")}</p>
+                <p className="text-sm text-yellow-600">{t("unavailableBody")}</p>
               </div>
             </div>
           </div>
@@ -125,7 +120,7 @@ export function TxSimulationDialog({
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSimulating}>
-            {phase === "failure" ? "Close" : "Cancel"}
+            {phase === "failure" ? t("close") : t("cancel")}
           </Button>
 
           {phase === "success" && (
@@ -133,7 +128,7 @@ export function TxSimulationDialog({
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={onConfirm}
             >
-              Sign &amp; Submit
+              {t("signAndSubmit")}
             </Button>
           )}
 
@@ -142,7 +137,7 @@ export function TxSimulationDialog({
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={onConfirm}
             >
-              Proceed Anyway
+              {t("proceedAnyway")}
             </Button>
           )}
         </DialogFooter>

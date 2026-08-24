@@ -8,6 +8,7 @@ import {
   makePool,
   waitForPoolsResponse,
   E2E_CONTRACT_ID,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -48,7 +49,7 @@ test.beforeEach(async ({ page }) => {
 
 test("compare bar appears when pools are selected", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/explore", { waitUntil: "networkidle" })
+  await page.goto(localePath("/explore"), { waitUntil: "networkidle" })
   await poolsResponse
 
   await expect(page.getByText(/Compare Pool A/i)).toBeVisible()
@@ -62,9 +63,10 @@ test("compare bar appears when pools are selected", async ({ page }) => {
 
 test("compare page shows comparison table via URL", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/explore/compare?pools=${POOL_A.contract_address},${POOL_B.contract_address}`, {
-    waitUntil: "networkidle",
-  })
+  await page.goto(
+    localePath(`/explore/compare?pools=${POOL_A.contract_address},${POOL_B.contract_address}`),
+    { waitUntil: "networkidle" }
+  )
   await poolsResponse
 
   await expect(page.getByRole("heading", { name: /Compare Pools/i })).toBeVisible()
@@ -74,7 +76,7 @@ test("compare page shows comparison table via URL", async ({ page }) => {
 
 test("clear selection removes compare bar", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/explore", { waitUntil: "networkidle" })
+  await page.goto(localePath("/explore"), { waitUntil: "networkidle" })
   await poolsResponse
 
   await expect(page.getByText(/Compare Pool A/i)).toBeVisible()
@@ -89,7 +91,7 @@ test("clear selection removes compare bar", async ({ page }) => {
 
 test("compare button is disabled with only one pool selected", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/explore", { waitUntil: "networkidle" })
+  await page.goto(localePath("/explore"), { waitUntil: "networkidle" })
   await poolsResponse
 
   await expect(page.getByText(/Compare Pool A/i)).toBeVisible()

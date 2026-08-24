@@ -10,6 +10,7 @@ import {
   E2E_ADDRESS,
   E2E_MEMBER_2,
   E2E_CONTRACT_ID,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -46,7 +47,7 @@ test.beforeEach(async ({ page }) => {
 
 test("opens payout preview and confirms", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/dashboard/group/${POOL_ID}`), { waitUntil: "networkidle" })
   await poolsResponse
   await expect(page.getByRole("heading", { name: /Payout Pool/i })).toBeVisible()
 

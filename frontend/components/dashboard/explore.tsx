@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import {
   Pagination,
@@ -22,6 +23,7 @@ const container = {
 }
 
 export function Explore() {
+  const t = useTranslations("explore.dashboardTab")
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -52,13 +54,13 @@ export function Explore() {
       setLoading(true)
       setError("")
       const res = await fetch(`/api/pools?explore=true&page=${currentPage}`)
-      if (!res.ok) throw new Error("Failed to fetch pools")
+      if (!res.ok) throw new Error(t("fetchError"))
       const json = await res.json()
       const data: Pool[] = Array.isArray(json) ? json : (json.data ?? [])
       setPools(data)
       setTotal(json.total ?? data.length)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch pools")
+      setError(err instanceof Error ? err.message : t("fetchError"))
       setPools([])
     } finally {
       setLoading(false)
@@ -69,14 +71,12 @@ export function Explore() {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold">Explore Pools</h2>
-          <p className="text-muted-foreground mt-1">
-            Browse savings circles and see how reliably their members participate
-          </p>
+          <h2 className="text-3xl font-bold">{t("title")}</h2>
+          <p className="text-muted-foreground mt-1">{t("subtitle")}</p>
         </div>
         <div
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          aria-label="Loading pools"
+          aria-label={t("loadingAria")}
         >
           {Array.from({ length: PAGE_SIZE }).map((_, i) => (
             <PoolCardSkeleton key={i} />
@@ -90,7 +90,7 @@ export function Explore() {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold">Explore Pools</h2>
+          <h2 className="text-3xl font-bold">{t("title")}</h2>
         </div>
         <Card className="p-6 bg-destructive/10 text-destructive">
           <p>{error}</p>
@@ -106,12 +106,8 @@ export function Explore() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h2 className="text-3xl font-bold">Explore Pools</h2>
-        <p className="text-muted-foreground mt-1">
-          {total === 0
-            ? "No pools to explore yet"
-            : `Browse ${total} pool${total !== 1 ? "s" : ""} — the health badge shows how reliably members have been depositing`}
-        </p>
+        <h2 className="text-3xl font-bold">{t("title")}</h2>
+        <p className="text-muted-foreground mt-1">{t("poolCount", { count: total })}</p>
       </motion.div>
 
       {pools.length === 0 ? (
@@ -119,10 +115,8 @@ export function Explore() {
           <div className="rounded-full bg-muted p-3">
             <Compass className="h-6 w-6 text-muted-foreground" />
           </div>
-          <p className="font-medium">Nothing to explore just yet</p>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            Once people start creating savings pools, they&apos;ll show up here for you to browse.
-          </p>
+          <p className="font-medium">{t("nothingToExplore")}</p>
+          <p className="text-sm text-muted-foreground max-w-sm">{t("nothingToExploreHint")}</p>
         </Card>
       ) : (
         <>
@@ -140,8 +134,11 @@ export function Explore() {
           {totalPages > 1 && (
             <div className="flex flex-col items-center gap-3 mt-4">
               <p className="text-sm text-muted-foreground">
-                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}{" "}
-                pools
+                {t("showingRange", {
+                  from: page * PAGE_SIZE + 1,
+                  to: Math.min((page + 1) * PAGE_SIZE, total),
+                  total,
+                })}
               </p>
               <Pagination>
                 <PaginationContent>

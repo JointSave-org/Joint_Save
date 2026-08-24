@@ -9,6 +9,7 @@ import {
   waitForPoolsResponse,
   E2E_ADDRESS,
   E2E_CONTRACT_ID,
+  localePath,
 } from "./fixtures/test-base"
 
 /**

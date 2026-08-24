@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations, useLocale } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,9 @@ export interface Activity {
 }
 
 export function Transactions() {
+  const t = useTranslations("dashboard.transactions")
+  const tPool = useTranslations("pool")
+  const locale = useLocale()
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState<string>("all")
@@ -122,12 +126,12 @@ export function Transactions() {
   const exportCSV = () => {
     if (filtered.length === 0) return
     const headers = [
-      "Date",
-      "Pool Name",
-      "Pool Type",
-      "Activity Type",
-      "Amount",
-      "Transaction Hash",
+      t("csvHeaders.date"),
+      t("csvHeaders.poolName"),
+      t("csvHeaders.poolType"),
+      t("csvHeaders.activityType"),
+      t("csvHeaders.amount"),
+      t("csvHeaders.txHash"),
     ]
     const rows = filtered.map((a) => [
       new Date(a.created_at).toISOString().slice(0, 10),
@@ -142,6 +146,13 @@ export function Transactions() {
     downloadCsv(csv, `transactions-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
+  const activityTypeLabel = (type: string) => {
+    const key = type.toLowerCase()
+    return ["deposit", "withdraw", "payout", "refund"].includes(key)
+      ? t(`activityType.${key}`)
+      : type
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -154,19 +165,19 @@ export function Transactions() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold">Transaction History</h2>
-          <p className="text-muted-foreground mt-1">View all deposits and payouts</p>
+          <h2 className="text-3xl font-bold">{t("title")}</h2>
+          <p className="text-muted-foreground mt-1">{t("subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <select
-            aria-label="Filter transactions"
+            aria-label={t("filterTransactionsAria")}
             className="bg-background border border-input rounded-md px-3 py-1.5 text-sm"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
-            <option value="all">All Types</option>
-            <option value="deposit">Deposits</option>
-            <option value="withdraw">Withdrawals</option>
+            <option value="all">{t("filterAll")}</option>
+            <option value="deposit">{t("filterDeposits")}</option>
+            <option value="withdraw">{t("filterWithdrawals")}</option>
           </select>
 
           <Button
@@ -174,11 +185,11 @@ export function Transactions() {
             size="sm"
             onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
           >
-            Sort: {sortOrder.toUpperCase()}
+            {t("sortLabel", { order: sortOrder.toUpperCase() })}
           </Button>
 
           <Button variant="outline" size="sm" onClick={exportCSV} disabled={filtered.length === 0}>
-            <Download className="mr-2 h-4 w-4" /> Export CSV
+            <Download className="mr-2 h-4 w-4" /> {t("exportCsv")}
           </Button>
         </div>
       </div>
@@ -190,24 +201,22 @@ export function Transactions() {
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
           className="w-40"
-          placeholder="From"
-          aria-label="Filter from date"
+          aria-label={t("filterFromAria")}
         />
         <Input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
           className="w-40"
-          placeholder="To"
-          aria-label="Filter to date"
+          aria-label={t("filterToAria")}
         />
         {poolOptions.length > 0 && (
           <Select value={poolFilter} onValueChange={setPoolFilter}>
-            <SelectTrigger className="w-44" aria-label="Filter by pool">
-              <SelectValue placeholder="All Pools" />
+            <SelectTrigger className="w-44" aria-label={t("filterByPoolAria")}>
+              <SelectValue placeholder={t("allPools")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Pools</SelectItem>
+              <SelectItem value="all">{t("allPools")}</SelectItem>
               {poolOptions.map(([id, name]) => (
                 <SelectItem key={id} value={id}>
                   {name}
@@ -218,14 +227,14 @@ export function Transactions() {
         )}
         {activityTypes.length > 0 && (
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-44" aria-label="Filter by activity type">
-              <SelectValue placeholder="All Types" />
+            <SelectTrigger className="w-44" aria-label={t("filterByTypeAria")}>
+              <SelectValue placeholder={t("filterAll")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {activityTypes.map((t) => (
-                <SelectItem key={t} value={t} className="capitalize">
-                  {t}
+              <SelectItem value="all">{t("filterAll")}</SelectItem>
+              {activityTypes.map((type) => (
+                <SelectItem key={type} value={type} className="capitalize">
+                  {activityTypeLabel(type)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -235,7 +244,7 @@ export function Transactions() {
 
       <Card className="divide-y divide-border">
         {filtered.length === 0 ? (
-          <div className="p-6 text-center text-muted-foreground">No transactions yet</div>
+          <div className="p-6 text-center text-muted-foreground">{t("noTransactionsYet")}</div>
         ) : (
           filtered.map((activity) => (
             <div key={activity.id} className="p-6 hover:bg-muted/30 transition-colors">
@@ -254,15 +263,16 @@ export function Transactions() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold capitalize">{activity.activity_type}</h3>
+                      <h3 className="font-semibold">{activityTypeLabel(activity.activity_type)}</h3>
                       <Badge variant="default" className="bg-primary/10 text-primary">
-                        Completed
+                        {t("completed")}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">{activity.description}</p>
                     {activity.pool_name && (
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {activity.pool_name} · {activity.pool_type}
+                      <p className="text-xs text-muted-foreground">
+                        {activity.pool_name}
+                        {activity.pool_type && ` · ${tPool(`type.${activity.pool_type}`)}`}
                       </p>
                     )}
                     <Tooltip>
@@ -272,10 +282,10 @@ export function Transactions() {
                           className="text-xs text-muted-foreground mt-1 cursor-default block"
                           tabIndex={0}
                         >
-                          {formatRelativeTime(activity.created_at)}
+                          {formatRelativeTime(activity.created_at, locale)}
                         </time>
                       </TooltipTrigger>
-                      <TooltipContent>{formatExactDateTime(activity.created_at)}</TooltipContent>
+                      <TooltipContent>{formatExactDateTime(activity.created_at, locale)}</TooltipContent>
                     </Tooltip>
                   </div>
                 </div>

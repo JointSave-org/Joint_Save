@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import {
   Dialog,
   DialogContent,
@@ -9,13 +10,13 @@ import {
 } from "@/components/ui/dialog"
 import { Kbd } from "@/components/ui/kbd"
 
-const shortcuts: { keys: string[]; description: string }[] = [
-  { keys: ["c"], description: "Create a new pool" },
-  { keys: ["g", "h"], description: "Go to My Groups" },
-  { keys: ["g", "f"], description: "Go to Portfolio" },
-  { keys: ["g", "t"], description: "Go to Transactions" },
-  { keys: ["g", "p"], description: "Go to Profile" },
-  { keys: ["?"], description: "Open keyboard shortcuts" },
+const shortcuts: { keys: string[]; descriptionKey: string }[] = [
+  { keys: ["c"], descriptionKey: "createPool" },
+  { keys: ["g", "h"], descriptionKey: "goToGroups" },
+  { keys: ["g", "f"], descriptionKey: "goToPortfolio" },
+  { keys: ["g", "t"], descriptionKey: "goToTransactions" },
+  { keys: ["g", "p"], descriptionKey: "goToProfile" },
+  { keys: ["?"], descriptionKey: "openHelp" },
 ]
 
 export function KeyboardShortcutsHelp({
@@ -25,23 +26,24 @@ export function KeyboardShortcutsHelp({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const t = useTranslations("common.keyboardShortcuts")
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Keyboard Shortcuts</DialogTitle>
-          <DialogDescription>
-            Use these shortcuts to navigate the dashboard quickly.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
           {shortcuts.map((shortcut) => (
             <div key={shortcut.keys.join("-")} className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{shortcut.description}</span>
+              <span className="text-sm text-muted-foreground">
+                {t(shortcut.descriptionKey)}
+              </span>
               <span className="flex items-center gap-1.5">
                 {shortcut.keys.map((key, i) => (
                   <span key={key} className="flex items-center gap-1.5">
-                    {i > 0 && <span className="text-xs text-muted-foreground">then</span>}
+                    {i > 0 && <span className="text-xs text-muted-foreground">{t("then")}</span>}
                     <Kbd>{key === " " ? "Space" : key}</Kbd>
                   </span>
                 ))}
