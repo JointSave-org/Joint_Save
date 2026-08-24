@@ -16,6 +16,17 @@ const DAY_MS = 86_400_000
 const WEEK_MS = 604_800_000
 const MAX_FUTURE_SKEW_MS = 10 * MINUTE_MS
 
+/** "just now" / "Unknown date" don't come from Intl — kept as a small per-locale lookup. */
+const RELATIVE_TIME_STRINGS: Record<string, { justNow: string; unknownDate: string }> = {
+  en: { justNow: "just now", unknownDate: "Unknown date" },
+  es: { justNow: "justo ahora", unknownDate: "Fecha desconocida" },
+}
+
+function relativeTimeStrings(locale: string) {
+  const lang = locale.split("-")[0]
+  return RELATIVE_TIME_STRINGS[lang] ?? RELATIVE_TIME_STRINGS.en
+}
+
 /**
  * Returns a human-readable relative timestamp.
  *
@@ -29,56 +40,61 @@ const MAX_FUTURE_SKEW_MS = 10 * MINUTE_MS
  * Future dates up to 10 minutes (skew) collapse to "just now".
  * Future dates beyond 10 minutes are surfaced as the short locale date.
  *
+ * `locale` defaults to "en-US" for backward compatibility with callers that
+ * don't pass one (out-of-scope areas not translated by issue #216).
+ *
  * Time complexity : O(1)
  * Space complexity: O(1) — single string allocation
  */
-export function formatRelativeTime(date: string | Date): string {
+export function formatRelativeTime(date: string | Date, locale: string = "en-US"): string {
+  const strings = relativeTimeStrings(locale)
   const ts = typeof date === "string" ? new Date(date) : date
-  if (isNaN(ts.getTime())) return "Unknown date"
+  if (isNaN(ts.getTime())) return strings.unknownDate
 
   const diffMs = Date.now() - ts.getTime()
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "always" })
 
   // Handle future dates (diffMs < 0)
   if (diffMs < 0) {
     if (diffMs >= -MAX_FUTURE_SKEW_MS) {
-      return "just now"
+      return strings.justNow
     }
     // Surface larger future differences as short locale date to expose timezone/timestamp bugs
-    return ts.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    return ts.toLocaleDateString(locale, { month: "short", day: "numeric" })
   }
 
-  if (diffMs < MINUTE_MS) return "just now"
+  if (diffMs < MINUTE_MS) return strings.justNow
 
   if (diffMs < HOUR_MS) {
-    const mins = Math.floor(diffMs / MINUTE_MS)
-    return mins === 1 ? "1 minute ago" : `${mins} minutes ago`
+    return rtf.format(-Math.floor(diffMs / MINUTE_MS), "minute")
   }
 
   if (diffMs < DAY_MS) {
-    const hours = Math.floor(diffMs / HOUR_MS)
-    return hours === 1 ? "1 hour ago" : `${hours} hours ago`
+    return rtf.format(-Math.floor(diffMs / HOUR_MS), "hour")
   }
 
   if (diffMs < WEEK_MS) {
-    const days = Math.floor(diffMs / DAY_MS)
-    return days === 1 ? "1 day ago" : `${days} days ago`
+    return rtf.format(-Math.floor(diffMs / DAY_MS), "day")
   }
 
-  return ts.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  return ts.toLocaleDateString(locale, { month: "short", day: "numeric" })
 }
 
 /**
  * Returns the full date-time string shown in the hover tooltip.
  * Format: "Jun 17, 2026, 14:30:00" — locale-independent enough for precision.
  *
+ * `locale` defaults to "en-US" for backward compatibility with callers that
+ * don't pass one (out-of-scope areas not translated by issue #216).
+ *
  * Time complexity : O(1)
  * Space complexity: O(1)
  */
-export function formatExactDateTime(date: string | Date): string {
+export function formatExactDateTime(date: string | Date, locale: string = "en-US"): string {
   const ts = typeof date === "string" ? new Date(date) : date
-  if (isNaN(ts.getTime())) return "Unknown date"
+  if (isNaN(ts.getTime())) return relativeTimeStrings(locale).unknownDate
 
-  return ts.toLocaleString("en-US", {
+  return ts.toLocaleString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",

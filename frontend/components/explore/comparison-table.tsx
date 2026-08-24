@@ -1,6 +1,7 @@
 "use client"
 
-import Link from "next/link"
+import { useTranslations } from "next-intl"
+import { Link } from "@/i18n/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -21,17 +22,19 @@ interface BestValueCellProps {
   badgeLabel?: string
 }
 
-function BestValueCell({ best, children, badgeLabel = "Best" }: BestValueCellProps) {
+function BestValueCell({ best, children, badgeLabel }: BestValueCellProps) {
+  const t = useTranslations("explore.comparisonTable")
+  const label = badgeLabel ?? t("best")
   return (
     <div className="flex items-center gap-1.5">
       <span className={best ? "font-semibold text-primary" : ""}>{children}</span>
       {best && (
         <span
-          title={`${badgeLabel} value`}
+          title={t("valueSuffix", { label })}
           className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
         >
           <CheckCircle2 className="h-3 w-3" />
-          {badgeLabel}
+          {label}
         </span>
       )}
     </div>
@@ -45,37 +48,17 @@ function formatDate(iso: string): string {
   return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
 
-function formatDuration(seconds: number | null | undefined): string {
-  if (!seconds || seconds <= 0) return "—"
-  const days = seconds / 86400
-  if (days >= 30) return `${Math.round(days / 30)} mo`
-  if (days >= 1) return `${Math.round(days)} day${Math.round(days) !== 1 ? "s" : ""}`
-  const hours = seconds / 3600
-  if (hours >= 1) return `${Math.round(hours)} hr${Math.round(hours) !== 1 ? "s" : ""}`
-  return `${Math.round(seconds / 60)} min`
-}
-
-function typeLabel(type: string): string {
-  return type.charAt(0).toUpperCase() + type.slice(1)
-}
-
-function statusLabel(status: string): string {
-  if (status === "active") return "Active"
-  if (status === "completed") return "Completed"
-  if (status === "paused") return "Paused"
-  return status
-}
-
-function healthLabel(pool: ComparisonPool): { label: string; color: string } {
-  if (!pool.health) return { label: "…", color: "text-muted-foreground" }
-  if (pool.health.state === "new" || pool.health.score === null) {
-    return { label: "New pool", color: "text-muted-foreground" }
-  }
-  if (pool.health.band === "healthy")
-    return { label: `${pool.health.score}%`, color: "text-emerald-600 dark:text-emerald-400" }
-  if (pool.health.band === "fair")
-    return { label: `${pool.health.score}%`, color: "text-amber-600 dark:text-amber-400" }
-  return { label: `${pool.health.score}%`, color: "text-destructive" }
+/** True when this column's value is the "best" across the given row of pools. */
+function isBest(
+  pools: ComparisonPool[],
+  getter: (pool: ComparisonPool) => number | null,
+  preferHigher: boolean
+): boolean[] {
+  const values = pools.map((p) => getter(p))
+  const finite = values.filter((v): v is number => v !== null)
+  if (finite.length === 0) return values.map(() => false)
+  const target = preferHigher ? Math.max(...finite) : Math.min(...finite)
+  return values.map((v) => v !== null && v === target)
 }
 
 /** TVL shown from the DB record, falling back to the on-chain-style total. */
@@ -88,26 +71,6 @@ function depositOf(pool: ComparisonPoolRecord): number | null {
   if (pool.type === "target") return pool.target_amount ?? null
   if (pool.type === "flexible") return pool.minimum_deposit ?? pool.contribution_amount ?? null
   return pool.contribution_amount ?? null
-}
-
-/** "Member count / max" — rotational & target pools fix their size at creation. */
-function memberCountOf(pool: ComparisonPoolRecord): { count: number; max: string } {
-  const count = pool.members_count ?? 0
-  if (pool.type === "flexible") return { count, max: "Open" }
-  return { count, max: String(Math.max(count, 1)) }
-}
-
-/** True when this column's value is the "best" across the given row of pools. */
-function isBest(
-  pools: ComparisonPool[],
-  getter: (pool: ComparisonPool) => number | null,
-  preferHigher: boolean
-): boolean[] {
-  const values = pools.map((p) => getter(p))
-  const finite = values.filter((v): v is number => v !== null)
-  if (finite.length === 0) return values.map(() => false)
-  const target = preferHigher ? Math.max(...finite) : Math.min(...finite)
-  return values.map((v) => v !== null && v === target)
 }
 
 interface ComparisonTableProps {
@@ -125,6 +88,43 @@ interface ComparisonTableProps {
  * pool columns scroll horizontally on narrow screens.
  */
 export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTableProps) {
+  const t = useTranslations("explore.comparisonTable")
+  const tPool = useTranslations("pool")
+
+  const typeLabel = (type: string) => tPool(`type.${type}` as "type.rotational")
+  const statusLabel = (status: string) =>
+    ["active", "completed", "paused"].includes(status)
+      ? tPool(`status.${status}` as "status.active")
+      : status
+
+  const formatDuration = (seconds: number | null | undefined): string => {
+    if (!seconds || seconds <= 0) return "—"
+    const days = seconds / 86400
+    if (days >= 30) return t("durationMonths", { count: Math.round(days / 30) })
+    if (days >= 1) return t("durationDays", { count: Math.round(days) })
+    const hours = seconds / 3600
+    if (hours >= 1) return t("durationHours", { count: Math.round(hours) })
+    return t("durationMinutes", { count: Math.round(seconds / 60) })
+  }
+
+  const memberCountOf = (pool: ComparisonPoolRecord): { count: number; max: string } => {
+    const count = pool.members_count ?? 0
+    if (pool.type === "flexible") return { count, max: t("open") }
+    return { count, max: String(Math.max(count, 1)) }
+  }
+
+  const healthLabel = (pool: ComparisonPool): { label: string; color: string } => {
+    if (!pool.health) return { label: "…", color: "text-muted-foreground" }
+    if (pool.health.state === "new" || pool.health.score === null) {
+      return { label: t("newPool"), color: "text-muted-foreground" }
+    }
+    if (pool.health.band === "healthy")
+      return { label: `${pool.health.score}%`, color: "text-emerald-600 dark:text-emerald-400" }
+    if (pool.health.band === "fair")
+      return { label: `${pool.health.score}%`, color: "text-amber-600 dark:text-amber-400" }
+    return { label: `${pool.health.score}%`, color: "text-destructive" }
+  }
+
   const resolved = pools.filter((p) => p.pool !== null && !p.error)
 
   const bestTvl = isBest(resolved, (p) => (p.pool ? tvlOf(p.pool) : null), true)
@@ -149,10 +149,10 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
         <div className="flex flex-col items-start gap-2 text-destructive" role="alert">
           <span className="flex items-center gap-1.5 text-sm font-medium">
             <AlertCircle className="h-4 w-4" />
-            Invalid pool
+            {t("invalidPool")}
           </span>
           <span className="text-xs text-muted-foreground break-all font-mono">{pool.key}</span>
-          <span className="text-xs">{pool.error || "This pool could not be loaded."}</span>
+          <span className="text-xs">{pool.error || t("couldNotBeLoaded")}</span>
         </div>
       )
     }
@@ -168,7 +168,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
             {onRemove && (
               <button
                 onClick={() => onRemove(pool.key)}
-                aria-label={`Remove ${record.name} from comparison`}
+                aria-label={t("removeFromComparisonAria", { name: record.name })}
                 className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <X className="h-3.5 w-3.5" />
@@ -200,7 +200,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                 : `/dashboard/group/${record.id}`
             }
           >
-            Join Pool
+            {t("joinPool")}
             <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
           </Link>
         </Button>
@@ -211,7 +211,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
   return (
     <div className="relative w-full">
       <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full border-collapse text-sm" aria-label="Pool comparison">
+        <table className="w-full border-collapse text-sm" aria-label={t("tableAria")}>
           <tbody>
             {/* Pool name header row */}
             <tr className="border-b border-border">
@@ -219,7 +219,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                 scope="row"
                 className="sticky left-0 z-10 bg-background p-4 text-left align-top font-medium text-muted-foreground w-40 min-w-40 max-w-52"
               >
-                Pool
+                {t("pool")}
               </th>
               {pools.map((pool) => (
                 <td
@@ -230,7 +230,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                 </td>
               ))}
               {pools.length === 0 && (
-                <td className="p-4 text-muted-foreground">Select pools to compare.</td>
+                <td className="p-4 text-muted-foreground">{t("selectPoolsToCompare")}</td>
               )}
             </tr>
 
@@ -242,10 +242,10 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                     scope="row"
                     className="sticky left-0 z-10 bg-background p-3 text-left font-medium text-muted-foreground"
                   >
-                    Pool Type
+                    {t("poolType")}
                   </th>
                   {pools.map((pool) => (
-                    <td key={pool.key} className="border-l border-border/60 p-3 capitalize">
+                    <td key={pool.key} className="border-l border-border/60 p-3">
                       {pool.pool ? typeLabel(pool.pool.type) : pool.error ? "—" : "…"}
                     </td>
                   ))}
@@ -257,7 +257,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                     scope="row"
                     className="sticky left-0 z-10 bg-background p-3 text-left font-medium text-muted-foreground"
                   >
-                    TVL
+                    {t("tvl")}
                   </th>
                   {resolved.map((pool, i) => (
                     <td key={pool.key} className="border-l border-border/60 p-3">
@@ -278,7 +278,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                     scope="row"
                     className="sticky left-0 z-10 bg-background p-3 text-left font-medium text-muted-foreground"
                   >
-                    Members
+                    {t("members")}
                   </th>
                   {resolved.map((pool, i) => {
                     const record = pool.pool as ComparisonPoolRecord
@@ -302,7 +302,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                     scope="row"
                     className="sticky left-0 z-10 bg-background p-3 text-left font-medium text-muted-foreground"
                   >
-                    Deposit Amount
+                    {t("depositAmount")}
                   </th>
                   {resolved.map((pool, i) => {
                     const record = pool.pool as ComparisonPoolRecord
@@ -312,7 +312,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                         {deposit === null ? (
                           "—"
                         ) : (
-                          <BestValueCell best={bestDeposit[i]} badgeLabel="Lowest">
+                          <BestValueCell best={bestDeposit[i]} badgeLabel={t("lowest")}>
                             {deposit.toFixed(2)} {tokenSymbolOf(record)}
                           </BestValueCell>
                         )}
@@ -330,7 +330,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                     scope="row"
                     className="sticky left-0 z-10 bg-background p-3 text-left font-medium text-muted-foreground"
                   >
-                    Token
+                    {t("token")}
                   </th>
                   {pools.map((pool) => (
                     <td key={pool.key} className="border-l border-border/60 p-3">
@@ -345,10 +345,10 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                     scope="row"
                     className="sticky left-0 z-10 bg-background p-3 text-left font-medium text-muted-foreground"
                   >
-                    Round Duration
+                    {t("roundDuration")}
                   </th>
                   {pools.map((pool) => (
-                    <td key={pool.key} className="border-l border-border/60 p-3 capitalize">
+                    <td key={pool.key} className="border-l border-border/60 p-3">
                       {pool.pool
                         ? pool.pool.frequency
                           ? pool.pool.frequency
@@ -366,7 +366,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                     scope="row"
                     className="sticky left-0 z-10 bg-background p-3 text-left font-medium text-muted-foreground"
                   >
-                    Health Score
+                    {t("healthScore")}
                   </th>
                   {resolved.map((pool, i) => (
                     <td key={pool.key} className="border-l border-border/60 p-3">
@@ -386,7 +386,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                     scope="row"
                     className="sticky left-0 z-10 bg-background p-3 text-left font-medium text-muted-foreground"
                   >
-                    Avg Member Reputation
+                    {t("avgMemberReputation")}
                   </th>
                   {resolved.map((pool, i) => (
                     <td key={pool.key} className="border-l border-border/60 p-3">
@@ -410,7 +410,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                     scope="row"
                     className="sticky left-0 z-10 bg-background p-3 text-left font-medium text-muted-foreground"
                   >
-                    Created
+                    {t("created")}
                   </th>
                   {pools.map((pool) => (
                     <td key={pool.key} className="border-l border-border/60 p-3">
@@ -425,13 +425,13 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
                     scope="row"
                     className="sticky left-0 z-10 bg-background p-3 text-left font-medium text-muted-foreground align-top"
                   >
-                    Description
+                    {t("description")}
                   </th>
                   {pools.map((pool) => (
                     <td key={pool.key} className="border-l border-border/60 p-3 align-top">
                       {pool.pool ? (
                         <span className="text-muted-foreground leading-relaxed">
-                          {pool.pool.description || "No description provided."}
+                          {pool.pool.description || t("noDescriptionProvided")}
                         </span>
                       ) : pool.error ? (
                         "—"
@@ -450,7 +450,7 @@ export function ComparisonTable({ pools, onRemove, onClear }: ComparisonTablePro
       {onClear && pools.length > 0 && (
         <div className="mt-4 flex justify-center">
           <Button variant="outline" size="sm" onClick={onClear}>
-            Clear Comparison
+            {t("clearComparison")}
           </Button>
         </div>
       )}

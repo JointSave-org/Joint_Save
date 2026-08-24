@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import { RotationalTimeline } from "@/components/group/rotational-timeline"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -15,6 +16,7 @@ export function RotationalTimelineContainer({
   groupId,
   contractAddress,
 }: RotationalTimelineContainerProps) {
+  const t = useTranslations("group.timeline")
   const cacheKey =
     contractAddress && contractAddress !== "pending_deployment" ? contractAddress : groupId
 
@@ -22,7 +24,7 @@ export function RotationalTimelineContainer({
 
   if (isLoading) {
     return (
-      <Card className="p-6" aria-label="Loading round timeline">
+      <Card className="p-6" aria-label={t("loadingAria")}>
         <Skeleton className="h-5 w-40 mb-4" />
         <div className="flex items-center justify-between">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -46,7 +48,7 @@ export function RotationalTimelineContainer({
 
   return (
     <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-4">Round Timeline</h3>
+      <h3 className="text-lg font-semibold mb-4">{t("title")}</h3>
       <RotationalTimeline onchainState={onchainState} members={members} activities={activities} />
     </Card>
   )

@@ -1,5 +1,5 @@
 import React from "react"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen, fireEvent } from "@/test-utils"
 import { describe, it, expect, vi } from "vitest"
 import { ComparisonTable } from "@/components/explore/comparison-table"
 import type { ComparisonPool } from "@/hooks/usePoolComparison"
@@ -146,7 +146,7 @@ describe("ComparisonTable", () => {
     const joinLink = screen.getByRole("link", { name: /Join Pool/ })
     expect(joinLink).toHaveAttribute(
       "href",
-      "/join/CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI"
+      "/en/join/CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI"
     )
   })
 })

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useLocale, useTranslations } from "next-intl"
 import {
   Table,
   TableBody,
@@ -14,7 +15,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { AdminPoolData } from "@/app/api/admin/pools/route"
 import { formatRelativeTime } from "@/lib/utils"
-import Link from "next/link"
+import { Link } from "@/i18n/navigation"
 
 type SortKey =
   "name" | "type" | "total_saved" | "members_count" | "health_score" | "status" | "updated_at"
@@ -60,6 +61,9 @@ function SortableHeader({
 }
 
 export function PoolComparisonTable({ pools }: { pools: AdminPoolData[] }) {
+  const t = useTranslations("admin.comparisonTable")
+  const tPool = useTranslations("pool")
+  const locale = useLocale()
   const [sortKey, setSortKey] = useState<SortKey>("health_score")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
@@ -127,49 +131,49 @@ export function PoolComparisonTable({ pools }: { pools: AdminPoolData[] }) {
         <TableHeader>
           <TableRow>
             <SortableHeader
-              label="Pool Name"
+              label={t("colPoolName")}
               sortKey="name"
               currentSort={sortKey}
               currentDirection={sortDirection}
               onSort={handleSort}
             />
             <SortableHeader
-              label="Type"
+              label={t("colType")}
               sortKey="type"
               currentSort={sortKey}
               currentDirection={sortDirection}
               onSort={handleSort}
             />
             <SortableHeader
-              label="TVL"
+              label={t("colTvl")}
               sortKey="total_saved"
               currentSort={sortKey}
               currentDirection={sortDirection}
               onSort={handleSort}
             />
             <SortableHeader
-              label="Members"
+              label={t("colMembers")}
               sortKey="members_count"
               currentSort={sortKey}
               currentDirection={sortDirection}
               onSort={handleSort}
             />
             <SortableHeader
-              label="Health"
+              label={t("colHealth")}
               sortKey="health_score"
               currentSort={sortKey}
               currentDirection={sortDirection}
               onSort={handleSort}
             />
             <SortableHeader
-              label="Status"
+              label={t("colStatus")}
               sortKey="status"
               currentSort={sortKey}
               currentDirection={sortDirection}
               onSort={handleSort}
             />
             <SortableHeader
-              label="Last Activity"
+              label={t("colLastActivity")}
               sortKey="updated_at"
               currentSort={sortKey}
               currentDirection={sortDirection}
@@ -187,7 +191,7 @@ export function PoolComparisonTable({ pools }: { pools: AdminPoolData[] }) {
               </TableCell>
               <TableCell>
                 <Badge variant="secondary" className="capitalize text-xs">
-                  {pool.type}
+                  {tPool(`type.${pool.type}`)}
                 </Badge>
               </TableCell>
               <TableCell className="text-sm">
@@ -198,16 +202,16 @@ export function PoolComparisonTable({ pools }: { pools: AdminPoolData[] }) {
               </TableCell>
               <TableCell>
                 <Badge variant="outline" className={cn("text-xs", BAND_BADGE[pool.health_band])}>
-                  {pool.health_band === "new" ? "New" : `${pool.health_score}%`}
+                  {pool.health_band === "new" ? t("newBand") : `${pool.health_score}%`}
                 </Badge>
               </TableCell>
               <TableCell>
                 <Badge variant="outline" className="capitalize text-xs">
-                  {pool.status}
+                  {tPool(`status.${pool.status}`)}
                 </Badge>
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">
-                {formatRelativeTime(new Date(pool.updated_at))}
+                {formatRelativeTime(new Date(pool.updated_at), locale)}
               </TableCell>
             </TableRow>
           ))}

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useTranslations, useLocale } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,17 +34,17 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { DateRangePicker } from "@/components/shared/date-range-picker"
 import { ACTIVITY_TYPES } from "@/lib/activity-query"
 
-const ACTIVITY_TYPE_LABELS: Record<string, string> = {
-  deposit: "Deposit",
-  payout: "Payout",
-  withdraw: "Withdraw",
-  complete: "Pool Complete",
-  member_joined: "Member Joined",
-  member_added: "Member Added",
-  member_removed: "Member Removed",
-  pool_created: "Pool Created",
-  yield: "Yield Distributed",
-}
+const ACTIVITY_TYPE_KEYS = [
+  "deposit",
+  "payout",
+  "withdraw",
+  "complete",
+  "member_joined",
+  "member_added",
+  "member_removed",
+  "pool_created",
+  "yield",
+] as const
 
 interface Activity {
   id: string
@@ -82,7 +83,14 @@ interface GroupActivityProps {
 }
 
 export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) {
+  const t = useTranslations("group.activity")
+  const locale = useLocale()
   const { address } = useStellar()
+
+  const activityTypeLabel = (type: string): string =>
+    (ACTIVITY_TYPE_KEYS as readonly string[]).includes(type)
+      ? t(`types.${type}` as "types.deposit")
+      : type
 
   // The refresh action must also refresh the shared pool cache (balances and
   // on-chain state shown elsewhere on the page), as it did before the feed
@@ -138,7 +146,7 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
         const res = await fetch(`/api/pools/${groupId}/activity?${buildParams(targetPage)}`)
         if (!res.ok) {
           const body = await res.json().catch(() => null)
-          throw new Error(body?.error || "Failed to load activity")
+          throw new Error(body?.error || t("failedToLoadActivity"))
         }
         const data = (await res.json()) as Partial<ActivityResponse> | null
         if (seq !== requestSeq.current) return // stale response
@@ -151,7 +159,7 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
         setError(null)
       } catch (err) {
         if (seq !== requestSeq.current) return
-        setError((err as Error)?.message || "Failed to load activity")
+        setError((err as Error)?.message || t("failedToLoadActivity"))
       } finally {
         if (seq === requestSeq.current) {
           setLoading(false)
@@ -159,7 +167,7 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
         }
       }
     },
-    [groupId, buildParams]
+    [groupId, buildParams, t]
   )
 
   // Refetch from page 1 whenever a filter changes (search is debounced).
@@ -186,17 +194,17 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
       })
       const body = await res.json().catch(() => null)
       if (res.status === 403) {
-        setNotice("Only pool members can re-index.")
+        setNotice(t("onlyMembersCanReindex"))
         return
       }
       if (!res.ok) {
-        setNotice(body?.error || "Indexing failed. Please try again.")
+        setNotice(body?.error || t("indexingFailed"))
         return
       }
       if (body?.warning) setNotice(body.warning)
       await fetchPage(1, false)
     } catch {
-      setNotice("Indexing failed. Please try again.")
+      setNotice(t("indexingFailed"))
     } finally {
       setIndexing(false)
     }
@@ -216,14 +224,14 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
         const wait = body?.retryAfterSec
         setNotice(
           wait
-            ? `Export limit reached (5 per hour). Try again in ${Math.ceil(wait / 60)} min.`
-            : "Export limit reached (5 per hour). Please try again later."
+            ? t("exportLimitReachedWithWait", { minutes: Math.ceil(wait / 60) })
+            : t("exportLimitReached")
         )
         return
       }
       if (!res.ok) {
         const body = await res.json().catch(() => null)
-        setNotice(body?.error || "Export failed. Please try again.")
+        setNotice(body?.error || t("exportFailed"))
         return
       }
       const blob = await res.blob()
@@ -237,14 +245,14 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      setNotice("Export failed. Please try again.")
+      setNotice(t("exportFailed"))
     } finally {
       setExporting(false)
     }
   }
 
   const formatAddress = (addr: string | null) => {
-    if (!addr) return "System"
+    if (!addr) return t("system")
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`
   }
 
@@ -265,14 +273,14 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-1">
-        <h3 className="text-lg font-semibold">Recent Activity</h3>
+        <h3 className="text-lg font-semibold">{t("recentActivity")}</h3>
         <Button
           variant="ghost"
           size="sm"
           onClick={handleRefresh}
           disabled={loading}
           className="h-8 w-8 p-0"
-          aria-label="Refresh activity"
+          aria-label={t("refreshActivityAria")}
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
@@ -283,18 +291,20 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
         <p className="text-xs text-muted-foreground">
           {lastIndexed ? (
             <>
-              Last indexed:{" "}
+              {t("lastIndexed")}{" "}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <time dateTime={lastIndexed.indexedAt} className="cursor-default" tabIndex={0}>
-                    {formatRelativeTime(lastIndexed.indexedAt)}
+                    {formatRelativeTime(lastIndexed.indexedAt, locale)}
                   </time>
                 </TooltipTrigger>
-                <TooltipContent>{formatExactDateTime(lastIndexed.indexedAt)}</TooltipContent>
+                <TooltipContent>
+                  {formatExactDateTime(lastIndexed.indexedAt, locale)}
+                </TooltipContent>
               </Tooltip>
             </>
           ) : (
-            "Never indexed"
+            t("neverIndexed")
           )}
         </p>
         {canReindex && (
@@ -306,7 +316,7 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
             disabled={indexing}
           >
             <RefreshCw className={`h-3 w-3 ${indexing ? "animate-spin" : ""}`} />
-            {indexing ? "Indexing…" : "Re-index"}
+            {indexing ? t("indexingEllipsis") : t("reindex")}
           </Button>
         )}
       </div>
@@ -317,18 +327,18 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search activity…"
+            placeholder={t("searchActivityPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-8 pl-8 pr-8 text-sm"
-            aria-label="Search activity"
+            aria-label={t("searchActivityAria")}
           />
           {search && (
             <button
               type="button"
               onClick={() => setSearch("")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label="Clear search"
+              aria-label={t("clearSearchAria")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -346,14 +356,14 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
             idPrefix="activity"
           />
           <Select value={activityType} onValueChange={setActivityType}>
-            <SelectTrigger className="h-8 w-40 text-sm" aria-label="Filter by activity type">
-              <SelectValue placeholder="All types" />
+            <SelectTrigger className="h-8 w-40 text-sm" aria-label={t("filterByTypeAria")}>
+              <SelectValue placeholder={t("allTypes")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="all">{t("allTypes")}</SelectItem>
               {ACTIVITY_TYPES.map((type) => (
                 <SelectItem key={type} value={type}>
-                  {ACTIVITY_TYPE_LABELS[type] ?? type}
+                  {activityTypeLabel(type)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -363,10 +373,10 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
             size="sm"
             className="h-8 gap-1 text-xs"
             onClick={() => setSort((s) => (s === "newest" ? "oldest" : "newest"))}
-            aria-label="Toggle sort order"
+            aria-label={t("toggleSortOrderAria")}
           >
             <ArrowUpDown className="h-3 w-3" />
-            {sort === "newest" ? "Newest first" : "Oldest first"}
+            {sort === "newest" ? t("newestFirst") : t("oldestFirst")}
           </Button>
           <Button
             variant="outline"
@@ -374,14 +384,14 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
             className="h-8 gap-1 text-xs"
             onClick={handleExport}
             disabled={exporting || !address || total === 0}
-            title={!address ? "Connect a wallet to export" : undefined}
+            title={!address ? t("connectWalletToExport") : undefined}
           >
             {exporting ? (
               <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
               <Download className="h-3 w-3" />
             )}
-            Export
+            {t("export")}
           </Button>
         </div>
       </div>
@@ -400,7 +410,7 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
 
       {!error && activities.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">
-          {isFiltered ? "No activity matches your filters." : "No activity yet"}
+          {isFiltered ? t("noActivityMatchesFilters") : t("noActivityYet")}
         </p>
       ) : (
         !error && (
@@ -436,7 +446,7 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <p className="font-medium text-sm capitalize">
-                        {ACTIVITY_TYPE_LABELS[activity.activity_type] ?? activity.activity_type}
+                        {activityTypeLabel(activity.activity_type)}
                       </p>
                       {activity.amount != null && (
                         <Badge variant="secondary">{activity.amount.toFixed(2)} XLM</Badge>
@@ -449,7 +459,7 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
                             : "border-gray-300 text-gray-500"
                         }`}
                       >
-                        {activity.on_chain_timestamp ? "🔗 on-chain" : "📝 off-chain"}
+                        {activity.on_chain_timestamp ? t("onChain") : t("offChain")}
                       </Badge>
                     </div>
 
@@ -462,14 +472,22 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
                             className="cursor-default"
                             tabIndex={0}
                           >
-                            {formatRelativeTime(activity.on_chain_timestamp ?? activity.created_at)}
+                            {formatRelativeTime(
+                              activity.on_chain_timestamp ?? activity.created_at,
+                              locale
+                            )}
                           </time>
                         </TooltipTrigger>
                         <TooltipContent>
-                          {formatExactDateTime(activity.on_chain_timestamp ?? activity.created_at)}
+                          {formatExactDateTime(
+                            activity.on_chain_timestamp ?? activity.created_at,
+                            locale
+                          )}
                         </TooltipContent>
                       </Tooltip>
-                      {activity.block_number != null && <> • Ledger {activity.block_number}</>}
+                      {activity.block_number != null && (
+                        <> • {t("ledgerNumber", { number: activity.block_number })}</>
+                      )}
                     </p>
 
                     {activity.description && (
@@ -487,7 +505,7 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     ) : (
-                      <p className="text-xs text-muted-foreground mt-1">No tx hash</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t("noTxHash")}</p>
                     )}
                   </div>
                 </div>
@@ -505,7 +523,7 @@ export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) 
                 {loadingMore ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  `Load more (${activities.length} of ${total})`
+                  t("loadMore", { shown: activities.length, total })
                 )}
               </Button>
             )}

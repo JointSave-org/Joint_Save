@@ -9,6 +9,7 @@ import {
   waitForPoolsResponse,
   E2E_ADDRESS,
   E2E_CONTRACT_ID,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -38,7 +39,7 @@ test.beforeEach(async ({ page }) => {
 
 test("My Groups tab is default and shows pool list", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
   await poolsResponse
 
   await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
@@ -47,7 +48,7 @@ test("My Groups tab is default and shows pool list", async ({ page }) => {
 
 test("Explore tab shows explore content", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
   await poolsResponse
 
   await page.getByRole("tab", { name: /explore/i }).click()
@@ -56,7 +57,7 @@ test("Explore tab shows explore content", async ({ page }) => {
 
 test("Create tab shows create content", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
   await poolsResponse
 
   await page.getByRole("tab", { name: /create/i }).click()
@@ -65,7 +66,7 @@ test("Create tab shows create content", async ({ page }) => {
 
 test("Portfolio tab renders", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
   await poolsResponse
 
   const tab = page.getByRole("tab", { name: /portfolio/i })
@@ -75,7 +76,7 @@ test("Portfolio tab renders", async ({ page }) => {
 
 test("Transactions tab renders", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
   await poolsResponse
 
   const tab = page.getByRole("tab", { name: /transactions/i })
@@ -85,7 +86,7 @@ test("Transactions tab renders", async ({ page }) => {
 
 test("Analytics tab renders", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
   await poolsResponse
 
   const tab = page.getByRole("tab", { name: /analytics/i })
@@ -95,7 +96,7 @@ test("Analytics tab renders", async ({ page }) => {
 
 test("Profile tab renders", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto("/dashboard", { waitUntil: "networkidle" })
+  await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
   await poolsResponse
 
   await page.getByRole("tab", { name: /profile/i }).click()

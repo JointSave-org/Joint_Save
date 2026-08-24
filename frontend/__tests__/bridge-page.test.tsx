@@ -1,7 +1,7 @@
 import React from "react"
 import { render, screen } from "@/test-utils"
 import { describe, it, expect } from "vitest"
-import BridgePage from "@/app/bridge/page"
+import BridgePage from "@/app/[locale]/bridge/page"
 
 describe("BridgePage", () => {
   it("renders the page heading", () => {
@@ -23,7 +23,7 @@ describe("BridgePage", () => {
   it("links back to the dashboard", () => {
     render(<BridgePage />)
     const link = screen.getByRole("link", { name: /go to your dashboard/i })
-    expect(link).toHaveAttribute("href", "/dashboard")
+    expect(link).toHaveAttribute("href", "/en/dashboard")
   })
 
   it("links out to Circle CCTP and Stellar Expert", () => {

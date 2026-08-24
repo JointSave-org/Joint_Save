@@ -9,6 +9,7 @@ import {
   waitForPoolsResponse,
   E2E_ADDRESS,
   E2E_CONTRACT_ID,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -42,7 +43,7 @@ test.beforeEach(async ({ page }) => {
 
 test("withdraws from a flexible pool with fee preview", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/dashboard/group/${POOL_ID}`), { waitUntil: "networkidle" })
   await poolsResponse
   await expect(page.getByRole("heading", { name: /Withdraw Pool/i })).toBeVisible()
 
@@ -67,7 +68,7 @@ test("withdraws from a flexible pool with fee preview", async ({ page }) => {
 
 test("target pool withdraw sends directly", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/dashboard/group/${POOL_ID}`), { waitUntil: "networkidle" })
   await poolsResponse
 
   // Set up a target pool instead by re-mocking
@@ -90,7 +91,7 @@ test("target pool withdraw sends directly", async ({ page }) => {
 
   // Navigate after re-mocking
   const poolsResponse2 = waitForPoolsResponse(page)
-  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/dashboard/group/${POOL_ID}`), { waitUntil: "networkidle" })
   await poolsResponse2
   await expect(page.getByRole("heading", { name: /Target Pool/i })).toBeVisible()
 
@@ -112,7 +113,7 @@ test("withdraw button disabled when paused", async ({ page }) => {
   })
 
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/dashboard/group/${POOL_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/dashboard/group/${POOL_ID}`), { waitUntil: "networkidle" })
   await poolsResponse
   await expect(page.getByText(/Pool is paused/i)).toBeVisible()
 

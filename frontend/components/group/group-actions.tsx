@@ -1,6 +1,7 @@
 "use client"
 
-import Link from "next/link"
+import { useTranslations } from "next-intl"
+import { Link } from "@/i18n/navigation"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -185,14 +186,13 @@ async function logAdminAction(
 function confirmRecentPendingTransaction(
   address: string | null,
   poolId: string,
-  type: PendingTransactionType
+  type: PendingTransactionType,
+  confirmMessage: (label: string) => string
 ): boolean {
   if (!address) return true
   const recent = findRecentPendingTransaction(address, poolId, type)
   if (!recent) return true
-  return window.confirm(
-    `You have a recent pending ${pendingTransactionLabel(type)} on this pool. Submit anyway?`
-  )
+  return window.confirm(confirmMessage(pendingTransactionLabel(type)))
 }
 
 export function GroupActions({
@@ -205,6 +205,7 @@ export function GroupActions({
   poolAdmin = null,
   onPauseChange,
 }: GroupActionsProps) {
+  const t = useTranslations("group.actions")
   const { address } = useStellar()
   const searchParams = useSearchParams()
   // Arriving from the onboarding wizard with ?highlight=deposit draws attention
@@ -326,15 +327,13 @@ export function GroupActions({
 
     if (pendingTx.status === "confirmed") {
       const txHash = pendingTx.txHash
-      toastManager.success(
-        `${pendingTx.type.charAt(0).toUpperCase() + pendingTx.type.slice(1)} confirmed ✓`,
-        undefined,
-        txHash
-      )
+      toastManager.success(t("confirmedSuffix", { type: pendingTx.type }), undefined, txHash)
       setDepositAmount("")
       setWithdrawAmount("")
     } else if (pendingTx.status === "failed") {
-      toastManager.error(`${pendingTx.type} failed — ${pendingTx.error || "please retry"}`)
+      toastManager.error(
+        t("failedSuffix", { type: pendingTx.type, error: pendingTx.error || t("retryDefault") })
+      )
     }
   }, [optimisticState])
 
@@ -345,7 +344,7 @@ export function GroupActions({
       txArgs: { method: string; args: ReturnType<typeof nativeToScVal>[] },
       onConfirm: () => Promise<void>
     ) => {
-      if (!address) return toastManager.error("Please connect your wallet first")
+      if (!address) return toastManager.error(t("connectWalletFirst"))
       // E2E: the stubbed contract layer returns a canned tx hash without any
       // network, so there is nothing to simulate — run the submit path directly.
       if (IS_E2E) {
@@ -366,13 +365,13 @@ export function GroupActions({
           success: false,
           unavailable: true,
           error: "Network error",
-          friendlyMessage: "Simulation unavailable.",
+          friendlyMessage: t("simulationUnavailable"),
         })
       } finally {
         setIsSimulating(false)
       }
     },
-    [address, poolAddress]
+    [address, poolAddress, t]
   )
 
   const handleSimConfirm = useCallback(async () => {
@@ -384,10 +383,15 @@ export function GroupActions({
   }, [])
 
   const handleDeposit = async () => {
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (isPending) return toastManager.error("Contract not yet deployed.")
-    if (isPaused) return toastManager.error("Pool is paused. Deposits are disabled.")
-    if (!confirmRecentPendingTransaction(address, poolAddress, "deposit")) return
+    if (!address) return toastManager.error(t("connectWalletFirst"))
+    if (isPending) return toastManager.error(t("contractNotDeployed"))
+    if (isPaused) return toastManager.error(t("depositsDisabled"))
+    if (
+      !confirmRecentPendingTransaction(address, poolAddress, "deposit", (label) =>
+        t("recentPendingConfirm", { type: label })
+      )
+    )
+      return
 
     const depositArgs =
       poolType === "rotational"
@@ -401,7 +405,7 @@ export function GroupActions({
           }
 
     await simulateAndShow(
-      isRotational ? "Deposit" : isTarget ? "Contribute" : "Deposit",
+      isRotational ? t("deposit") : isTarget ? t("contribute") : t("deposit"),
       depositArgs,
       async () => {
         const amount =
@@ -419,24 +423,31 @@ export function GroupActions({
           void triggerPushNotification(
             groupId,
             "event_deposit",
-            "💰 New deposit made",
-            `A member deposited${depositAmount ? ` ${depositAmount} ${tokenSymbol}` : ""} in your pool.`
+            t("pushDepositTitle"),
+            t("pushDepositBody", {
+              amountSuffix: depositAmount ? ` ${depositAmount} ${tokenSymbol}` : "",
+            })
           )
-          toastManager.info("Deposit submitted (confirming on-chain)…")
+          toastManager.info(t("depositSubmitted"))
         }
       }
     )
   }
 
   const handleWithdrawClick = async () => {
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (isPending) return toastManager.error("Contract not yet deployed.")
-    if (isPaused) return toastManager.error("Pool is paused. Withdrawals are disabled.")
+    if (!address) return toastManager.error(t("connectWalletFirst"))
+    if (isPending) return toastManager.error(t("contractNotDeployed"))
+    if (isPaused) return toastManager.error(t("withdrawalsDisabled"))
 
     if (poolType === "target") {
-      if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
+      if (
+        !confirmRecentPendingTransaction(address, poolAddress, "withdraw", (label) =>
+          t("recentPendingConfirm", { type: label })
+        )
+      )
+        return
       await simulateAndShow(
-        "Withdraw",
+        t("withdraw"),
         { method: "withdraw", args: [nativeToScVal(address, { type: "address" })] },
         async () => {
           registerOptimistic("withdraw", address)
@@ -444,21 +455,20 @@ export function GroupActions({
           if (txHash) {
             updateTxHash(txHash)
             await logActivity(groupId, "withdraw", address, null, txHash)
-            toastManager.info("Withdrawal submitted (confirming on-chain)…")
+            toastManager.info(t("withdrawalSubmitted"))
           }
         }
       )
     } else {
       const amount = parseFloat(withdrawAmount)
-      if (isNaN(amount) || amount <= 0)
-        return toastManager.error("Please enter a valid withdrawal amount")
+      if (isNaN(amount) || amount <= 0) return toastManager.error(t("invalidWithdrawalAmount"))
 
       const feePercent = (poolData?.withdrawal_fee as number) ?? 0
       const feeAmount = amount * (feePercent / 100)
       const netAmount = amount - feeAmount
 
       await simulateAndShow(
-        "Withdraw",
+        t("withdraw"),
         {
           method: "withdraw",
           args: [
@@ -471,26 +481,31 @@ export function GroupActions({
             type: "withdraw",
             amount,
             details: [
-              { label: "Withdraw Amount", value: `${amount.toFixed(2)} ${tokenSymbol}` },
+              { label: t("withdrawAmountLabel"), value: `${amount.toFixed(2)} ${tokenSymbol}` },
               {
-                label: `Withdrawal Fee (${feePercent}%)`,
+                label: t("withdrawalFeeLabel", { percent: feePercent }),
                 value: `-${feeAmount.toFixed(2)} ${tokenSymbol}`,
                 isDeduction: true,
               },
               {
-                label: "Net Amount You Receive",
+                label: t("netAmountReceive"),
                 value: `${netAmount.toFixed(2)} ${tokenSymbol}`,
               },
             ],
             onConfirm: async () => {
-              if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
+              if (
+                !confirmRecentPendingTransaction(address, poolAddress, "withdraw", (label) =>
+                  t("recentPendingConfirm", { type: label })
+                )
+              )
+                return
               const amountStroops = toBaseUnits(amount)
               registerOptimistic("withdraw", address, amountStroops)
               const txHash = await flexibleWithdraw.withdraw()
               if (txHash) {
                 updateTxHash(txHash)
                 await logActivity(groupId, "withdraw", address, withdrawAmount || null, txHash)
-                toastManager.info("Withdrawal submitted (confirming on-chain)…")
+                toastManager.info(t("withdrawalSubmitted"))
                 setWithdrawAmount("")
               }
             },
@@ -502,12 +517,12 @@ export function GroupActions({
   }
 
   const handleTriggerPayoutClick = async () => {
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (isPending) return toastManager.error("Contract not yet deployed.")
-    if (isPaused) return toastManager.error("Pool is paused. Payouts are disabled.")
+    if (!address) return toastManager.error(t("connectWalletFirst"))
+    if (isPending) return toastManager.error(t("contractNotDeployed"))
+    if (isPaused) return toastManager.error(t("payoutsDisabled"))
 
     await simulateAndShow(
-      "Trigger Payout",
+      t("triggerPayout"),
       { method: "trigger_payout", args: [nativeToScVal(address, { type: "address" })] },
       async () => {
         setPreviewLoading(true)
@@ -515,7 +530,7 @@ export function GroupActions({
           const state = await fetchRotationalState(poolAddress)
 
           if (state.treasuryFeeBps === null || state.relayerFeeBps === null) {
-            toastManager.error("Unable to load pool fee configuration. Please try again.")
+            toastManager.error(t("feeConfigError"))
             return
           }
 
@@ -524,7 +539,7 @@ export function GroupActions({
           const depositCount = state.depositCount
           const currentRound = state.currentRound
           const members = state.members
-          const beneficiary = members[currentRound] || "Unknown beneficiary"
+          const beneficiary = members[currentRound] || t("unknownBeneficiary")
 
           const treasuryPercent = treasuryFeeBps / 100
           const relayerPercent = relayerFeeBps / 100
@@ -543,31 +558,41 @@ export function GroupActions({
             amount: totalCollected,
             details: [
               {
-                label: "Total Collected (Depositors)",
-                value: `${totalCollected.toFixed(2)} ${tokenSymbol} (${depositCount}/${members.length} paid)`,
+                label: t("totalCollected"),
+                value: t("totalCollectedDetail", {
+                  total: totalCollected.toFixed(2),
+                  symbol: tokenSymbol,
+                  paid: depositCount,
+                  members: members.length,
+                }),
               },
               {
-                label: `Treasury Fee (${treasuryPercent}%)`,
+                label: t("treasuryFeeLabel", { percent: treasuryPercent }),
                 value: `-${treasuryCut.toFixed(2)} ${tokenSymbol}`,
                 isDeduction: true,
               },
               {
-                label: `Relayer Fee (${relayerPercent}%)`,
+                label: t("relayerFeeLabel", { percent: relayerPercent }),
                 value: `-${relayerCut.toFixed(2)} ${tokenSymbol}`,
                 isDeduction: true,
               },
               {
-                label: "Net Recipient Payout",
+                label: t("netRecipientPayout"),
                 value: `${payoutAmount.toFixed(2)} ${tokenSymbol}`,
               },
-              { label: "Beneficiary Address", value: shortAddress(beneficiary) },
+              { label: t("beneficiaryAddress"), value: shortAddress(beneficiary) },
               {
-                label: "Your Relayer Reward (expected)",
+                label: t("yourRelayerReward"),
                 value: `${relayerCut.toFixed(2)} ${tokenSymbol}`,
               },
             ],
             onConfirm: async () => {
-              if (!confirmRecentPendingTransaction(address, poolAddress, "trigger_payout")) return
+              if (
+                !confirmRecentPendingTransaction(address, poolAddress, "trigger_payout", (label) =>
+                  t("recentPendingConfirm", { type: label })
+                )
+              )
+                return
               registerOptimistic("trigger_payout", address)
               const txHash = await triggerPayout.trigger()
               if (txHash) {
@@ -576,16 +601,16 @@ export function GroupActions({
                 void triggerPushNotification(
                   groupId,
                   "event_payout",
-                  "🎉 Payout triggered",
-                  "A payout has been distributed from your pool."
+                  t("pushPayoutTitle"),
+                  t("pushPayoutBody")
                 )
-                toastManager.info("Payout trigger submitted (confirming on-chain)…")
+                toastManager.info(t("payoutSubmitted"))
               }
             },
           })
           setIsPreviewOpen(true)
         } catch (e: unknown) {
-          const msg = (e as Error).message || "Failed to load payout details"
+          const msg = (e as Error).message || t("failedToLoadPayoutDetails")
           toastManager.error(msg)
         } finally {
           setPreviewLoading(false)
@@ -595,11 +620,16 @@ export function GroupActions({
   }
 
   const handleRefund = async () => {
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (isPending) return toastManager.error("Contract not yet deployed.")
-    if (!confirmRecentPendingTransaction(address, poolAddress, "withdraw")) return
+    if (!address) return toastManager.error(t("connectWalletFirst"))
+    if (isPending) return toastManager.error(t("contractNotDeployed"))
+    if (
+      !confirmRecentPendingTransaction(address, poolAddress, "withdraw", (label) =>
+        t("recentPendingConfirm", { type: label })
+      )
+    )
+      return
     await simulateAndShow(
-      "Refund",
+      t("refund"),
       { method: "refund", args: [nativeToScVal(address, { type: "address" })] },
       async () => {
         registerOptimistic("withdraw", address)
@@ -607,17 +637,17 @@ export function GroupActions({
         if (txHash) {
           updateTxHash(txHash)
           await logActivity(groupId, "refund", address, null, txHash)
-          toastManager.info("Refund submitted (confirming on-chain)…")
+          toastManager.info(t("refundSubmitted"))
         }
       }
     )
   }
 
   const handlePause = async () => {
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (isPending) return toastManager.error("Contract not yet deployed.")
+    if (!address) return toastManager.error(t("connectWalletFirst"))
+    if (isPending) return toastManager.error(t("contractNotDeployed"))
     await simulateAndShow(
-      "Pause Pool",
+      t("pausePool"),
       { method: "pause", args: [nativeToScVal(address, { type: "address" })] },
       async () => {
         const txHash = await pausePool.pause()
@@ -626,10 +656,10 @@ export function GroupActions({
           void triggerPushNotification(
             groupId,
             "event_paused",
-            "⏸️ Pool paused",
-            "An admin has paused this pool. Deposits and withdrawals are temporarily disabled."
+            t("pushPausedTitle"),
+            t("pushPausedBody")
           )
-          toastManager.success("Pool paused successfully", undefined, txHash)
+          toastManager.success(t("poolPausedSuccess"), undefined, txHash)
         }
         onPauseChange?.()
       }
@@ -637,10 +667,10 @@ export function GroupActions({
   }
 
   const handleUnpause = async () => {
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (isPending) return toastManager.error("Contract not yet deployed.")
+    if (!address) return toastManager.error(t("connectWalletFirst"))
+    if (isPending) return toastManager.error(t("contractNotDeployed"))
     await simulateAndShow(
-      "Unpause Pool",
+      t("unpausePool"),
       { method: "unpause", args: [nativeToScVal(address, { type: "address" })] },
       async () => {
         const txHash = await unpausePool.unpause()
@@ -649,10 +679,10 @@ export function GroupActions({
           void triggerPushNotification(
             groupId,
             "event_paused",
-            "▶️ Pool resumed",
-            "This pool has been resumed. Deposits and withdrawals are now active again."
+            t("pushResumedTitle"),
+            t("pushResumedBody")
           )
-          toastManager.success("Pool unpaused successfully", undefined, txHash)
+          toastManager.success(t("poolUnpausedSuccess"), undefined, txHash)
         }
         onPauseChange?.()
       }
@@ -660,16 +690,16 @@ export function GroupActions({
   }
 
   const handleAddMember = async () => {
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (!isAdmin) return toastManager.error("Only the pool admin can manage members.")
-    if (isPending) return toastManager.error("Contract not yet deployed.")
+    if (!address) return toastManager.error(t("connectWalletFirst"))
+    if (!isAdmin) return toastManager.error(t("onlyAdminCanManageMembers"))
+    if (isPending) return toastManager.error(t("contractNotDeployed"))
 
     const validation = validateStellarAddress(newMember.trim().toUpperCase())
     if (!validation.valid) return toastManager.error(validation.message)
 
     const memberAddr = newMember.trim().toUpperCase()
     await simulateAndShow(
-      "Add Member",
+      t("addMember"),
       {
         method: "add_member",
         args: [
@@ -685,10 +715,10 @@ export function GroupActions({
           void triggerPushNotification(
             groupId,
             "event_member_joined",
-            "👋 New member joined",
-            "A new member has been added to your pool."
+            t("pushMemberJoinedTitle"),
+            t("pushMemberJoinedBody")
           )
-          toastManager.success("Member added successfully", undefined, txHash)
+          toastManager.success(t("memberAddedSuccess"), undefined, txHash)
           setNewMember("")
           await refreshMembers()
         }
@@ -697,13 +727,13 @@ export function GroupActions({
   }
 
   const handleRemoveMember = async () => {
-    if (!address) return toastManager.error("Please connect your wallet first")
-    if (!isAdmin) return toastManager.error("Only the pool admin can manage members.")
-    if (isPending) return toastManager.error("Contract not yet deployed.")
+    if (!address) return toastManager.error(t("connectWalletFirst"))
+    if (!isAdmin) return toastManager.error(t("onlyAdminCanManageMembers"))
+    if (isPending) return toastManager.error(t("contractNotDeployed"))
     if (!memberToRemove) return
 
     await simulateAndShow(
-      "Remove Member",
+      t("removeMember"),
       {
         method: "remove_member",
         args: [
@@ -719,10 +749,10 @@ export function GroupActions({
           void triggerPushNotification(
             groupId,
             "event_member_left",
-            "🚪 Member removed",
-            "A member has been removed from the pool."
+            t("pushMemberRemovedTitle"),
+            t("pushMemberRemovedBody")
           )
-          toastManager.success("Member removed successfully", undefined, txHash)
+          toastManager.success(t("memberRemovedSuccess"), undefined, txHash)
           setMemberToRemove(null)
           await refreshMembers()
         }
@@ -760,7 +790,7 @@ export function GroupActions({
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-xs font-medium">
           <Clock className="h-3 w-3 animate-spin" />
-          Pending…
+          {t("pendingEllipsis")}
         </span>
       )
     }
@@ -771,22 +801,24 @@ export function GroupActions({
     <>
       {isPaused && (
         <div className="p-3 rounded-lg bg-destructive/10 text-destructive mb-4 text-sm font-medium">
-          ⚠️ Pool is paused — all transactions are disabled.
+          {t("poolPausedBanner")}
         </div>
       )}
 
       {isPending && !isPaused && (
         <div className="p-3 rounded-lg bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 mb-4 text-sm">
-          Contract pending deployment.
+          {t("contractPendingBanner")}
         </div>
       )}
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Quick Actions {renderPendingBadge()}</h3>
+        <h3 className="text-lg font-semibold mb-4">
+          {t("quickActions")} {renderPendingBadge()}
+        </h3>
 
         {/* Skeleton while pool metadata is loading */}
         {!poolData && !isPending && (
-          <div className="space-y-6" aria-label="Loading actions">
+          <div className="space-y-6" aria-label={t("loadingActionsAria")}>
             {/* deposit field + button */}
             <div className="space-y-3">
               <Skeleton className="h-4 w-40" />
@@ -821,16 +853,16 @@ export function GroupActions({
               {highlightDeposit && (
                 <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/40 px-3 py-2 text-sm font-medium text-primary animate-pulse">
                   <ArrowUpRight className="h-4 w-4" />
-                  Make your first deposit to get the cycle going!
+                  {t("firstDepositHint")}
                 </div>
               )}
               <div className="flex items-center justify-between">
                 <Label htmlFor="deposit">
                   {isRotational
-                    ? "Deposit Fixed Amount"
+                    ? t("depositFixedAmount")
                     : isTarget
-                      ? `Contribute Amount (${tokenSymbol})`
-                      : `Deposit Amount (${tokenSymbol})`}
+                      ? t("contributeAmount", { symbol: tokenSymbol })
+                      : t("depositAmount", { symbol: tokenSymbol })}
                 </Label>
                 {address &&
                   (balanceLoading ? (
@@ -838,7 +870,7 @@ export function GroupActions({
                   ) : (
                     walletBalance !== null && (
                       <span className="text-xs text-muted-foreground">
-                        Balance: {walletBalance.toFixed(2)} {tokenSymbol}
+                        {t("balance", { amount: walletBalance.toFixed(2), symbol: tokenSymbol })}
                       </span>
                     )
                   ))}
@@ -863,16 +895,19 @@ export function GroupActions({
                 </p>
               )}
               <p className="text-xs text-muted-foreground">
-                {isRotational && "Deposit the fixed pool amount. Same for all members."}
-                {isTarget && "Contribute any amount toward the target goal."}
-                {isFlexible && "Deposit any amount (must meet minimum). Withdraw anytime."}
+                {isRotational && t("rotationalDepositHint")}
+                {isTarget && t("targetDepositHint")}
+                {isFlexible && t("flexibleDepositHint")}
               </p>
               {tokenSymbol === "USDC" && address && walletBalance === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  No USDC in this wallet yet?{" "}
-                  <Link href="/bridge" className="text-primary hover:underline">
-                    Bridge USDC to Stellar
-                  </Link>
+                  {t.rich("noUsdcHint", {
+                    link: (chunks) => (
+                      <Link href="/bridge" className="text-primary hover:underline">
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
                 </p>
               )}
               <Button
@@ -885,12 +920,12 @@ export function GroupActions({
                 {isDepositLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
+                    {t("processing")}
                   </>
                 ) : (
                   <>
                     <ArrowUpRight className="mr-2 h-4 w-4" />
-                    {isTarget ? "Contribute" : "Deposit"}
+                    {isTarget ? t("contribute") : t("deposit")}
                   </>
                 )}
               </Button>
@@ -900,7 +935,7 @@ export function GroupActions({
             {!isRotational && (
               <div className="border-t border-border pt-6 space-y-3">
                 <Label htmlFor="withdraw">
-                  {isTarget ? "Withdraw Share" : `Withdraw Amount (${tokenSymbol})`}
+                  {isTarget ? t("withdrawShare") : t("withdrawAmount", { symbol: tokenSymbol })}
                 </Label>
                 {isFlexible && (
                   <Input
@@ -914,8 +949,8 @@ export function GroupActions({
                   />
                 )}
                 <p className="text-xs text-muted-foreground">
-                  {isTarget && "Withdraw after target reached. Exit fee deducted."}
-                  {isFlexible && "Withdraw anytime. Exit fee will be deducted."}
+                  {isTarget && t("targetWithdrawHint")}
+                  {isFlexible && t("flexibleWithdrawHint")}
                 </p>
                 <Button
                   variant="outline"
@@ -926,12 +961,12 @@ export function GroupActions({
                   {isWithdrawLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
+                      {t("processing")}
                     </>
                   ) : (
                     <>
                       <ArrowDownLeft className="mr-2 h-4 w-4" />
-                      Withdraw
+                      {t("withdraw")}
                     </>
                   )}
                 </Button>
@@ -946,10 +981,10 @@ export function GroupActions({
                     {targetRefund.isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Processing...
+                        {t("processing")}
                       </>
                     ) : (
-                      "Refund (if deadline passed)"
+                      t("refundIfDeadlinePassed")
                     )}
                   </Button>
                 )}
@@ -959,10 +994,7 @@ export function GroupActions({
             {/* Rotational payout trigger */}
             {isRotational && (
               <div className="border-t border-border pt-6 space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  Rotational Pool: Payouts are triggered when the round time is reached. You earn a
-                  relayer fee for triggering.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("rotationalPayoutHint")}</p>
                 <Button
                   variant="outline"
                   className="w-full bg-transparent"
@@ -979,12 +1011,12 @@ export function GroupActions({
                   previewLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {previewLoading ? "Calculating Preview..." : "Processing..."}
+                      {previewLoading ? t("calculatingPreview") : t("processing")}
                     </>
                   ) : (
                     <>
                       <ArrowDownLeft className="mr-2 h-4 w-4" />
-                      Trigger Payout
+                      {t("triggerPayout")}
                     </>
                   )}
                 </Button>
@@ -994,11 +1026,9 @@ export function GroupActions({
             {/* Admin: Pause / Unpause */}
             {!isPending && (
               <div className="border-t border-border pt-6 space-y-3">
-                <p className="text-xs text-muted-foreground font-medium">Admin Controls</p>
+                <p className="text-xs text-muted-foreground font-medium">{t("adminControls")}</p>
                 {!isAdmin && (
-                  <p className="text-xs text-muted-foreground">
-                    Only the pool admin can pause or unpause this pool.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("onlyAdminCanPause")}</p>
                 )}
                 <div className="flex gap-2">
                   <Tooltip>
@@ -1013,12 +1043,12 @@ export function GroupActions({
                           {pausePool.isLoading ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Pausing...
+                              {t("pausing")}
                             </>
                           ) : (
                             <>
                               <ShieldOff className="mr-2 h-4 w-4" />
-                              Pause Pool
+                              {t("pausePool")}
                             </>
                           )}
                         </Button>
@@ -1026,9 +1056,7 @@ export function GroupActions({
                     </TooltipTrigger>
                     {!isAdmin && (
                       <TooltipContent>
-                        {!address
-                          ? "Connect your wallet to manage this pool"
-                          : "Your wallet is not the pool admin"}
+                        {!address ? t("connectWalletToManage") : t("notPoolAdmin")}
                       </TooltipContent>
                     )}
                   </Tooltip>
@@ -1045,12 +1073,12 @@ export function GroupActions({
                           {unpausePool.isLoading ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Unpausing...
+                              {t("unpausing")}
                             </>
                           ) : (
                             <>
                               <ShieldCheck className="mr-2 h-4 w-4" />
-                              Unpause Pool
+                              {t("unpausePool")}
                             </>
                           )}
                         </Button>
@@ -1058,9 +1086,7 @@ export function GroupActions({
                     </TooltipTrigger>
                     {!isAdmin && (
                       <TooltipContent>
-                        {!address
-                          ? "Connect your wallet to manage this pool"
-                          : "Your wallet is not the pool admin"}
+                        {!address ? t("connectWalletToManage") : t("notPoolAdmin")}
                       </TooltipContent>
                     )}
                   </Tooltip>
@@ -1070,9 +1096,9 @@ export function GroupActions({
 
             {isAdmin && !isPending && (
               <div className="border-t border-border pt-6 space-y-4">
-                <p className="text-xs text-muted-foreground font-medium">Manage Members</p>
+                <p className="text-xs text-muted-foreground font-medium">{t("manageMembers")}</p>
                 <div className="space-y-2">
-                  <Label htmlFor="new-member">Add Stellar Address</Label>
+                  <Label htmlFor="new-member">{t("addStellarAddress")}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="new-member"
@@ -1088,7 +1114,7 @@ export function GroupActions({
                       disabled={
                         addPoolMember.isLoading || removePoolMember.isLoading || !newMember.trim()
                       }
-                      aria-label="Add member"
+                      aria-label={t("addMemberAria")}
                     >
                       {addPoolMember.isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1113,7 +1139,7 @@ export function GroupActions({
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => setMemberToRemove(member)}
                         disabled={removePoolMember.isLoading || addPoolMember.isLoading}
-                        aria-label={`Remove ${member}`}
+                        aria-label={t("removeMemberAria", { member })}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -1125,7 +1151,7 @@ export function GroupActions({
 
             {!isAdmin && address && !isPending && (
               <div className="border-t border-border pt-6 space-y-3">
-                <p className="text-xs text-muted-foreground font-medium">Leave Pool</p>
+                <p className="text-xs text-muted-foreground font-medium">{t("leavePool")}</p>
                 <Button
                   variant="outline"
                   className="w-full bg-transparent text-destructive border-destructive/50 hover:bg-destructive/10"
@@ -1133,15 +1159,15 @@ export function GroupActions({
                   disabled={leavePool.isLoading || isPaused}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  Leave Pool
+                  {t("leavePool")}
                 </Button>
               </div>
             )}
 
             <div className="border-t border-border pt-6">
-              <p className="text-xs text-muted-foreground mb-2">Your Stellar address</p>
+              <p className="text-xs text-muted-foreground mb-2">{t("yourStellarAddress")}</p>
               <p className="text-sm font-mono bg-muted/30 p-2 rounded break-all">
-                {address || "Not connected"}
+                {address || t("notConnected")}
               </p>
             </div>
           </div>
@@ -1153,13 +1179,13 @@ export function GroupActions({
           <DialogHeader>
             <DialogTitle>
               {previewData?.type === "withdraw"
-                ? "Confirm Withdrawal"
-                : "Confirm Rotational Payout"}
+                ? t("confirmWithdrawal")
+                : t("confirmRotationalPayout")}
             </DialogTitle>
             <DialogDescription>
               {previewData?.type === "withdraw"
-                ? "Review the estimated transaction details and fee breakdown below before signing."
-                : "Review the estimated payouts and relayer rewards for this round before triggering."}
+                ? t("withdrawalReviewDescription")
+                : t("payoutReviewDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -1194,9 +1220,7 @@ export function GroupActions({
             </div>
 
             {previewData?.type === "payout" && (
-              <p className="text-xs text-muted-foreground text-center">
-                Triggering the payout earns you the relayer fee reward directly in your wallet.
-              </p>
+              <p className="text-xs text-muted-foreground text-center">{t("relayerRewardHint")}</p>
             )}
 
             {error && <p className="text-xs text-destructive text-center">{error}</p>}
@@ -1209,7 +1233,7 @@ export function GroupActions({
               onClick={() => setIsPreviewOpen(false)}
               disabled={isConfirmLoading}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -1223,7 +1247,7 @@ export function GroupActions({
                   }
                   setIsPreviewOpen(false)
                 } catch (e: unknown) {
-                  setError((e as Error).message || "Transaction failed")
+                  setError((e as Error).message || t("transactionFailed"))
                   setIsPreviewOpen(false)
                 } finally {
                   setIsConfirmLoading(false)
@@ -1234,10 +1258,10 @@ export function GroupActions({
               {isConfirmLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing...
+                  {t("signing")}
                 </>
               ) : (
-                "Confirm & Sign"
+                t("confirmAndSign")
               )}
             </Button>
           </DialogFooter>
@@ -1252,13 +1276,11 @@ export function GroupActions({
       >
         <DialogContent className="sm:max-w-[425px] bg-background border border-border">
           <DialogHeader>
-            <DialogTitle>Leave this pool?</DialogTitle>
+            <DialogTitle>{t("leaveThisPool")}</DialogTitle>
             <DialogDescription>
-              {poolType === "rotational" &&
-                "You will lose your position in the rotation. This action cannot be undone."}
-              {poolType === "target" &&
-                "Your deposited balance will be refunded before the target is reached."}
-              {poolType === "flexible" && "Your current balance will be refunded to your wallet."}
+              {poolType === "rotational" && t("leaveRotationalWarning")}
+              {poolType === "target" && t("leaveTargetWarning")}
+              {poolType === "flexible" && t("leaveFlexibleWarning")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -1267,7 +1289,7 @@ export function GroupActions({
               onClick={() => setShowLeaveDialog(false)}
               disabled={leavePool.isLoading}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -1275,7 +1297,7 @@ export function GroupActions({
                 if (!address) return
                 setShowLeaveDialog(false)
                 await simulateAndShow(
-                  "Leave Pool",
+                  t("leavePool"),
                   { method: "leave_pool", args: [nativeToScVal(address, { type: "address" })] },
                   async () => {
                     setError("")
@@ -1284,10 +1306,10 @@ export function GroupActions({
                       const txHash = await leavePool.leavePool()
                       if (txHash && address) {
                         await logActivity(groupId, "member_left", address, null, txHash)
-                        setSuccessMsg("You have left the pool.")
+                        setSuccessMsg(t("youHaveLeft"))
                       }
                     } catch (e: unknown) {
-                      setError((e as Error).message || "Transaction failed")
+                      setError((e as Error).message || t("transactionFailed"))
                     }
                   }
                 )
@@ -1297,10 +1319,10 @@ export function GroupActions({
               {leavePool.isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Leaving...
+                  {t("leaving")}
                 </>
               ) : (
-                "Leave Pool"
+                t("leavePool")
               )}
             </Button>
           </DialogFooter>
@@ -1315,10 +1337,9 @@ export function GroupActions({
       >
         <DialogContent className="sm:max-w-[425px] bg-background border border-border">
           <DialogHeader>
-            <DialogTitle>Remove Member</DialogTitle>
+            <DialogTitle>{t("removeMember")}</DialogTitle>
             <DialogDescription>
-              This will remove {memberToRemove || "this address"} from the pool. Their balance will
-              be refunded.
+              {t("removeMemberDescription", { member: memberToRemove || t("thisAddress") })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -1327,7 +1348,7 @@ export function GroupActions({
               onClick={() => setMemberToRemove(null)}
               disabled={removePoolMember.isLoading}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -1337,10 +1358,10 @@ export function GroupActions({
               {removePoolMember.isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Removing...
+                  {t("removing")}
                 </>
               ) : (
-                "Remove"
+                t("remove")
               )}
             </Button>
           </DialogFooter>

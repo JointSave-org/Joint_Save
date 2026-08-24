@@ -1,25 +1,20 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { motion, AnimatePresence } from "framer-motion"
 import { CheckCircle2, Circle, ChevronDown, Sparkles } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { useOnboarding } from "@/hooks/useOnboarding"
 import { ONBOARDING_STEPS } from "@/lib/onboarding"
 
-const STEP_LABELS: Record<(typeof ONBOARDING_STEPS)[number], string> = {
-  welcome: "Welcome",
-  walletConnected: "Connect your wallet",
-  poolTypeSelected: "Choose a pool type",
-  firstPoolCreated: "Create your first pool",
-  firstDepositMade: "Make your first deposit",
-}
-
 /**
  * Persistent, collapsible checklist shown on the dashboard sidebar while the
  * user is still onboarding. Auto-hides once every step is complete.
  */
 export function OnboardingChecklist() {
+  const t = useTranslations("onboarding.checklist")
+  const tSteps = useTranslations("onboarding.steps")
   const { state } = useOnboarding()
   const [collapsed, setCollapsed] = useState(false)
 
@@ -34,11 +29,11 @@ export function OnboardingChecklist() {
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold">Getting Started</h3>
+          <h3 className="text-sm font-semibold">{t("title")}</h3>
         </div>
         <button
           onClick={() => setCollapsed((c) => !c)}
-          aria-label={collapsed ? "Expand onboarding checklist" : "Collapse onboarding checklist"}
+          aria-label={collapsed ? t("expandAria") : t("collapseAria")}
           className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
           <ChevronDown
@@ -46,9 +41,7 @@ export function OnboardingChecklist() {
           />
         </button>
       </div>
-      <p className="text-xs text-muted-foreground mb-3">
-        {completed} of {total} steps complete
-      </p>
+      <p className="text-xs text-muted-foreground mb-3">{t("progress", { completed, total })}</p>
 
       <AnimatePresence initial={false}>
         {!collapsed && (
@@ -76,7 +69,7 @@ export function OnboardingChecklist() {
                   ) : (
                     <Circle className="h-4 w-4 shrink-0 mt-0.5" />
                   )}
-                  <span className={done ? "line-through opacity-70" : ""}>{STEP_LABELS[key]}</span>
+                  <span className={done ? "line-through opacity-70" : ""}>{tSteps(key)}</span>
                 </li>
               )
             })}

@@ -10,6 +10,7 @@ import {
   E2E_CONTRACT_ID,
   E2E_ADDRESS,
   E2E_MEMBER_2,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -57,7 +58,7 @@ test.beforeEach(async ({ page }) => {
 
 test("shows pool preview and request to join", async ({ page }) => {
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/join/${E2E_CONTRACT_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/join/${E2E_CONTRACT_ID}`), { waitUntil: "networkidle" })
   await poolsResponse
 
   // CardTitle renders as <div>, not <h1>/<h2>, so use getByText not getByRole("heading")
@@ -78,7 +79,7 @@ test("shows pool preview and request to join", async ({ page }) => {
 })
 
 test("shows pool not found for invalid contract", async ({ page }) => {
-  await page.goto("/join/INVALIDCONTRACT123", { waitUntil: "networkidle" })
+  await page.goto(localePath("/join/INVALIDCONTRACT123"), { waitUntil: "networkidle" })
   // CardTitle renders as <div>, not <h1>/<h2>, so use getByText not getByRole("heading")
   await expect(page.getByText("Pool Not Found")).toBeVisible({ timeout: 15000 })
   await expect(page.getByText("Explore Pools")).toBeVisible()
@@ -104,7 +105,7 @@ test("member already in pool sees go to pool details", async ({ page }) => {
   ])
 
   const poolsResponse = waitForPoolsResponse(page)
-  await page.goto(`/join/${E2E_CONTRACT_ID}`, { waitUntil: "networkidle" })
+  await page.goto(localePath(`/join/${E2E_CONTRACT_ID}`), { waitUntil: "networkidle" })
   await poolsResponse
 
   // CardTitle renders as <div>, not <h1>/<h2>, so use getByText not getByRole("heading")

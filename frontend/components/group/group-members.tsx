@@ -1,5 +1,6 @@
 ﻿"use client"
 
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -42,6 +43,7 @@ const statusAvatarClass: Record<Member["status"], string> = {
 }
 
 export function GroupMembers({ groupId, contractAddress, poolType }: GroupMembersProps) {
+  const t = useTranslations("group.members")
   // Prefer contract address as the cache key (already warming from GroupDetails
   // and GroupActivity on the same page). Fall back to DB id for pending pools.
   const cacheKey =
@@ -64,12 +66,12 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
     try {
       await navigator.clipboard.writeText(address)
       setCopiedAddress(address)
-      toast({ title: "Address copied", description: "Member address copied to clipboard." })
+      toast({ title: t("addressCopiedTitle"), description: t("addressCopiedDescription") })
       setTimeout(() => setCopiedAddress(null), 2500)
     } catch {
       toast({
-        title: "Failed to copy",
-        description: "Please copy the address manually.",
+        title: t("copyFailedTitle"),
+        description: t("copyFailedDescription"),
         variant: "destructive",
       })
     }
@@ -124,7 +126,7 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
 
   if (isLoading && members.length === 0) {
     return (
-      <Card className="p-6" aria-label="Loading members">
+      <Card className="p-6" aria-label={t("loadingLabel")}>
         <Skeleton className="h-6 w-32 mb-4" />
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -150,13 +152,13 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
     <Card className="p-6">
       <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold">Members ({members.length})</h3>
+          <h3 className="text-lg font-semibold">{t("membersCount", { count: members.length })}</h3>
           {members.length > 0 && (
             <Badge
               variant="secondary"
               className="text-xs font-normal whitespace-nowrap tabular-nums"
             >
-              {pendingCount} pending
+              {t("pendingCount", { count: pendingCount })}
             </Badge>
           )}
         </div>
@@ -168,13 +170,13 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
               size="sm"
               value={showPendingOnly ? "pending" : "all"}
               onValueChange={(v) => setShowPendingOnly(v === "pending")}
-              aria-label="Filter members by deposit status"
+              aria-label={t("filterByStatusAria")}
             >
-              <ToggleGroupItem value="all" aria-label="Show all members">
-                All
+              <ToggleGroupItem value="all" aria-label={t("showAllAria")}>
+                {t("all")}
               </ToggleGroupItem>
-              <ToggleGroupItem value="pending" aria-label="Show pending members only">
-                Pending
+              <ToggleGroupItem value="pending" aria-label={t("showPendingOnlyAria")}>
+                {t("pendingLabel")}
               </ToggleGroupItem>
             </ToggleGroup>
             <ToggleGroup
@@ -183,26 +185,26 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
               size="sm"
               value={sortBy}
               onValueChange={(v) => v && setSortBy(v as "score" | "joined" | "contribution")}
-              aria-label="Sort members"
+              aria-label={t("sortMembersAria")}
             >
-              <ToggleGroupItem value="score" aria-label="Sort by reputation score">
+              <ToggleGroupItem value="score" aria-label={t("sortByScoreAria")}>
                 <ArrowUpDown className="h-3 w-3 mr-1" />
-                Score
+                {t("score")}
               </ToggleGroupItem>
-              <ToggleGroupItem value="joined" aria-label="Sort by join date">
-                Joined
+              <ToggleGroupItem value="joined" aria-label={t("sortByJoinDateAria")}>
+                {t("joined")}
               </ToggleGroupItem>
-              <ToggleGroupItem value="contribution" aria-label="Sort by contribution">
-                Amount
+              <ToggleGroupItem value="contribution" aria-label={t("sortByContributionAria")}>
+                {t("amount")}
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
         )}
       </div>
       {members.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">No members yet</p>
+        <p className="text-sm text-muted-foreground text-center py-4">{t("noMembersYet")}</p>
       ) : visibleMembers.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">Everyone has deposited</p>
+        <p className="text-sm text-muted-foreground text-center py-4">{t("everyoneDeposited")}</p>
       ) : (
         <div className="space-y-3">
           {visibleMembers.map((member) => {
@@ -233,7 +235,7 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
                         size="icon"
                         className="h-5 w-5 shrink-0"
                         onClick={() => handleCopyMemberAddress(member.member_address)}
-                        aria-label="Copy member address"
+                        aria-label={t("copyMemberAddressAria")}
                       >
                         {copiedAddress === member.member_address ? (
                           <Check className="h-3 w-3 text-green-500" />
@@ -252,7 +254,7 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
                     <>
                       <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 animate-pulse" />
                       <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 font-medium">
-                        payout pending
+                        {t("payoutPending")}
                       </span>
                     </>
                   )}
@@ -262,21 +264,21 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
                         <CheckCircle2
                           className="h-4 w-4 text-primary"
                           role="img"
-                          aria-label="Paid"
+                          aria-label={t("paidAria")}
                         />
                       )}
                       {member.status === "pending" && (
                         <Clock
                           className="h-4 w-4 text-yellow-700 dark:text-yellow-400"
                           role="img"
-                          aria-label="Pending"
+                          aria-label={t("pendingAria")}
                         />
                       )}
                       {member.status === "late" && (
                         <XCircle
                           className="h-4 w-4 text-destructive"
                           role="img"
-                          aria-label="Late"
+                          aria-label={t("lateAria")}
                         />
                       )}
                     </>

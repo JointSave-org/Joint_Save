@@ -22,6 +22,26 @@ export const test = base.extend<{ consoleErrors: string[] }>({
 import type { Page } from "@playwright/test"
 
 /**
+ * Default locale used by every spec unless a test is specifically exercising
+ * the language switcher. Routes are locale-prefixed after issue #216
+ * (next-intl) — this is the single place that prefix is defined so specs
+ * don't hardcode "/en" individually.
+ */
+export const DEFAULT_LOCALE = "en"
+
+/**
+ * Prefixes a path with the locale segment (e.g. "/dashboard" -> "/en/dashboard").
+ * Use this instead of raw `page.goto("/some/path")` everywhere in the suite —
+ * navigating to an unprefixed path still works (the middleware redirects), but
+ * going directly to the prefixed path avoids an extra redirect hop and keeps
+ * tests explicit about which locale they're exercising.
+ */
+export function localePath(path: string, locale: string = DEFAULT_LOCALE): string {
+  const normalized = path.startsWith("/") ? path : `/${path}`
+  return normalized === "/" ? `/${locale}` : `/${locale}${normalized}`
+}
+
+/**
  * Wait until the browser has received a successful `/api/pools` response
  * (not sub-paths like `/api/pools/messages`).
  * Call this right after `page.goto(...)` to eliminate the race where

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -70,6 +71,7 @@ interface YieldState {
 }
 
 export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
+  const t = useTranslations("group.yield")
   const { kit, address } = useStellar()
   const [state, setState] = useState<YieldState | null>(null)
   const [loading, setLoading] = useState(false)
@@ -163,7 +165,7 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
           .setTimeout(TX_TIMEOUT)
           .build()
       )
-      setMsg({ type: "success", text: "Yield strategy set!" })
+      setMsg({ type: "success", text: t("strategySet") })
       setStrategyInput("")
       loadState()
     } catch (e: unknown) {
@@ -193,7 +195,7 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
           .setTimeout(TX_TIMEOUT)
           .build()
       )
-      setMsg({ type: "success", text: `Deployed ${deployAmount} XLM to yield strategy!` })
+      setMsg({ type: "success", text: t("deployedToStrategy", { amount: deployAmount }) })
       setDeployAmount("")
       loadState()
     } catch (e: unknown) {
@@ -219,7 +221,7 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
           .setTimeout(TX_TIMEOUT)
           .build()
       )
-      setMsg({ type: "success", text: "Yield harvested and distributed!" })
+      setMsg({ type: "success", text: t("yieldHarvested") })
       loadState()
     } catch (e: unknown) {
       setMsg({ type: "error", text: (e as Error).message })
@@ -237,7 +239,7 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Yield Strategy</h3>
+          <h3 className="text-lg font-semibold">{t("title")}</h3>
         </div>
         <Button variant="ghost" size="icon" onClick={loadState} disabled={loading}>
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -260,63 +262,61 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3">
         <div className="p-3 rounded-lg bg-muted/30">
-          <p className="text-xs text-muted-foreground mb-1">Deployed to Yield</p>
+          <p className="text-xs text-muted-foreground mb-1">{t("deployedToYield")}</p>
           <p className="text-xl font-bold">{state ? fmtXlm(state.deployedAmount) : "—"} XLM</p>
         </div>
         <div className="p-3 rounded-lg bg-muted/30">
-          <p className="text-xs text-muted-foreground mb-1">Total Harvested</p>
+          <p className="text-xs text-muted-foreground mb-1">{t("totalHarvested")}</p>
           <p className="text-xl font-bold">{state ? fmtXlm(state.totalHarvested) : "—"} XLM</p>
         </div>
       </div>
 
       {/* Current strategy */}
       <div>
-        <p className="text-xs text-muted-foreground mb-1">Active Strategy</p>
+        <p className="text-xs text-muted-foreground mb-1">{t("activeStrategy")}</p>
         {state?.strategyAddress ? (
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-xs font-mono truncate max-w-[200px]">
               {state.strategyAddress}
             </Badge>
             <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 text-xs">
-              Active
+              {t("active")}
             </Badge>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No strategy configured</p>
+          <p className="text-sm text-muted-foreground">{t("noStrategyConfigured")}</p>
         )}
       </div>
 
       {/* Set strategy */}
       <div className="border-t border-border pt-4 space-y-3">
-        <Label htmlFor="strategy-addr">Set Yield Strategy Contract</Label>
+        <Label htmlFor="strategy-addr">{t("setStrategyLabel")}</Label>
         <div className="flex gap-2">
           <Input
             id="strategy-addr"
-            placeholder="C... contract address"
+            placeholder={t("strategyPlaceholder")}
             value={strategyInput}
             onChange={(e) => setStrategyInput(e.target.value)}
             disabled={busy}
             className="font-mono text-xs"
           />
           <Button onClick={handleSetStrategy} disabled={busy || !strategyInput || !address}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Set"}
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : t("set")}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Soroswap or Stellar AMM strategy contract. Only callable by pool admin.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("strategyHint")}</p>
       </div>
 
       {/* Deploy to yield */}
       {state?.strategyAddress && (
         <div className="border-t border-border pt-4 space-y-3">
-          <Label htmlFor="deploy-amount">Deploy Funds to Protocol</Label>
+          <Label htmlFor="deploy-amount">{t("deployFundsLabel")}</Label>
           <div className="flex gap-2">
             <Input
               id="deploy-amount"
               type="number"
               step="0.01"
-              placeholder="Amount (XLM)"
+              placeholder={t("amountPlaceholder")}
               value={deployAmount}
               onChange={(e) => setDeployAmount(e.target.value)}
               disabled={busy}
@@ -327,7 +327,7 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
               ) : (
                 <>
                   <Zap className="h-4 w-4 mr-1" />
-                  Deploy
+                  {t("deploy")}
                 </>
               )}
             </Button>
@@ -347,19 +347,16 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
             {busy ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
+                {t("processing")}
               </>
             ) : (
               <>
                 <TrendingUp className="mr-2 h-4 w-4" />
-                Harvest & Distribute Yield
+                {t("harvestAndDistribute")}
               </>
             )}
           </Button>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            Harvests accumulated yield from the protocol and distributes proportionally to all
-            members.
-          </p>
+          <p className="text-xs text-muted-foreground mt-2 text-center">{t("harvestHint")}</p>
         </div>
       )}
     </Card>

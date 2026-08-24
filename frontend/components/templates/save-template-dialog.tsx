@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,8 @@ export function SaveTemplateDialog({
   config: PoolTemplateConfig
   creatorAddress: string | null
 }) {
+  const t = useTranslations("templates.save")
+  const tForm = useTranslations("templates.form")
   const [name, setName] = useState(config.name)
   const [description, setDescription] = useState(config.description || "")
   const [isPublic, setIsPublic] = useState(false)
@@ -57,7 +60,7 @@ export function SaveTemplateDialog({
 
   const handleSave = async () => {
     if (!creatorAddress) {
-      toastManager.error("Connect your wallet before saving a template")
+      toastManager.error(t("connectWalletError"))
       return
     }
     const nameResult = validateTemplateName(name)
@@ -87,12 +90,12 @@ export function SaveTemplateDialog({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to save template")
+        throw new Error(data?.error || t("saveFailed"))
       }
-      toastManager.success("Template saved")
+      toastManager.success(t("saved"))
       onOpenChange(false)
     } catch (error) {
-      toastManager.error((error as Error).message || "Failed to save template")
+      toastManager.error((error as Error).message || t("saveFailed"))
     } finally {
       setSaving(false)
     }
@@ -102,21 +105,18 @@ export function SaveTemplateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Save as Template</DialogTitle>
-          <DialogDescription>
-            Reuse this pool configuration later — or share it with the community — without
-            re-entering every field.
-          </DialogDescription>
+          <DialogTitle>{t("dialogTitle")}</DialogTitle>
+          <DialogDescription>{t("dialogDescription")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1">
-            <Label htmlFor="template-name">Template Name</Label>
+            <Label htmlFor="template-name">{tForm("templateName")}</Label>
             <div className="flex items-center gap-2">
               <Input
                 id="template-name"
                 maxLength={TEMPLATE_NAME_MAX_LENGTH}
-                placeholder="e.g., Monthly Family Tanda"
+                placeholder={tForm("templateNamePlaceholder")}
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value)
@@ -133,11 +133,11 @@ export function SaveTemplateDialog({
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="template-description">Description (optional)</Label>
+            <Label htmlFor="template-description">{tForm("descriptionOptional")}</Label>
             <Textarea
               id="template-description"
               maxLength={TEMPLATE_DESCRIPTION_MAX_LENGTH}
-              placeholder="Describe what this template is for"
+              placeholder={tForm("descriptionPlaceholder")}
               rows={3}
               value={description}
               onChange={(e) => {
@@ -150,32 +150,30 @@ export function SaveTemplateDialog({
 
           <div className="flex items-center justify-between rounded-lg border border-border p-4">
             <div className="space-y-0.5">
-              <Label htmlFor="template-public">Share with community</Label>
-              <p className="text-sm text-muted-foreground">
-                Public templates appear in the Community Templates tab.
-              </p>
+              <Label htmlFor="template-public">{tForm("shareWithCommunity")}</Label>
+              <p className="text-sm text-muted-foreground">{tForm("shareWithCommunityBody")}</p>
             </div>
             <Switch
               id="template-public"
               checked={isPublic}
               onCheckedChange={setIsPublic}
-              aria-label="Make template public"
+              aria-label={tForm("makePublicAria")}
             />
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
+            {tForm("cancel")}
           </Button>
           <Button onClick={handleSave} disabled={saving || !creatorAddress}>
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving…
+                {tForm("saving")}
               </>
             ) : (
-              "Save Template"
+              t("saveButton")
             )}
           </Button>
         </DialogFooter>

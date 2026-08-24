@@ -1,11 +1,13 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useTranslations } from "next-intl"
 import { useStellar } from "@/components/web3-provider"
 import { useUserProfile } from "@/hooks/useUserProfile"
 import { Button } from "@/components/ui/button"
 
 export function GroupMuteNotificationsToggle({ poolId }: { poolId: string }) {
+  const t = useTranslations("group.muteToggle")
   const { address } = useStellar()
   const { profile, loading, saving, saveProfile } = useUserProfile(address || null)
   const [localMuted, setLocalMuted] = useState(false)
@@ -31,10 +33,8 @@ export function GroupMuteNotificationsToggle({ poolId }: { poolId: string }) {
   return (
     <div className="mb-4 p-3 rounded-lg bg-muted/30 flex items-center justify-between gap-4">
       <div>
-        <p className="text-sm font-medium">Mute notifications for this pool</p>
-        <p className="text-xs text-muted-foreground">
-          Stops email notifications for this pool only.
-        </p>
+        <p className="text-sm font-medium">{t("muteForThisPool")}</p>
+        <p className="text-xs text-muted-foreground">{t("muteDescription")}</p>
       </div>
       <Button
         type="button"
@@ -43,7 +43,7 @@ export function GroupMuteNotificationsToggle({ poolId }: { poolId: string }) {
         disabled={loading || saving || !profile}
         className="shrink-0"
       >
-        {isMuted ? "Muted" : "On"}
+        {isMuted ? t("muted") : t("on")}
       </Button>
     </div>
   )

@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useTranslations, useLocale } from "next-intl"
+import { useRouter } from "@/i18n/navigation"
 import {
   Dialog,
   DialogContent,
@@ -28,10 +29,6 @@ interface TemplateListItem {
   created_at: string
 }
 
-function poolTypeLabel(type: TemplatePoolType) {
-  return type === "rotational" ? "Rotational" : type === "target" ? "Target" : "Flexible"
-}
-
 /**
  * "Use Template" dialog (issue #226). Opens from the top of the pool creation
  * form — shows the caller's templates plus community templates for the current
@@ -48,6 +45,10 @@ export function UseTemplateDialog({
   poolType: TemplatePoolType
   address: string | null
 }) {
+  const t = useTranslations("templates.use")
+  const tCard = useTranslations("templates.card")
+  const tType = useTranslations("templates.poolTypeLabels")
+  const locale = useLocale()
   const router = useRouter()
   const [mine, setMine] = useState<TemplateListItem[]>([])
   const [community, setCommunity] = useState<TemplateListItem[]>([])
@@ -93,7 +94,7 @@ export function UseTemplateDialog({
 
   const handleUse = async (template: TemplateListItem) => {
     if (!address) {
-      toastManager.error("Connect your wallet to use a template")
+      toastManager.error(t("connectWalletError"))
       return
     }
     setUsingId(template.id)
@@ -116,11 +117,11 @@ export function UseTemplateDialog({
         <div className="flex items-center gap-2">
           <p className="font-medium truncate">{template.name}</p>
           <Badge variant="secondary" className="text-[10px] capitalize shrink-0">
-            {poolTypeLabel(template.pool_type)}
+            {tType(template.pool_type)}
           </Badge>
           {template.is_public && (
             <Badge variant="outline" className="text-[10px] shrink-0">
-              Community
+              {t("community")}
             </Badge>
           )}
         </div>
@@ -130,14 +131,16 @@ export function UseTemplateDialog({
         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1.5">
           <span className="flex items-center gap-1">
             <Users className="h-3 w-3" />
-            {template.config.members?.length ? template.config.members.length + 1 : "—"} members
+            {tCard("membersLabel", {
+              count: template.config.members?.length ? template.config.members.length + 1 : "—",
+            })}
           </span>
           <span className="flex items-center gap-1">
             <Repeat className="h-3 w-3" />
-            used {template.use_count}×
+            {tCard("usedTimes", { count: template.use_count })}
           </span>
           <span className="hidden sm:inline">
-            {formatRelativeTime(new Date(template.created_at))}
+            {formatRelativeTime(new Date(template.created_at), locale)}
           </span>
         </div>
       </div>
@@ -152,10 +155,10 @@ export function UseTemplateDialog({
           {usingId === template.id ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Loading…
+              {t("loading")}
             </>
           ) : (
-            "Use Template"
+            tCard("useTemplate")
           )}
         </Button>
       )}
@@ -168,12 +171,9 @@ export function UseTemplateDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LayoutTemplate className="h-5 w-5 text-primary" />
-            Use a Template
+            {t("dialogTitle")}
           </DialogTitle>
-          <DialogDescription>
-            Pick a saved configuration to pre-fill this form. You can edit any value before creating
-            the pool.
-          </DialogDescription>
+          <DialogDescription>{t("dialogDescription")}</DialogDescription>
         </DialogHeader>
 
         {loading ? (
@@ -186,30 +186,28 @@ export function UseTemplateDialog({
           <div className="max-h-[50vh] overflow-y-auto space-y-6 pr-1">
             {mine.length > 0 && (
               <section>
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">My Templates</h3>
-                <ul className="space-y-2">{mine.map((t) => renderCard(t, true))}</ul>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                  {t("myTemplates")}
+                </h3>
+                <ul className="space-y-2">{mine.map((tpl) => renderCard(tpl, true))}</ul>
               </section>
             )}
 
             <section>
               <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                Community Templates
+                {t("communityTemplates")}
               </h3>
               {community.length > 0 ? (
-                <ul className="space-y-2">{community.map((t) => renderCard(t, true))}</ul>
+                <ul className="space-y-2">{community.map((tpl) => renderCard(tpl, true))}</ul>
               ) : (
                 <p className="text-sm text-muted-foreground rounded-lg border border-dashed border-border p-4">
-                  No public templates for {poolTypeLabel(poolType).toLowerCase()} pools yet — save
-                  one from this form and it will appear here.
+                  {t("noCommunityForType", { type: tType(poolType).toLowerCase() })}
                 </p>
               )}
             </section>
 
             {mine.length === 0 && community.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No templates available yet. Save this configuration as a template using the link
-                below the submit button.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("noTemplatesAtAll")}</p>
             )}
           </div>
         )}

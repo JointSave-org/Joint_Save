@@ -7,6 +7,7 @@ import {
   mockCommonApis,
   waitForPoolsResponse,
   E2E_MEMBER_2,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -54,7 +55,7 @@ const cases = [
 
 for (const c of cases) {
   test(`creates a ${c.type} pool and surfaces it everywhere`, async ({ page }) => {
-    await page.goto(`/dashboard/create/${c.type}`)
+    await page.goto(localePath(`/dashboard/create/${c.type}`))
 
     // Heading confirms the right form rendered
     await expect(page.getByRole("heading", { name: new RegExp(c.type, "i") })).toBeVisible()
@@ -79,7 +80,7 @@ for (const c of cases) {
 
     // 3) Pool now appears in "My Groups"
     const poolsResponse = waitForPoolsResponse(page)
-    await page.goto("/dashboard", { waitUntil: "networkidle" })
+    await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
     await poolsResponse
     await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
     await expect(page.getByText(c.name)).toBeVisible()

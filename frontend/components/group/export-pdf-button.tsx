@@ -12,6 +12,7 @@
  */
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { FileDown, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { useStellar } from "@/components/web3-provider"
@@ -23,6 +24,7 @@ interface ExportPdfButtonProps {
 }
 
 export function ExportPdfButton({ groupId, creatorAddress }: ExportPdfButtonProps) {
+  const t = useTranslations("group.exportPdf")
   const { address } = useStellar()
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<"idle" | "ok" | "err">("idle")
@@ -47,7 +49,7 @@ export function ExportPdfButton({ groupId, creatorAddress }: ExportPdfButtonProp
         fetch(`/api/pools?id=${groupId}`),
       ])
 
-      if (!res.ok) throw new Error("Failed to fetch pool data")
+      if (!res.ok) throw new Error(t("failedToFetch"))
       const pool = await res.json()
 
       // Normalize: ensure arrays exist even if the DB returns null
@@ -58,7 +60,7 @@ export function ExportPdfButton({ groupId, creatorAddress }: ExportPdfButtonProp
       setStatus("ok")
       setTimeout(() => setStatus("idle"), 3000)
     } catch (err: unknown) {
-      setErrMsg((err as Error).message ?? "PDF generation failed")
+      setErrMsg((err as Error).message ?? t("pdfGenerationFailed"))
       setStatus("err")
       setTimeout(() => setStatus("idle"), 5000)
     } finally {
@@ -79,22 +81,22 @@ export function ExportPdfButton({ groupId, creatorAddress }: ExportPdfButtonProp
         {loading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Generating PDF…
+            {t("generatingPdf")}
           </>
         ) : status === "ok" ? (
           <>
             <CheckCircle2 className="h-4 w-4 text-green-500" />
-            Downloaded!
+            {t("downloaded")}
           </>
         ) : status === "err" ? (
           <>
             <AlertCircle className="h-4 w-4 text-destructive" />
-            Export Failed
+            {t("exportFailed")}
           </>
         ) : (
           <>
             <FileDown className="h-4 w-4" />
-            Export Summary (PDF)
+            {t("exportSummary")}
           </>
         )}
       </Button>
@@ -102,9 +104,7 @@ export function ExportPdfButton({ groupId, creatorAddress }: ExportPdfButtonProp
       {status === "err" && errMsg && <p className="text-xs text-destructive px-1">{errMsg}</p>}
 
       {status === "idle" && !loading && (
-        <p className="text-xs text-muted-foreground px-1">
-          Admin only · Includes full activity log
-        </p>
+        <p className="text-xs text-muted-foreground px-1">{t("adminOnlyHint")}</p>
       )}
     </div>
   )
