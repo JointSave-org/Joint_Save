@@ -23,7 +23,7 @@ describe("Transactions Component", () => {
     render(<Transactions />)
 
     await waitFor(() => {
-      expect(screen.getByText("deposit")).toBeInTheDocument()
+      expect(screen.getByText("Deposit")).toBeInTheDocument()
       expect(screen.getByText("100.00 XLM")).toBeInTheDocument()
     })
   })
@@ -32,15 +32,15 @@ describe("Transactions Component", () => {
     render(<Transactions />)
 
     await waitFor(() => {
-      expect(screen.getByText("deposit")).toBeInTheDocument()
+      expect(screen.getByText("Deposit")).toBeInTheDocument()
     })
 
     const select = screen.getByLabelText("Filter transactions")
     fireEvent.change(select, { target: { value: "withdraw" } })
 
     await waitFor(() => {
-      expect(screen.getByText("withdraw")).toBeInTheDocument()
-      expect(screen.queryByText("deposit")).not.toBeInTheDocument()
+      expect(screen.getByText("Withdrawal")).toBeInTheDocument()
+      expect(screen.queryByText("Deposit")).not.toBeInTheDocument()
     })
   })
 

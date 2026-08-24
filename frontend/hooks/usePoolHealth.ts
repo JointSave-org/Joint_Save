@@ -75,7 +75,6 @@ export function usePoolHealth(
       cancelled = true
     }
     // memberKey captures the member set; poolLoading gates the empty case.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberKey, poolLoading])
 
   const health = useMemo<PoolHealth | null>(() => {
@@ -97,7 +96,6 @@ export function usePoolHealth(
     }
 
     return computePoolHealth(reps, historyObserved)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberKey, reputations, onchain, poolType, poolLoading, repsLoading])
 
   return { health, isLoading: poolLoading || repsLoading }

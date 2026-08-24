@@ -70,6 +70,9 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
   useSearchParams: () => new URLSearchParams(),
   useParams: () => ({}),
+  redirect: vi.fn(),
+  permanentRedirect: vi.fn(),
+  notFound: vi.fn(),
 }))
 
 // Mock @creit.tech/stellar-wallets-kit to prevent CommonJS import error with @stellar/freighter-api

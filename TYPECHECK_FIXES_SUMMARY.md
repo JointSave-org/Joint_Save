@@ -1,53 +1,62 @@
 # TypeScript Error Fixes for Main Branch
 
 ## Issue Summary
+
 Fixed 4 TypeScript errors in the main branch that were causing frontend CI (#54) to fail and creating noise for developers running typechecks locally.
 
 ## Errors Fixed
 
 ### Error 1 - Missing import in group-details.tsx
+
 - **Location**: `frontend/components/group/group-details.tsx:39`
 - **Error**: `error TS2304: Cannot find name 'useOptimisticTransactions'.
 - **Fix**: Added missing import:
   ```typescript
-  import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
+  import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions";
   ```
 - **Impact**: The optimistic transaction flow in group-details.tsx is now properly typed and functional
 
 ### Error 2 - STELLAR_RPC_URL not exported
+
 - **Location**: `frontend/components/group/yield-dashboard.tsx:15`
 - **Error**: `error TS2459: Module 'useJointSaveContracts' declares 'STELLAR_RPC_URL' locally, but it is not exported.
-- **Fix**: 
+- **Fix**:
   1. Exported `STELLAR_RPC_URL` from `frontend/components/web3-provider.tsx` along with other Stellar network configuration constants
   2. Updated `frontend/components/group/yield-dashboard.tsx` to import `STELLAR_RPC_URL` from `@/components/web3-provider` instead of `@/hooks/useJointSaveContracts`
 - **Impact**: yield-dashboard.tsx can now properly read the Stellar RPC URL from the correct location
 
 ### Error 3 - Missing rpc namespace import
+
 - **Location**: `frontend/components/group/yield-dashboard.tsx:48`
 - **Error**: `error TS2503: Cannot find namespace 'rpc'.
 - **Fix**: Added `rpc` to the Stellar SDK import in `frontend/components/group/yield-dashboard.tsx`:
   ```typescript
   import {
-    Contract, TransactionBuilder, BASE_FEE, nativeToScVal, xdr,
+    Contract,
+    TransactionBuilder,
+    BASE_FEE,
+    nativeToScVal,
+    xdr,
     Address,
     rpc,
-  } from "@stellar/stellar-sdk"
+  } from "@stellar/stellar-sdk";
   ```
 - **Impact**: rpc namespace references now properly resolve, enabling server simulation error checking and transaction response type casting
 
 ### Error 4 - LedgerEntryResult type mismatch (from PR #74)
+
 - **Location**: `frontend/hooks/useJointSaveContracts.ts:662`
 - **Error**: `error TS2339: Property 'xdr' does not exist on type 'LedgerEntryResult'.
 - **Fix**: Added proper type guard for `LedgerEntryResult` before accessing xdr property:
   ```typescript
   // Type guard for LedgerEntryResult to safely access xdr
-  let rawXdr = ""
-  
+  let rawXdr = "";
+
   if (entry && typeof entry === "object") {
     if ("xdr" in entry) {
-      rawXdr = entry.xdr
+      rawXdr = entry.xdr;
     } else if (entry.val && typeof (entry.val as any).toXDR === "function") {
-      rawXdr = (entry.val as any).toXDR("base64")
+      rawXdr = (entry.val as any).toXDR("base64");
     }
   }
   ```

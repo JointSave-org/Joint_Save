@@ -1,5 +1,5 @@
 import React from "react"
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor } from "@/test-utils"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
 // Static reference for use inside the framer-motion mock factory below.
@@ -47,6 +47,7 @@ vi.mock("@/components/web3-provider", () => ({
     isConnected: false,
     connect: vi.fn().mockResolvedValue(undefined),
   }),
+  Web3Provider: ({ children }: { children: React.ReactNode }) => children,
 }))
 
 vi.mock("framer-motion", () => {

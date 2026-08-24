@@ -178,7 +178,9 @@ export async function GET(req: NextRequest) {
     // Set cache
     cache.set(wallet, { data: responseData, timestamp: Date.now() })
 
-    return NextResponse.json(responseData)
+    return NextResponse.json(responseData, {
+      headers: { "Cache-Control": "private, no-cache" },
+    })
   } catch (_error) {
     // Return standard error payload
     return NextResponse.json({ error: "Failed to generate recommendations" }, { status: 500 })

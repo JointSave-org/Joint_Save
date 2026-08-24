@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { useQuery } from "@tanstack/react-query"
 import { useStellar } from "@/components/web3-provider"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -101,6 +102,8 @@ interface PoolAnalyticsData {
 }
 
 export function AnalyticsDashboard() {
+  const t = useTranslations("analytics")
+  const tPool = useTranslations("pool")
   const { address } = useStellar()
   const [selectedPoolId, setSelectedPoolId] = useState<string>("overview")
 
@@ -113,7 +116,7 @@ export function AnalyticsDashboard() {
     queryKey: ["analytics", "general", address],
     queryFn: async () => {
       const res = await fetch(`/api/analytics?userAddress=${address}`)
-      if (!res.ok) throw new Error("Failed to fetch analytics")
+      if (!res.ok) throw new Error(t("fetchAnalyticsError"))
       return res.json()
     },
     enabled: !!address,
@@ -138,12 +141,7 @@ export function AnalyticsDashboard() {
 
   // Export to CSV Function
   const handleExportCSV = () => {
-    const headers = [
-      "Date",
-      "Cumulative Deposits (XLM)",
-      "Cumulative Withdrawals (XLM)",
-      "Net Savings/Balance (XLM)",
-    ]
+    const headers = [t("csvDate"), t("csvDeposits"), t("csvWithdrawals"), t("csvBalance")]
     const dataPoints =
       selectedPoolId === "overview" ? generalData?.globalChartData || [] : poolData?.chartData || []
 
@@ -166,10 +164,8 @@ export function AnalyticsDashboard() {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <Wallet className="h-12 w-12 text-muted-foreground mb-4 animate-bounce" />
-        <h3 className="text-xl font-semibold">Wallet Connection Required</h3>
-        <p className="text-muted-foreground mt-1 max-w-sm">
-          Please connect your Stellar wallet to view savings pool analytics and performance metrics.
-        </p>
+        <h3 className="text-xl font-semibold">{t("walletRequiredTitle")}</h3>
+        <p className="text-muted-foreground mt-1 max-w-sm">{t("walletRequiredBody")}</p>
       </div>
     )
   }
@@ -178,9 +174,7 @@ export function AnalyticsDashboard() {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-muted-foreground font-medium animate-pulse">
-          Aggregating advanced pool analytics...
-        </p>
+        <p className="text-muted-foreground font-medium animate-pulse">{t("aggregating")}</p>
       </div>
     )
   }
@@ -189,11 +183,9 @@ export function AnalyticsDashboard() {
     return (
       <div className="p-6 bg-destructive/10 border border-destructive/20 rounded-xl text-center">
         <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
-        <h4 className="font-semibold text-destructive">Analytics Load Failed</h4>
+        <h4 className="font-semibold text-destructive">{t("loadFailedTitle")}</h4>
         <p className="text-sm text-muted-foreground mt-1">
-          {generalError instanceof Error
-            ? generalError.message
-            : "An error occurred while fetching metrics."}
+          {generalError instanceof Error ? generalError.message : t("loadFailedGeneric")}
         </p>
       </div>
     )
@@ -207,16 +199,14 @@ export function AnalyticsDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent">
-            Advanced Analytics
+            {t("title")}
           </h2>
           <div className="flex items-center gap-2 mt-1">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <p className="text-xs text-muted-foreground">
-              Real-time balance tracking active (refreshes every 10s)
-            </p>
+            <p className="text-xs text-muted-foreground">{t("realTimeNote")}</p>
           </div>
         </div>
 
@@ -225,10 +215,10 @@ export function AnalyticsDashboard() {
           {hasPools && (
             <Select value={selectedPoolId} onValueChange={setSelectedPoolId}>
               <SelectTrigger className="w-[200px] bg-background border-border hover:bg-muted/50 transition-colors">
-                <SelectValue placeholder="Select Analytics View" />
+                <SelectValue placeholder={t("selectViewPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="overview">Portfolio Overview</SelectItem>
+                <SelectItem value="overview">{t("portfolioOverview")}</SelectItem>
                 {generalData?.poolsAnalytics.map((pool) => (
                   <SelectItem key={pool.id} value={pool.id}>
                     {pool.name}
@@ -246,7 +236,7 @@ export function AnalyticsDashboard() {
             className="flex items-center gap-2 hover:bg-primary/10 hover:text-primary transition-all duration-300"
           >
             <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Export CSV</span>
+            <span className="hidden sm:inline">{t("exportCsv")}</span>
           </Button>
         </div>
       </div>
@@ -255,11 +245,8 @@ export function AnalyticsDashboard() {
         <Card className="border-dashed border-2 py-16 text-center">
           <CardContent className="flex flex-col items-center justify-center">
             <ActivityIcon className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold">No Analytics Data Yet</h3>
-            <p className="text-muted-foreground max-w-sm mt-1">
-              Join or create a savings pool first. Once contributions start, you'll see advanced
-              analytics here.
-            </p>
+            <h3 className="text-lg font-semibold">{t("noDataTitle")}</h3>
+            <p className="text-muted-foreground max-w-sm mt-1">{t("noDataBody")}</p>
           </CardContent>
         </Card>
       ) : selectedPoolId === "overview" ? (
@@ -270,7 +257,7 @@ export function AnalyticsDashboard() {
             <Card className="bg-card/50 backdrop-blur-md border-border/80 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Net Savings
+                  {t("totalNetSavings")}
                 </CardTitle>
                 <TrendingUp className="h-4 w-4 text-emerald-500" />
               </CardHeader>
@@ -278,14 +265,14 @@ export function AnalyticsDashboard() {
                 <div className="text-2xl font-bold">
                   {(generalData?.totalSaved || 0).toFixed(2)} XLM
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Across all savings groups</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("acrossAllGroups")}</p>
               </CardContent>
             </Card>
 
             <Card className="bg-card/50 backdrop-blur-md border-border/80 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Contributions
+                  {t("totalContributions")}
                 </CardTitle>
                 <Layers className="h-4 w-4 text-primary" />
               </CardHeader>
@@ -293,14 +280,14 @@ export function AnalyticsDashboard() {
                 <div className="text-2xl font-bold">
                   {(generalData?.totalDeposits || 0).toFixed(2)} XLM
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Cumulative deposits made</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("cumulativeDeposits")}</p>
               </CardContent>
             </Card>
 
             <Card className="bg-card/50 backdrop-blur-md border-border/80 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Payouts / Outflows
+                  {t("totalPayouts")}
                 </CardTitle>
                 <Wallet className="h-4 w-4 text-amber-500" />
               </CardHeader>
@@ -308,22 +295,20 @@ export function AnalyticsDashboard() {
                 <div className="text-2xl font-bold">
                   {(generalData?.totalWithdrawals || 0).toFixed(2)} XLM
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Withdrawals and payouts received
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">{t("withdrawalsReceived")}</p>
               </CardContent>
             </Card>
 
             <Card className="bg-card/50 backdrop-blur-md border-border/80 shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Average Pool Health
+                  {t("avgPoolHealth")}
                 </CardTitle>
                 <ActivityIcon className="h-4 w-4 text-emerald-400" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{generalData?.averageHealthScore || 100}%</div>
-                <p className="text-xs text-muted-foreground mt-1">Overall savings behavior score</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("overallScore")}</p>
               </CardContent>
             </Card>
           </div>
@@ -331,10 +316,8 @@ export function AnalyticsDashboard() {
           {/* Historical Performance Area Chart */}
           <Card className="p-6 bg-card/40 backdrop-blur-lg border-border">
             <CardHeader className="px-0 pt-0">
-              <CardTitle className="text-lg font-bold">Historical Portfolio Performance</CardTitle>
-              <CardDescription>
-                Visualizing deposit accumulation, withdrawals, and total balance trends over time.
-              </CardDescription>
+              <CardTitle className="text-lg font-bold">{t("historicalPerformance")}</CardTitle>
+              <CardDescription>{t("historicalPerformanceDesc")}</CardDescription>
             </CardHeader>
             <div className="h-[320px] w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
@@ -387,7 +370,7 @@ export function AnalyticsDashboard() {
                   <Legend verticalAlign="top" height={36} />
                   <Area
                     type="monotone"
-                    name="Net Savings (Balance)"
+                    name={t("netSavingsLegend")}
                     dataKey="balance"
                     stroke="#00C49F"
                     strokeWidth={2}
@@ -396,7 +379,7 @@ export function AnalyticsDashboard() {
                   />
                   <Area
                     type="monotone"
-                    name="Total Deposits"
+                    name={t("totalDepositsLegend")}
                     dataKey="deposits"
                     stroke="#3b82f6"
                     strokeWidth={1.5}
@@ -411,23 +394,19 @@ export function AnalyticsDashboard() {
           {/* Group Health Scoring & Risk Indicators List */}
           <Card className="bg-card/40 border-border">
             <CardHeader>
-              <CardTitle className="text-lg font-bold">
-                Group Health Scoring & Risk Indicators
-              </CardTitle>
-              <CardDescription>
-                Summary of risk levels based on savings activity and late payment factors.
-              </CardDescription>
+              <CardTitle className="text-lg font-bold">{t("healthScoringTitle")}</CardTitle>
+              <CardDescription>{t("healthScoringDesc")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border/80 text-muted-foreground font-semibold">
-                      <th className="py-3 px-4">Pool Name</th>
-                      <th className="py-3 px-4">Type</th>
-                      <th className="py-3 px-4">Health Score</th>
-                      <th className="py-3 px-4">Risk Level</th>
-                      <th className="py-3 px-4 text-right">Balance</th>
+                      <th className="py-3 px-4">{t("colPoolName")}</th>
+                      <th className="py-3 px-4">{t("colType")}</th>
+                      <th className="py-3 px-4">{t("colHealthScore")}</th>
+                      <th className="py-3 px-4">{t("colRiskLevel")}</th>
+                      <th className="py-3 px-4 text-right">{t("colBalance")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -439,7 +418,7 @@ export function AnalyticsDashboard() {
                       >
                         <td className="py-3.5 px-4 font-medium">{pool.name}</td>
                         <td className="py-3.5 px-4 capitalize text-muted-foreground">
-                          {pool.type}
+                          {tPool(`type.${pool.type}`)}
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-2">
@@ -457,7 +436,7 @@ export function AnalyticsDashboard() {
                                   : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
                             }
                           >
-                            {pool.riskIndicator} Risk
+                            {t("riskSuffix", { level: t(`riskLevels.${pool.riskIndicator}`) })}
                           </Badge>
                         </td>
                         <td className="py-3.5 px-4 text-right font-semibold">
@@ -475,13 +454,11 @@ export function AnalyticsDashboard() {
       isPoolLoading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground animate-pulse">
-            Loading specific pool analysis...
-          </p>
+          <p className="text-sm text-muted-foreground animate-pulse">{t("loadingPoolAnalysis")}</p>
         </div>
       ) : poolError ? (
         <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-center text-destructive">
-          Failed to load pool analytics.
+          {t("poolLoadFailed")}
         </div>
       ) : (
         <div className="space-y-6">
@@ -491,7 +468,7 @@ export function AnalyticsDashboard() {
             <Card className="bg-card/50 border-border relative overflow-hidden">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Pool Health
+                  {t("poolHealth")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col items-center py-4">
@@ -532,7 +509,7 @@ export function AnalyticsDashboard() {
                       {poolData?.metrics.health.healthScore}%
                     </span>
                     <span className="text-[10px] text-muted-foreground font-semibold uppercase">
-                      Score
+                      {t("scoreLabel")}
                     </span>
                   </div>
                 </div>
@@ -547,7 +524,9 @@ export function AnalyticsDashboard() {
                           : "bg-emerald-500/10 text-emerald-500"
                     }
                   >
-                    {poolData?.metrics.health.riskIndicator} Risk Level
+                    {t("riskLevelSuffix", {
+                      level: t(`riskLevels.${poolData?.metrics.health.riskIndicator}`),
+                    })}
                   </Badge>
                 </div>
               </CardContent>
@@ -557,25 +536,27 @@ export function AnalyticsDashboard() {
             <Card className="bg-card/50 border-border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Pool Balances
+                  {t("poolBalances")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-2">
                 <div>
-                  <span className="text-xs text-muted-foreground">Current Pool Balance</span>
+                  <span className="text-xs text-muted-foreground">{t("currentPoolBalance")}</span>
                   <div className="text-3xl font-black text-primary">
                     {poolData?.metrics.currentBalance.toFixed(2)} XLM
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/80">
                   <div>
-                    <span className="text-[10px] text-muted-foreground block">Deposits</span>
+                    <span className="text-[10px] text-muted-foreground block">{t("deposits")}</span>
                     <span className="text-sm font-bold">
                       {poolData?.metrics.totalDeposits.toFixed(2)} XLM
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-muted-foreground block">Withdrawals</span>
+                    <span className="text-[10px] text-muted-foreground block">
+                      {t("withdrawals")}
+                    </span>
                     <span className="text-sm font-bold">
                       {poolData?.metrics.totalWithdrawals.toFixed(2)} XLM
                     </span>
@@ -589,7 +570,7 @@ export function AnalyticsDashboard() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                   <Calendar className="h-4 w-4 text-primary" />
-                  Predictive Analytics
+                  {t("predictiveAnalytics")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-2">
@@ -601,7 +582,7 @@ export function AnalyticsDashboard() {
                     {poolData?.metrics.prediction.daysToTarget > 0 && (
                       <div className="pt-2">
                         <span className="text-xs font-semibold text-muted-foreground block mb-1">
-                          Progress toward Target ({poolData.pool.target_amount} XLM)
+                          {t("progressTowardTarget", { amount: poolData.pool.target_amount })}
                         </span>
                         <Progress
                           value={Math.min(
@@ -617,21 +598,20 @@ export function AnalyticsDashboard() {
                   </div>
                 ) : poolData?.pool.type === "rotational" ? (
                   <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      Rotational cycles execute automatically once all member contributions are
-                      verified.
-                    </p>
+                    <p className="text-sm text-muted-foreground">{t("rotationalAutoMessage")}</p>
                     <div className="p-3 bg-muted/40 rounded-lg text-xs space-y-1.5 mt-2 border border-border/50">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Round Duration:</span>
+                        <span className="text-muted-foreground">{t("roundDuration")}</span>
                         <span className="font-semibold">
                           {poolData?.pool.round_duration
-                            ? `${Math.round(poolData.pool.round_duration / 86400)} days`
-                            : "N/A"}
+                            ? t("daysCount", {
+                                count: Math.round(poolData.pool.round_duration / 86400),
+                              })
+                            : t("notAvailable")}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Cycle Payouts:</span>
+                        <span className="text-muted-foreground">{t("cyclePayouts")}</span>
                         <span className="font-semibold text-emerald-400">
                           {poolData?.pool.target_amount || poolData?.metrics.totalDeposits || 0} XLM
                         </span>
@@ -640,14 +620,8 @@ export function AnalyticsDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>
-                      Flexible saving structure allows withdrawals at any time (subject to
-                      configured fees).
-                    </p>
-                    <p className="text-xs pt-1">
-                      Predictive models suggest maintaining deposits for a minimum of 30 days to
-                      optimize yield compounding benefits.
-                    </p>
+                    <p>{t("flexibleMessage1")}</p>
+                    <p className="text-xs pt-1">{t("flexibleMessage2")}</p>
                   </div>
                 )}
               </CardContent>
@@ -659,9 +633,7 @@ export function AnalyticsDashboard() {
             {/* Pool Chart */}
             <Card className="lg:col-span-2 p-6 bg-card/40 border-border">
               <CardHeader className="px-0 pt-0">
-                <CardTitle className="text-lg font-bold">
-                  Pool Saving Accumulation Timeline
-                </CardTitle>
+                <CardTitle className="text-lg font-bold">{t("savingTimeline")}</CardTitle>
               </CardHeader>
               <div className="h-[280px] w-full mt-4">
                 <ResponsiveContainer width="100%" height="100%">
@@ -701,7 +673,7 @@ export function AnalyticsDashboard() {
                     />
                     <Area
                       type="monotone"
-                      name="Pool Balance"
+                      name={t("poolBalanceLegend")}
                       dataKey="balance"
                       stroke="#00C49F"
                       strokeWidth={2.5}
@@ -716,8 +688,8 @@ export function AnalyticsDashboard() {
             {/* User Participation Breakdown (Donut Chart) */}
             <Card className="bg-card/40 border-border p-6 flex flex-col justify-between">
               <CardHeader className="px-0 pt-0">
-                <CardTitle className="text-lg font-bold">Participation Metrics</CardTitle>
-                <CardDescription>Breakdown of current round payment status</CardDescription>
+                <CardTitle className="text-lg font-bold">{t("participationMetrics")}</CardTitle>
+                <CardDescription>{t("participationDesc")}</CardDescription>
               </CardHeader>
 
               <div className="flex-1 h-[180px] flex items-center justify-center">
@@ -725,9 +697,9 @@ export function AnalyticsDashboard() {
                   <PieChart>
                     <Pie
                       data={[
-                        { name: "Paid", value: poolData?.metrics.activeMembersCount || 0 },
-                        { name: "Pending", value: poolData?.metrics.pendingMembersCount || 0 },
-                        { name: "Late", value: poolData?.metrics.lateMembersCount || 0 },
+                        { name: t("paid"), value: poolData?.metrics.activeMembersCount || 0 },
+                        { name: t("pending"), value: poolData?.metrics.pendingMembersCount || 0 },
+                        { name: t("late"), value: poolData?.metrics.lateMembersCount || 0 },
                       ].filter((d) => d.value > 0)}
                       cx="50%"
                       cy="50%"
@@ -749,21 +721,21 @@ export function AnalyticsDashboard() {
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                    <span>Active / Paid</span>
+                    <span>{t("activePaid")}</span>
                   </div>
                   <span className="font-bold">{poolData?.metrics.activeMembersCount}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <div className="h-3 w-3 rounded-full bg-amber-500" />
-                    <span>Pending</span>
+                    <span>{t("pending")}</span>
                   </div>
                   <span className="font-bold">{poolData?.metrics.pendingMembersCount}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <div className="h-3 w-3 rounded-full bg-red-500" />
-                    <span>Late</span>
+                    <span>{t("late")}</span>
                   </div>
                   <span className="font-bold">{poolData?.metrics.lateMembersCount}</span>
                 </div>

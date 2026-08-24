@@ -90,6 +90,79 @@ export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<P
     const url = new URL(req.url())
     const method = req.method()
 
+    // ── Nested per-pool routes (issue #210) ──────────────────────────────────
+    // /api/pools/:id/activity, /api/pools/:id/activity/export,
+    // /api/pools/:id/index-events — must be handled before the sub-path
+    // fall-through below because the **/api/pools** glob captures them too.
+    const nested = url.pathname.match(
+      /\/api\/pools\/([^/]+)\/(activity\/export|activity|index-events)$/
+    )
+    if (nested) {
+      const [, poolId, endpoint] = nested
+      const pool = pools.find((p) => p.id === poolId || p.contract_address === poolId)
+      if (!pool) return json(route, { error: "Pool not found" }, 404)
+
+      if (endpoint === "index-events" && method === "POST") {
+        return json(route, {
+          eventsFound: 0,
+          updated: 0,
+          inserted: 0,
+          backfilled: 0,
+          lastIndexedLedger: 0,
+          indexedAt: new Date().toISOString(),
+        })
+      }
+
+      if (method === "GET") {
+        // Shared filter handling for activity + export
+        const search = (url.searchParams.get("search") ?? "").toLowerCase()
+        const type = url.searchParams.get("activity_type")
+        const sort = url.searchParams.get("sort") ?? "newest"
+        const pageNum = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10) || 1)
+        const pageSize = 50
+
+        let rows = [...pool.pool_activity]
+        if (search) {
+          rows = rows.filter((a) =>
+            [a.activity_type, a.description, a.user_address, a.tx_hash]
+              .filter(Boolean)
+              .some((v: string) => v.toLowerCase().includes(search))
+          )
+        }
+        if (type) rows = rows.filter((a) => a.activity_type === type)
+        rows.sort((a, b) => {
+          const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          return sort === "oldest" ? diff : -diff
+        })
+
+        if (endpoint === "activity/export") {
+          const csv = [
+            "ID,Activity Type,Amount,Transaction Hash,Created At",
+            ...rows.map((a) =>
+              [a.id, a.activity_type, a.amount ?? "", a.tx_hash ?? "", a.created_at].join(",")
+            ),
+          ].join("\n")
+          return route.fulfill({
+            status: 200,
+            contentType: "text/csv; charset=utf-8",
+            headers: { "Content-Disposition": `attachment; filename="pool-activity-e2e.csv"` },
+            body: csv,
+          })
+        }
+
+        const start = (pageNum - 1) * pageSize
+        const paged = rows.slice(start, start + pageSize)
+        return json(route, {
+          activities: paged,
+          page: pageNum,
+          pageSize,
+          total: rows.length,
+          hasMore: start + paged.length < rows.length,
+          lastIndexed: null,
+        })
+      }
+    }
+
     if (method === "GET") {
       const id = url.searchParams.get("id")
       const contract = url.searchParams.get("contract")
@@ -113,6 +186,29 @@ export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<P
         })
       }
       return json(route, pools)
+    }
+
+    if (method === "POST" && url.pathname.endsWith("/api/pools/deposit")) {
+      const body = req.postDataJSON() ?? {}
+      const pool = pools.find((p) => p.id === body.poolId)
+      if (pool) {
+        pool.pool_activity.unshift({
+          id: `act-deposit-${Date.now()}-${Math.random()}`,
+          activity_type: "deposit",
+          user_address: (body.userAddress ?? E2E_ADDRESS).toLowerCase(),
+          amount: body.amount ?? null,
+          description: "Deposit transaction",
+          created_at: new Date(0).toISOString(),
+          tx_hash: body.txHash ?? null,
+        })
+      }
+      return json(route, { verified: true })
+    }
+
+    // Remaining sub-paths (e.g. /api/pools/messages) — let later-registered
+    // routes (mockCommonApis) handle them instead of serving the pool list.
+    if (url.pathname !== "/api/pools" && url.pathname !== "/api/pools/") {
+      return route.continue()
     }
 
     if (method === "POST") {

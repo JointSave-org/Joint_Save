@@ -1,20 +1,22 @@
-"use client"
+﻿"use client"
 
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { CheckCircle2, Clock, XCircle, AlertCircle, Award, Copy, Check } from "lucide-react"
+import { CheckCircle2, Clock, XCircle, AlertCircle, Copy, Check, ArrowUpDown } from "lucide-react"
 import { useState, useEffect } from "react"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import {
   RotationalPoolState,
-  fetchReputation,
-  type ReputationScore,
+  fetchMembersReputationData,
+  type ReputationData,
 } from "@/hooks/useJointSaveContracts"
+import { ReputationBadge } from "@/components/shared/reputation-badge"
 import { useToast } from "@/hooks/use-toast"
 import { countPendingMembers, filterPendingMembers } from "@/lib/member-filters"
 
@@ -41,6 +43,7 @@ const statusAvatarClass: Record<Member["status"], string> = {
 }
 
 export function GroupMembers({ groupId, contractAddress, poolType }: GroupMembersProps) {
+  const t = useTranslations("group.members")
   // Prefer contract address as the cache key (already warming from GroupDetails
   // and GroupActivity on the same page). Fall back to DB id for pending pools.
   const cacheKey =
@@ -53,20 +56,22 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
   const members: Member[] = data?.db?.pool_members ?? []
   const onchainState = data?.onchain
 
-  const [reputations, setReputations] = useState<Record<string, ReputationScore>>({})
+  const [reputations, setReputations] = useState<Record<string, ReputationData>>({})
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
   const [showPendingOnly, setShowPendingOnly] = useState(false)
+  type SortKey = "score" | "joined" | "contribution"
+  const [sortBy, setSortBy] = useState<SortKey>("score")
 
   const handleCopyMemberAddress = async (address: string) => {
     try {
       await navigator.clipboard.writeText(address)
       setCopiedAddress(address)
-      toast({ title: "Address copied", description: "Member address copied to clipboard." })
+      toast({ title: t("addressCopiedTitle"), description: t("addressCopiedDescription") })
       setTimeout(() => setCopiedAddress(null), 2500)
     } catch {
       toast({
-        title: "Failed to copy",
-        description: "Please copy the address manually.",
+        title: t("copyFailedTitle"),
+        description: t("copyFailedDescription"),
         variant: "destructive",
       })
     }
@@ -75,21 +80,9 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
   useEffect(() => {
     if (members.length === 0) return
     const loadReputations = async () => {
-      const results = await Promise.allSettled(
-        members.map(
-          async (m) => [m.member_address, await fetchReputation(m.member_address)] as const
-        )
-      )
-      setReputations(
-        Object.fromEntries(
-          results
-            .filter(
-              (r): r is PromiseFulfilledResult<readonly [string, ReputationScore]> =>
-                r.status === "fulfilled"
-            )
-            .map((r) => r.value)
-        )
-      )
+      const addresses = members.map((m) => m.member_address)
+      const results = await fetchMembersReputationData(addresses)
+      setReputations(results)
     }
     loadReputations()
   }, [members])
@@ -113,11 +106,27 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
 
   // Client-side "pending only" view derived from data already on the page (no fetching).
   const pendingCount = countPendingMembers(members)
-  const visibleMembers = showPendingOnly ? filterPendingMembers(members) : members
+  const filteredMembers = showPendingOnly ? filterPendingMembers(members) : members
+
+  // Sort: score (desc), join date (asc), contribution (desc)
+  const visibleMembers = [...filteredMembers].sort((a, b) => {
+    if (sortBy === "score") {
+      const ra = reputations[a.member_address]
+      const rb = reputations[b.member_address]
+      const scoreA = ra ? ra.totalScore : 500
+      const scoreB = rb ? rb.totalScore : 500
+      return scoreB - scoreA
+    }
+    if (sortBy === "joined") {
+      return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
+    }
+    // contribution desc
+    return b.contribution_amount - a.contribution_amount
+  })
 
   if (isLoading && members.length === 0) {
     return (
-      <Card className="p-6" aria-label="Loading members">
+      <Card className="p-6" aria-label={t("loadingLabel")}>
         <Skeleton className="h-6 w-32 mb-4" />
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -143,38 +152,59 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
     <Card className="p-6">
       <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold">Members ({members.length})</h3>
+          <h3 className="text-lg font-semibold">{t("membersCount", { count: members.length })}</h3>
           {members.length > 0 && (
             <Badge
               variant="secondary"
               className="text-xs font-normal whitespace-nowrap tabular-nums"
             >
-              {pendingCount} pending
+              {t("pendingCount", { count: pendingCount })}
             </Badge>
           )}
         </div>
         {members.length > 0 && (
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            size="sm"
-            value={showPendingOnly ? "pending" : "all"}
-            onValueChange={(v) => setShowPendingOnly(v === "pending")}
-            aria-label="Filter members by deposit status"
-          >
-            <ToggleGroupItem value="all" aria-label="Show all members">
-              Show all
-            </ToggleGroupItem>
-            <ToggleGroupItem value="pending" aria-label="Show pending members only">
-              Pending only
-            </ToggleGroupItem>
-          </ToggleGroup>
+          <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              value={showPendingOnly ? "pending" : "all"}
+              onValueChange={(v) => setShowPendingOnly(v === "pending")}
+              aria-label={t("filterByStatusAria")}
+            >
+              <ToggleGroupItem value="all" aria-label={t("showAllAria")}>
+                {t("all")}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="pending" aria-label={t("showPendingOnlyAria")}>
+                {t("pendingLabel")}
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              value={sortBy}
+              onValueChange={(v) => v && setSortBy(v as "score" | "joined" | "contribution")}
+              aria-label={t("sortMembersAria")}
+            >
+              <ToggleGroupItem value="score" aria-label={t("sortByScoreAria")}>
+                <ArrowUpDown className="h-3 w-3 mr-1" />
+                {t("score")}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="joined" aria-label={t("sortByJoinDateAria")}>
+                {t("joined")}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="contribution" aria-label={t("sortByContributionAria")}>
+                {t("amount")}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         )}
       </div>
       {members.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">No members yet</p>
+        <p className="text-sm text-muted-foreground text-center py-4">{t("noMembersYet")}</p>
       ) : visibleMembers.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">Everyone has deposited</p>
+        <p className="text-sm text-muted-foreground text-center py-4">{t("everyoneDeposited")}</p>
       ) : (
         <div className="space-y-3">
           {visibleMembers.map((member) => {
@@ -205,7 +235,7 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
                         size="icon"
                         className="h-5 w-5 shrink-0"
                         onClick={() => handleCopyMemberAddress(member.member_address)}
-                        aria-label="Copy member address"
+                        aria-label={t("copyMemberAddressAria")}
                       >
                         {copiedAddress === member.member_address ? (
                           <Check className="h-3 w-3 text-green-500" />
@@ -224,7 +254,7 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
                     <>
                       <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 animate-pulse" />
                       <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 font-medium">
-                        payout pending
+                        {t("payoutPending")}
                       </span>
                     </>
                   )}
@@ -234,30 +264,27 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
                         <CheckCircle2
                           className="h-4 w-4 text-primary"
                           role="img"
-                          aria-label="Paid"
+                          aria-label={t("paidAria")}
                         />
                       )}
                       {member.status === "pending" && (
                         <Clock
                           className="h-4 w-4 text-yellow-700 dark:text-yellow-400"
                           role="img"
-                          aria-label="Pending"
+                          aria-label={t("pendingAria")}
                         />
                       )}
                       {member.status === "late" && (
                         <XCircle
                           className="h-4 w-4 text-destructive"
                           role="img"
-                          aria-label="Late"
+                          aria-label={t("lateAria")}
                         />
                       )}
                     </>
                   )}
                   {reputations[member.member_address] && (
-                    <Badge variant="outline" className="text-xs font-normal gap-1">
-                      <Award className="h-3 w-3" />
-                      {Math.round(reputations[member.member_address].onTimeRate / 100)}% on-time
-                    </Badge>
+                    <ReputationBadge data={reputations[member.member_address]} compact={false} />
                   )}
                 </div>
               </div>

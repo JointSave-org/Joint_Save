@@ -1,149 +1,266 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { useTranslations, useLocale } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { formatRelativeTime, formatExactDateTime } from "@/lib/utils"
 import {
   ArrowUpRight,
   ArrowDownLeft,
+  ArrowUpDown,
+  Download,
   UserPlus,
   Settings,
+  Search,
   Loader2,
   ExternalLink,
   RefreshCw,
   X,
 } from "lucide-react"
+import { useStellar } from "@/components/web3-provider"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
-import { fetchContractEvents, ActivityEvent } from "@/hooks/useJointSaveContracts"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { DateRangePicker } from "@/components/shared/date-range-picker"
+import { ACTIVITY_TYPES } from "@/lib/activity-query"
 
-const PAGE_SIZE = 20
+const ACTIVITY_TYPE_KEYS = [
+  "deposit",
+  "payout",
+  "withdraw",
+  "complete",
+  "member_joined",
+  "member_added",
+  "member_removed",
+  "pool_created",
+  "yield",
+] as const
 
-interface SupabaseActivity {
+interface Activity {
   id: string
   activity_type: string
   user_address: string | null
   amount: number | null
+  token_amount: number | null
   description: string | null
-  created_at: string
   tx_hash: string | null
+  on_chain_timestamp: string | null
+  block_number: number | null
+  fee_charged: number | null
+  created_at: string
+}
+
+interface LastIndexed {
+  ledger: number
+  indexedAt: string
+}
+
+interface ActivityResponse {
+  activities: Activity[]
+  page: number
+  pageSize: number
+  total: number
+  hasMore: boolean
+  lastIndexed: LastIndexed | null
 }
 
 interface GroupActivityProps {
   groupId: string
-  /** Contract address when known — used as the shared cache key */
+  /** Contract address when known — enables the Re-index action. */
   contractAddress?: string
+  /** Kept for call-site compatibility; indexing now tracks its own ledger. */
   startLedger?: number
 }
 
-type Activity = ActivityEvent
+export function GroupActivity({ groupId, contractAddress }: GroupActivityProps) {
+  const t = useTranslations("group.activity")
+  const locale = useLocale()
+  const { address } = useStellar()
 
-function toActivity(a: SupabaseActivity): Activity {
-  return { ...a, source: "offchain" as const }
-}
+  const activityTypeLabel = (type: string): string =>
+    (ACTIVITY_TYPE_KEYS as readonly string[]).includes(type)
+      ? t(`types.${type}` as "types.deposit")
+      : type
 
-function mergeAndDedupe(onchain: Activity[], offchain: Activity[]): Activity[] {
-  const seen = new Set<string>()
-  const merged: Activity[] = []
-  for (const a of [...onchain, ...offchain]) {
-    const key = a.tx_hash ?? a.id
-    if (seen.has(key)) continue
-    seen.add(key)
-    merged.push(a)
-  }
-  return merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-}
-
-/**
- * Filter activities to those whose created_at falls within [from, to].
- * If both are empty the full list is returned unchanged.
- */
-function applyDateFilter(activities: Activity[], from: string, to: string): Activity[] {
-  if (!from && !to) return activities
-
-  const fromMs = from ? new Date(from).setHours(0, 0, 0, 0) : -Infinity
-  // Use end-of-day for the "to" bound so the selected date is fully included.
-  const toMs = to ? new Date(to).setHours(23, 59, 59, 999) : Infinity
-
-  return activities.filter((a) => {
-    const ts = new Date(a.created_at).getTime()
-    return ts >= fromMs && ts <= toMs
-  })
-}
-
-export function GroupActivity({ groupId, contractAddress, startLedger = 0 }: GroupActivityProps) {
+  // The refresh action must also refresh the shared pool cache (balances and
+  // on-chain state shown elsewhere on the page), as it did before the feed
+  // moved to the server-side activity API.
   const cacheKey =
     contractAddress && contractAddress !== "pending_deployment" ? contractAddress : groupId
+  const { refetch: refetchPoolCache } = usePoolData(cacheKey)
 
-  const { data, isLoading, refetch: refetchCache } = usePoolData(cacheKey)
-  const [onchainActivities, setOnchainActivities] = useState<Activity[]>([])
-  const [loadingOnchain, setLoadingOnchain] = useState(false)
-  const [page, setPage] = useState(1)
-
-  // Date-range filter state
+  // Filters
+  const [search, setSearch] = useState("")
+  const debouncedSearch = useDebouncedValue(search, 300)
   const [fromDate, setFromDate] = useState("")
   const [toDate, setToDate] = useState("")
+  const [activityType, setActivityType] = useState("all")
+  const [sort, setSort] = useState<"newest" | "oldest">("newest")
 
-  const fetchOnchain = useCallback(async () => {
-    if (!contractAddress || contractAddress === "pending_deployment") return
-    try {
-      setLoadingOnchain(true)
-      const events = await fetchContractEvents(contractAddress, startLedger)
-      setOnchainActivities(events)
-    } catch (err) {
-      console.error("Failed to fetch onchain events:", err)
-    } finally {
-      setLoadingOnchain(false)
-    }
-  }, [contractAddress, startLedger])
+  // Data
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [total, setTotal] = useState(0)
+  const [lastIndexed, setLastIndexed] = useState<LastIndexed | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [indexing, setIndexing] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
+  // Guards against out-of-order responses when filters change quickly.
+  const requestSeq = useRef(0)
+
+  const buildParams = useCallback(
+    (targetPage: number) => {
+      const params = new URLSearchParams()
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim())
+      if (fromDate) params.set("date_from", fromDate)
+      if (toDate) params.set("date_to", toDate)
+      if (activityType !== "all") params.set("activity_type", activityType)
+      if (sort !== "newest") params.set("sort", sort)
+      if (targetPage > 1) params.set("page", String(targetPage))
+      return params
+    },
+    [debouncedSearch, fromDate, toDate, activityType, sort]
+  )
+
+  const fetchPage = useCallback(
+    async (targetPage: number, append: boolean) => {
+      const seq = ++requestSeq.current
+      if (append) setLoadingMore(true)
+      else setLoading(true)
+      try {
+        const res = await fetch(`/api/pools/${groupId}/activity?${buildParams(targetPage)}`)
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          throw new Error(body?.error || t("failedToLoadActivity"))
+        }
+        const data = (await res.json()) as Partial<ActivityResponse> | null
+        if (seq !== requestSeq.current) return // stale response
+        const rows = Array.isArray(data?.activities) ? data.activities : []
+        setActivities((prev) => (append ? [...prev, ...rows] : rows))
+        setPage(data?.page ?? targetPage)
+        setHasMore(data?.hasMore ?? false)
+        setTotal(data?.total ?? rows.length)
+        setLastIndexed(data?.lastIndexed ?? null)
+        setError(null)
+      } catch (err) {
+        if (seq !== requestSeq.current) return
+        setError((err as Error)?.message || t("failedToLoadActivity"))
+      } finally {
+        if (seq === requestSeq.current) {
+          setLoading(false)
+          setLoadingMore(false)
+        }
+      }
+    },
+    [groupId, buildParams, t]
+  )
+
+  // Refetch from page 1 whenever a filter changes (search is debounced).
   useEffect(() => {
-    fetchOnchain()
-  }, [fetchOnchain])
+    fetchPage(1, false)
+  }, [fetchPage])
 
-  const refetch = useCallback(async () => {
-    await Promise.all([refetchCache(), fetchOnchain()])
-  }, [refetchCache, fetchOnchain])
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([refetchPoolCache?.(), fetchPage(1, false)])
+  }, [refetchPoolCache, fetchPage])
 
-  // Reset pagination whenever the date filter changes so the user always
-  // sees from the first page of the newly-filtered result set.
-  const handleFromChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFromDate(e.target.value)
-    setPage(1)
+  const handleReindex = async () => {
+    if (!address || !contractAddress || contractAddress === "pending_deployment") return
+    setIndexing(true)
+    setNotice(null)
+    try {
+      const res = await fetch(`/api/pools/${groupId}/index-events`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wallet-address": address,
+        },
+        body: JSON.stringify({ wallet_address: address }),
+      })
+      const body = await res.json().catch(() => null)
+      if (res.status === 403) {
+        setNotice(t("onlyMembersCanReindex"))
+        return
+      }
+      if (!res.ok) {
+        setNotice(body?.error || t("indexingFailed"))
+        return
+      }
+      if (body?.warning) setNotice(body.warning)
+      await fetchPage(1, false)
+    } catch {
+      setNotice(t("indexingFailed"))
+    } finally {
+      setIndexing(false)
+    }
   }
 
-  const handleToChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setToDate(e.target.value)
-    setPage(1)
+  const handleExport = async () => {
+    if (!address) return
+    setExporting(true)
+    setNotice(null)
+    try {
+      const params = buildParams(1)
+      params.delete("page")
+      params.set("wallet", address)
+      const res = await fetch(`/api/pools/${groupId}/activity/export?${params}`)
+      if (res.status === 429) {
+        const body = await res.json().catch(() => null)
+        const wait = body?.retryAfterSec
+        setNotice(
+          wait
+            ? t("exportLimitReachedWithWait", { minutes: Math.ceil(wait / 60) })
+            : t("exportLimitReached")
+        )
+        return
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        setNotice(body?.error || t("exportFailed"))
+        return
+      }
+      const blob = await res.blob()
+      const disposition = res.headers.get("Content-Disposition") || ""
+      const filename =
+        disposition.match(/filename="([^"]+)"/)?.[1] ?? `pool-activity-${groupId.slice(0, 8)}.csv`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setNotice(t("exportFailed"))
+    } finally {
+      setExporting(false)
+    }
   }
 
-  const clearFilter = () => {
-    setFromDate("")
-    setToDate("")
-    setPage(1)
+  const formatAddress = (addr: string | null) => {
+    if (!addr) return t("system")
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
   }
 
-  const isFiltered = fromDate !== "" || toDate !== ""
+  const isFiltered =
+    debouncedSearch.trim() !== "" || fromDate !== "" || toDate !== "" || activityType !== "all"
+  const canReindex = !!address && !!contractAddress && contractAddress !== "pending_deployment"
 
-  const dbActivities = (data?.db?.pool_activity ?? []).map(toActivity)
-  const allActivities = mergeAndDedupe(onchainActivities, dbActivities)
-
-  // Apply date-range filter before pagination
-  const filteredActivities = applyDateFilter(allActivities, fromDate, toDate)
-
-  const formatAddress = (address: string | null) => {
-    if (!address) return "System"
-    return `${address.slice(0, 6)}...${address.slice(-4)}`
-  }
-
-  const visible = filteredActivities.slice(0, page * PAGE_SIZE)
-  const hasMore = visible.length < filteredActivities.length
-
-  if (isLoading && allActivities.length === 0) {
+  if (loading && activities.length === 0 && !error) {
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center py-8">
@@ -155,175 +272,263 @@ export function GroupActivity({ groupId, contractAddress, startLedger = 0 }: Gro
 
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Recent Activity</h3>
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-lg font-semibold">{t("recentActivity")}</h3>
         <Button
           variant="ghost"
           size="sm"
-          onClick={refetch}
-          disabled={isLoading || loadingOnchain}
-          className="h-8 w-8 p0"
+          onClick={handleRefresh}
+          disabled={loading}
+          className="h-8 w-8 p-0"
+          aria-label={t("refreshActivityAria")}
         >
-          <RefreshCw className={`h-4 w-4 ${isLoading || loadingOnchain ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>
 
-      {/* ── Date-range filter ───────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-end gap-3 mb-4">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="activity-from" className="text-xs text-muted-foreground">
-            From
-          </Label>
-          <Input
-            id="activity-from"
-            type="date"
-            value={fromDate}
-            onChange={handleFromChange}
-            max={toDate || undefined}
-            className="h-8 text-sm w-36"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="activity-to" className="text-xs text-muted-foreground">
-            To
-          </Label>
-          <Input
-            id="activity-to"
-            type="date"
-            value={toDate}
-            onChange={handleToChange}
-            min={fromDate || undefined}
-            className="h-8 text-sm w-36"
-          />
-        </div>
-        {isFiltered && (
+      {/* ── Indexing status ────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <p className="text-xs text-muted-foreground">
+          {lastIndexed ? (
+            <>
+              {t("lastIndexed")}{" "}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <time dateTime={lastIndexed.indexedAt} className="cursor-default" tabIndex={0}>
+                    {formatRelativeTime(lastIndexed.indexedAt, locale)}
+                  </time>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {formatExactDateTime(lastIndexed.indexedAt, locale)}
+                </TooltipContent>
+              </Tooltip>
+            </>
+          ) : (
+            t("neverIndexed")
+          )}
+        </p>
+        {canReindex && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            onClick={clearFilter}
-            className="h-8 gap-1 text-xs"
-            aria-label="Clear date filter"
+            className="h-6 gap-1 text-xs px-2"
+            onClick={handleReindex}
+            disabled={indexing}
           >
-            <X className="h-3 w-3" />
-            Clear
+            <RefreshCw className={`h-3 w-3 ${indexing ? "animate-spin" : ""}`} />
+            {indexing ? t("indexingEllipsis") : t("reindex")}
           </Button>
         )}
       </div>
-      {/* ─────────────────────────────────────────────────────────────────── */}
 
-      {filteredActivities.length === 0 ? (
+      {/* ── Search + filters ───────────────────────────────────────────────── */}
+      <div className="space-y-3 mb-4">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder={t("searchActivityPlaceholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 pl-8 pr-8 text-sm"
+            aria-label={t("searchActivityAria")}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label={t("clearSearchAria")}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <DateRangePicker
+            from={fromDate}
+            to={toDate}
+            onChange={(from, to) => {
+              setFromDate(from)
+              setToDate(to)
+            }}
+            idPrefix="activity"
+          />
+          <Select value={activityType} onValueChange={setActivityType}>
+            <SelectTrigger className="h-8 w-40 text-sm" aria-label={t("filterByTypeAria")}>
+              <SelectValue placeholder={t("allTypes")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("allTypes")}</SelectItem>
+              {ACTIVITY_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {activityTypeLabel(type)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1 text-xs"
+            onClick={() => setSort((s) => (s === "newest" ? "oldest" : "newest"))}
+            aria-label={t("toggleSortOrderAria")}
+          >
+            <ArrowUpDown className="h-3 w-3" />
+            {sort === "newest" ? t("newestFirst") : t("oldestFirst")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1 text-xs"
+            onClick={handleExport}
+            disabled={exporting || !address || total === 0}
+            title={!address ? t("connectWalletToExport") : undefined}
+          >
+            {exporting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Download className="h-3 w-3" />
+            )}
+            {t("export")}
+          </Button>
+        </div>
+      </div>
+      {/* ───────────────────────────────────────────────────────────────────── */}
+
+      {notice && (
+        <p className="text-xs text-amber-600 dark:text-amber-500 mb-3" role="status">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p className="text-sm text-destructive text-center py-4" role="alert">
+          {error}
+        </p>
+      )}
+
+      {!error && activities.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">
-          {isFiltered ? "No activity found in the selected date range." : "No activity yet"}
+          {isFiltered ? t("noActivityMatchesFilters") : t("noActivityYet")}
         </p>
       ) : (
-        <>
-          <div className="space-y-4">
-            {visible.map((activity: Activity) => (
-              <div
-                key={activity.id}
-                className="flex items-start gap-4 pb-4 border-b border-border last:border-0 last:pb-0"
-              >
+        !error && (
+          <>
+            <div className="space-y-4">
+              {activities.map((activity) => (
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0 ${
-                    activity.activity_type === "deposit"
-                      ? "bg-primary/10"
-                      : activity.activity_type === "payout"
-                        ? "bg-accent/10"
-                        : "bg-muted"
-                  }`}
+                  key={activity.id}
+                  className="flex items-start gap-4 pb-4 border-b border-border last:border-0 last:pb-0"
                 >
-                  {activity.activity_type === "deposit" && (
-                    <ArrowUpRight className="h-5 w-5 text-primary" />
-                  )}
-                  {activity.activity_type === "payout" && (
-                    <ArrowDownLeft className="h-5 w-5 text-accent" />
-                  )}
-                  {activity.activity_type === "member_joined" && (
-                    <UserPlus className="h-5 w-5 text-muted-foreground" />
-                  )}
-                  {!["deposit", "payout", "member_joined"].includes(activity.activity_type) && (
-                    <Settings className="h-5 w-5 text-muted-foreground" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <p className="font-medium text-sm capitalize">
-                      {(
-                        {
-                          deposit: "Deposit",
-                          payout: "Payout",
-                          withdraw: "Withdraw",
-                          complete: "Pool Complete",
-                          member_joined: "Member Joined",
-                          pool_created: "Pool Created",
-                          yield: "Yield Distributed",
-                        } as Record<string, string>
-                      )[activity.activity_type] ?? activity.activity_type}
-                    </p>
-                    {activity.amount != null && (
-                      <Badge variant="secondary">{activity.amount.toFixed(2)} XLM</Badge>
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0 ${
+                      activity.activity_type === "deposit"
+                        ? "bg-primary/10"
+                        : activity.activity_type === "payout"
+                          ? "bg-accent/10"
+                          : "bg-muted"
+                    }`}
+                  >
+                    {activity.activity_type === "deposit" && (
+                      <ArrowUpRight className="h-5 w-5 text-primary" />
                     )}
-                    <Badge
-                      variant="outline"
-                      className={`text-xs ${
-                        activity.source === "onchain"
-                          ? "border-blue-400 text-blue-600"
-                          : "border-gray-300 text-gray-500"
-                      }`}
-                    >
-                      {activity.source === "onchain" ? "🔗 on-chain" : "📝 off-chain"}
-                    </Badge>
+                    {activity.activity_type === "payout" && (
+                      <ArrowDownLeft className="h-5 w-5 text-accent" />
+                    )}
+                    {activity.activity_type === "member_joined" && (
+                      <UserPlus className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    {!["deposit", "payout", "member_joined"].includes(activity.activity_type) && (
+                      <Settings className="h-5 w-5 text-muted-foreground" />
+                    )}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <p className="font-medium text-sm capitalize">
+                        {activityTypeLabel(activity.activity_type)}
+                      </p>
+                      {activity.amount != null && (
+                        <Badge variant="secondary">{activity.amount.toFixed(2)} XLM</Badge>
+                      )}
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${
+                          activity.on_chain_timestamp
+                            ? "border-blue-400 text-blue-600"
+                            : "border-gray-300 text-gray-500"
+                        }`}
+                      >
+                        {activity.on_chain_timestamp ? t("onChain") : t("offChain")}
+                      </Badge>
+                    </div>
 
-                  <p className="text-xs text-muted-foreground">
-                    {formatAddress(activity.user_address)} •{" "}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <time
-                          dateTime={activity.created_at}
-                          className="cursor-default"
-                          tabIndex={0}
-                        >
-                          {formatRelativeTime(activity.created_at)}
-                        </time>
-                      </TooltipTrigger>
-                      <TooltipContent>{formatExactDateTime(activity.created_at)}</TooltipContent>
-                    </Tooltip>
-                  </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatAddress(activity.user_address)} •{" "}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <time
+                            dateTime={activity.on_chain_timestamp ?? activity.created_at}
+                            className="cursor-default"
+                            tabIndex={0}
+                          >
+                            {formatRelativeTime(
+                              activity.on_chain_timestamp ?? activity.created_at,
+                              locale
+                            )}
+                          </time>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {formatExactDateTime(
+                            activity.on_chain_timestamp ?? activity.created_at,
+                            locale
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                      {activity.block_number != null && (
+                        <> • {t("ledgerNumber", { number: activity.block_number })}</>
+                      )}
+                    </p>
 
-                  {activity.description && (
-                    <p className="text-xs text-muted-foreground mt-1">{activity.description}</p>
-                  )}
+                    {activity.description && (
+                      <p className="text-xs text-muted-foreground mt-1">{activity.description}</p>
+                    )}
 
-                  {activity.tx_hash ? (
-                    <a
-                      href={`https://stellar.expert/explorer/testnet/tx/${activity.tx_hash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
-                    >
-                      {activity.tx_hash.slice(0, 8)}…{activity.tx_hash.slice(-6)}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : (
-                    <p className="text-xs text-muted-foreground mt-1">No tx hash</p>
-                  )}
+                    {activity.tx_hash ? (
+                      <a
+                        href={`https://stellar.expert/explorer/testnet/tx/${activity.tx_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                      >
+                        {activity.tx_hash.slice(0, 8)}…{activity.tx_hash.slice(-6)}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-1">{t("noTxHash")}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          {hasMore && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full mt-4"
-              onClick={() => setPage((p: number) => p + 1)}
-            >
-              Load more
-            </Button>
-          )}
-        </>
+            {hasMore && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-4"
+                onClick={() => fetchPage(page + 1, true)}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  t("loadMore", { shown: activities.length, total })
+                )}
+              </Button>
+            )}
+          </>
+        )
       )}
     </Card>
   )

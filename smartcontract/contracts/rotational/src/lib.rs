@@ -185,9 +185,22 @@ impl RotationalPool {
             payout_amount,
         );
 
+        let is_final_round = current_round + 1 >= members.len();
+
         Self::report_payout(&env, &beneficiary);
         for m in missed_members.iter() {
             Self::report_missed_round(&env, &m);
+        }
+
+        // If this is the last round, call update_score with pool_completed=true
+        // for every member who deposited in this round.
+        if is_final_round {
+            for m in members.iter() {
+                let did_deposit = storage
+                    .get::<DataKey, bool>(&DataKey::HasDeposited(m.clone()))
+                    .unwrap_or(false);
+                Self::report_update_score(&env, &m, did_deposit, true);
+            }
         }
 
         // Reset deposits for next round
@@ -196,7 +209,7 @@ impl RotationalPool {
         }
 
         let next_round = current_round + 1;
-        if next_round >= members.len() {
+        if is_final_round {
             storage.set(&DataKey::Active, &false);
             env.events()
                 .publish((symbol_short!("complete"),), Symbol::new(&env, "pool_done"));
@@ -209,6 +222,7 @@ impl RotationalPool {
         }
         Self::bump_config_state_internal(&env);
     }
+
 
     pub fn add_member(env: Env, admin: Address, new_member: Address) {
         admin.require_auth();
@@ -643,6 +657,30 @@ impl RotationalPool {
                 &tracker,
                 &Symbol::new(env, "record_missed_round"),
                 soroban_sdk::vec![env, pool.into_val(env), member.into_val(env)],
+            );
+        }
+    }
+
+    /// Call `update_score` on the reputation tracker — used for pool-completion
+    /// events where we also need to set `pool_completed = true`.
+    fn report_update_score(
+        env: &Env,
+        member: &Address,
+        deposit_success: bool,
+        pool_completed: bool,
+    ) {
+        if let Some(tracker) = Self::reputation_tracker_addr(env) {
+            let pool = env.current_contract_address();
+            env.invoke_contract::<()>(
+                &tracker,
+                &Symbol::new(env, "update_score"),
+                soroban_sdk::vec![
+                    env,
+                    pool.into_val(env),
+                    member.into_val(env),
+                    deposit_success.into_val(env),
+                    pool_completed.into_val(env)
+                ],
             );
         }
     }

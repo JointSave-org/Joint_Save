@@ -231,31 +231,34 @@ export async function GET(req: NextRequest) {
           if (error) console.error("Failed to update health scores table:", error)
         })
 
-      return NextResponse.json({
-        pool,
-        metrics: {
-          currentBalance,
-          totalDeposits,
-          totalWithdrawals,
-          health: storedHealth
-            ? {
-                healthScore: storedHealth.health_score,
-                participationRate: storedHealth.participation_rate,
-                riskIndicator: storedHealth.risk_indicator,
-              }
-            : calculatedHealth,
-          prediction,
-          membersCount: activeMembers.length,
-          activeMembersCount: activeMembers.filter((m: { status: string }) => m.status === "paid")
-            .length,
-          lateMembersCount: activeMembers.filter((m: { status: string }) => m.status === "late")
-            .length,
-          pendingMembersCount: activeMembers.filter(
-            (m: { status: string }) => m.status === "pending"
-          ).length,
+      return NextResponse.json(
+        {
+          pool,
+          metrics: {
+            currentBalance,
+            totalDeposits,
+            totalWithdrawals,
+            health: storedHealth
+              ? {
+                  healthScore: storedHealth.health_score,
+                  participationRate: storedHealth.participation_rate,
+                  riskIndicator: storedHealth.risk_indicator,
+                }
+              : calculatedHealth,
+            prediction,
+            membersCount: activeMembers.length,
+            activeMembersCount: activeMembers.filter((m: { status: string }) => m.status === "paid")
+              .length,
+            lateMembersCount: activeMembers.filter((m: { status: string }) => m.status === "late")
+              .length,
+            pendingMembersCount: activeMembers.filter(
+              (m: { status: string }) => m.status === "pending"
+            ).length,
+          },
+          chartData,
         },
-        chartData,
-      })
+        { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }
+      )
     }
 
     // Case 2: User-specific dashboard aggregation
@@ -272,61 +275,67 @@ export async function GET(req: NextRequest) {
 
       if (userPools.length === 0) {
         if (isDev && useMock) {
-          return NextResponse.json({
-            totalPools: 3,
-            totalSaved: 1250.0,
-            totalDeposits: 1800.0,
-            totalWithdrawals: 550.0,
-            averageHealthScore: 88,
-            poolsAnalytics: [
-              {
-                id: "pool-rotational",
-                name: "Family Rotational Savings",
-                type: "rotational",
-                status: "active",
-                balance: 500.0,
-                healthScore: 95,
-                riskIndicator: "Low",
-              },
-              {
-                id: "pool-target",
-                name: "Tech Upgrade Fund",
-                type: "target",
-                status: "active",
-                balance: 450.0,
-                healthScore: 78,
-                riskIndicator: "Medium",
-              },
-              {
-                id: "pool-flexible",
-                name: "Emergency Rainy Day",
-                type: "flexible",
-                status: "active",
-                balance: 300.0,
-                healthScore: 90,
-                riskIndicator: "Low",
-              },
-            ],
-            globalChartData: [
-              { date: "Jun 10", deposits: 300, withdrawals: 0, balance: 300 },
-              { date: "Jun 11", deposits: 500, withdrawals: 50, balance: 450 },
-              { date: "Jun 12", deposits: 800, withdrawals: 100, balance: 700 },
-              { date: "Jun 13", deposits: 1100, withdrawals: 200, balance: 900 },
-              { date: "Jun 14", deposits: 1400, withdrawals: 300, balance: 1100 },
-              { date: "Jun 15", deposits: 1800, withdrawals: 550, balance: 1250 },
-            ],
-          })
+          return NextResponse.json(
+            {
+              totalPools: 3,
+              totalSaved: 1250.0,
+              totalDeposits: 1800.0,
+              totalWithdrawals: 550.0,
+              averageHealthScore: 88,
+              poolsAnalytics: [
+                {
+                  id: "pool-rotational",
+                  name: "Family Rotational Savings",
+                  type: "rotational",
+                  status: "active",
+                  balance: 500.0,
+                  healthScore: 95,
+                  riskIndicator: "Low",
+                },
+                {
+                  id: "pool-target",
+                  name: "Tech Upgrade Fund",
+                  type: "target",
+                  status: "active",
+                  balance: 450.0,
+                  healthScore: 78,
+                  riskIndicator: "Medium",
+                },
+                {
+                  id: "pool-flexible",
+                  name: "Emergency Rainy Day",
+                  type: "flexible",
+                  status: "active",
+                  balance: 300.0,
+                  healthScore: 90,
+                  riskIndicator: "Low",
+                },
+              ],
+              globalChartData: [
+                { date: "Jun 10", deposits: 300, withdrawals: 0, balance: 300 },
+                { date: "Jun 11", deposits: 500, withdrawals: 50, balance: 450 },
+                { date: "Jun 12", deposits: 800, withdrawals: 100, balance: 700 },
+                { date: "Jun 13", deposits: 1100, withdrawals: 200, balance: 900 },
+                { date: "Jun 14", deposits: 1400, withdrawals: 300, balance: 1100 },
+                { date: "Jun 15", deposits: 1800, withdrawals: 550, balance: 1250 },
+              ],
+            },
+            { headers: { "Cache-Control": "private, no-cache" } }
+          )
         }
 
-        return NextResponse.json({
-          totalPools: 0,
-          totalSaved: 0,
-          totalDeposits: 0,
-          totalWithdrawals: 0,
-          averageHealthScore: 100,
-          poolsAnalytics: [],
-          globalChartData: [],
-        })
+        return NextResponse.json(
+          {
+            totalPools: 0,
+            totalSaved: 0,
+            totalDeposits: 0,
+            totalWithdrawals: 0,
+            averageHealthScore: 100,
+            poolsAnalytics: [],
+            globalChartData: [],
+          },
+          { headers: { "Cache-Control": "private, no-cache" } }
+        )
       }
 
       const poolIds = userPools.map((p: { id: string }) => p.id)
@@ -410,15 +419,18 @@ export async function GET(req: NextRequest) {
         )
       )
 
-      return NextResponse.json({
-        totalPools: userPools.length,
-        totalSaved,
-        totalDeposits,
-        totalWithdrawals,
-        averageHealthScore,
-        poolsAnalytics,
-        globalChartData,
-      })
+      return NextResponse.json(
+        {
+          totalPools: userPools.length,
+          totalSaved,
+          totalDeposits,
+          totalWithdrawals,
+          averageHealthScore,
+          poolsAnalytics,
+          globalChartData,
+        },
+        { headers: { "Cache-Control": "private, no-cache" } }
+      )
     }
 
     // Case 3: Global platform analytics
@@ -444,13 +456,16 @@ export async function GET(req: NextRequest) {
 
     const globalChartData = aggregateHistoricalData(activities)
 
-    return NextResponse.json({
-      totalPools: pools.length,
-      totalDeposits,
-      totalWithdrawals,
-      activePools: pools.filter((p: { status: string }) => p.status === "active").length,
-      globalChartData,
-    })
+    return NextResponse.json(
+      {
+        totalPools: pools.length,
+        totalDeposits,
+        totalWithdrawals,
+        activePools: pools.filter((p: { status: string }) => p.status === "active").length,
+        globalChartData,
+      },
+      { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }
+    )
   } catch (error) {
     console.error("Analytics fetch error:", error)
     return NextResponse.json(

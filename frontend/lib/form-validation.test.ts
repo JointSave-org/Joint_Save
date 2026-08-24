@@ -34,5 +34,19 @@ test("findDuplicateAddresses - trims whitespace before comparing", () => {
 
 test("validateStellarAddress - still rejects malformed addresses independently of duplicate checks", () => {
   assert.strictEqual(validateStellarAddress("not-an-address").valid, false)
-  assert.strictEqual(validateStellarAddress(A).valid, true)
+})
+
+test("validateStellarAddress - accepts real checksum-valid addresses", () => {
+  // Generated via StrKey.encodeEd25519PublicKey — decodable, CRC16-valid strkeys.
+  const valid = "GADUCKBBLGEFTAGKVQRK4FYPX4MLE7XL5TZQQI4E7BATRROUE2L2UVDJ"
+  assert.strictEqual(validateStellarAddress(valid).valid, true)
+})
+
+test("validateStellarAddress - rejects well-formed strings with a bad checksum", () => {
+  // 56 chars, correct charset, starts with G — but the CRC16 checksum is wrong,
+  // so downstream ScVal encoding (nativeToScVal) would throw on it.
+  const badChecksum = "GDXOINK23J7YV2E3ZHKWKW6CWYD2OYBWYO7GWAJ3H5XQ6SJBXMZ6IYJH"
+  const result = validateStellarAddress(badChecksum)
+  assert.strictEqual(result.valid, false)
+  assert.match(result.message, /checksum/i)
 })

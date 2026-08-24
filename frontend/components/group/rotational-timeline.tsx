@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import { useTranslations } from "next-intl"
 import { Check, Circle, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -144,6 +145,7 @@ interface TimelineNodeProps {
 }
 
 function TimelineNode({ node }: TimelineNodeProps) {
+  const t = useTranslations("group.timeline")
   const { status, shortAddress, index, paidRound, payoutDate, payoutAmount } = node
 
   const nodeContent = (
@@ -177,9 +179,9 @@ function TimelineNode({ node }: TimelineNodeProps) {
               : "text-muted-foreground"
         }`}
       >
-        {status === "paid" && `R${(paidRound ?? index) + 1}`}
-        {status === "current" && "Current"}
-        {status === "upcoming" && `R${index + 1}`}
+        {status === "paid" && t("roundShort", { number: (paidRound ?? index) + 1 })}
+        {status === "current" && t("current")}
+        {status === "upcoming" && t("roundShort", { number: index + 1 })}
       </span>
     </div>
   )
@@ -192,10 +194,10 @@ function TimelineNode({ node }: TimelineNodeProps) {
         </TooltipTrigger>
         <TooltipContent>
           <div className="text-xs space-y-1">
-            <p className="font-medium">Round {(paidRound ?? index) + 1}</p>
+            <p className="font-medium">{t("round", { number: (paidRound ?? index) + 1 })}</p>
             {payoutDate && (
               <p className="text-muted-foreground">
-                Paid: {new Date(payoutDate).toLocaleDateString()}
+                {t("paidOn", { date: new Date(payoutDate).toLocaleDateString() })}
               </p>
             )}
             {payoutAmount != null && (
@@ -215,6 +217,7 @@ interface TimelineNodeVerticalProps extends TimelineNodeProps {
 }
 
 function TimelineNodeVertical({ node, isLast }: TimelineNodeVerticalProps) {
+  const t = useTranslations("group.timeline")
   const { status, shortAddress, index, paidRound, payoutDate, payoutAmount } = node
 
   const nodeContent = (
@@ -255,9 +258,9 @@ function TimelineNodeVertical({ node, isLast }: TimelineNodeVerticalProps) {
                   : ""
             }`}
           >
-            {status === "paid" && `Paid R${(paidRound ?? index) + 1}`}
-            {status === "current" && "Current"}
-            {status === "upcoming" && `Round ${index + 1}`}
+            {status === "paid" && t("paidRoundShort", { number: (paidRound ?? index) + 1 })}
+            {status === "current" && t("current")}
+            {status === "upcoming" && t("round", { number: index + 1 })}
           </Badge>
         </div>
         {status === "paid" && payoutDate && (
@@ -278,10 +281,10 @@ function TimelineNodeVertical({ node, isLast }: TimelineNodeVerticalProps) {
         </TooltipTrigger>
         <TooltipContent>
           <div className="text-xs space-y-1">
-            <p className="font-medium">Round {(paidRound ?? index) + 1}</p>
+            <p className="font-medium">{t("round", { number: (paidRound ?? index) + 1 })}</p>
             {payoutDate && (
               <p className="text-muted-foreground">
-                Paid: {new Date(payoutDate).toLocaleDateString()}
+                {t("paidOn", { date: new Date(payoutDate).toLocaleDateString() })}
               </p>
             )}
             {payoutAmount != null && (

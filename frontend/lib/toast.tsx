@@ -13,45 +13,53 @@ const STELLAR_EXPERT_BASE =
     ? "https://stellar.expert/explorer/public"
     : "https://stellar.expert/explorer/testnet"
 
+interface ToastTitleOptions {
+  /** Pre-translated title. Falls back to the English default when omitted. */
+  title?: string
+  /** Pre-translated label for the "View on Explorer" action, when a txHash is provided. */
+  viewOnExplorerLabel?: string
+}
+
 class ToastManager {
-  success(message: string, duration?: number, txHash?: string) {
+  success(message: string, duration?: number, txHash?: string, options?: ToastTitleOptions) {
+    const viewOnExplorerLabel = options?.viewOnExplorerLabel ?? "View on Explorer"
     toast({
-      title: "Success",
+      title: options?.title ?? "Success",
       description: message,
       variant: "success",
       duration,
       action: txHash ? (
         <ToastAction
-          altText="View on Explorer"
+          altText={viewOnExplorerLabel}
           onClick={() => window.open(`${STELLAR_EXPERT_BASE}/tx/${txHash}`, "_blank")}
         >
-          View on Explorer
+          {viewOnExplorerLabel}
         </ToastAction>
       ) : undefined,
     })
   }
 
-  error(message: string, _duration?: number) {
+  error(message: string, _duration?: number, options?: ToastTitleOptions) {
     toast({
-      title: "Error",
+      title: options?.title ?? "Error",
       description: message,
       variant: "error",
       // Errors require manual dismissal - no duration
     })
   }
 
-  info(message: string, duration?: number) {
+  info(message: string, duration?: number, options?: ToastTitleOptions) {
     toast({
-      title: "Info",
+      title: options?.title ?? "Info",
       description: message,
       variant: "info",
       duration,
     })
   }
 
-  warning(message: string, duration?: number) {
+  warning(message: string, duration?: number, options?: ToastTitleOptions) {
     toast({
-      title: "Warning",
+      title: options?.title ?? "Warning",
       description: message,
       variant: "warning",
       duration,

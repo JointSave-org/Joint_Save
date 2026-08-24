@@ -1,6 +1,6 @@
 import React from "react"
 import { render, screen, waitFor } from "@/test-utils"
-import GroupPage from "@/app/dashboard/group/[id]/page"
+import GroupPage from "@/app/[locale]/dashboard/group/[id]/page"
 import { vi, describe, it, expect, beforeEach } from "vitest"
 
 vi.mock("@/hooks/useJointSaveContracts")
@@ -12,8 +12,8 @@ describe("GroupPage Component", () => {
 
   it("renders loading state initially", () => {
     global.fetch = vi.fn().mockImplementation(() => new Promise(() => {}))
-    render(<GroupPage params={{ id: "pool-123" }} />)
-    expect(screen.getByText("Loading...")).toBeInTheDocument()
+    const { container } = render(<GroupPage params={{ id: "pool-123" }} />)
+    expect(container.querySelector('[data-slot="skeleton"]')).toBeInTheDocument()
   })
 
   it("renders Pool not found state when pool is null", async () => {

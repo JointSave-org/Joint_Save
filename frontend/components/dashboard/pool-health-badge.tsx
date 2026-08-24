@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { Activity, HelpCircle } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -36,25 +37,22 @@ function chipBase(extra: string) {
  * never reads as an opaque or unfair label.
  */
 function HealthTooltipBody({ health }: { health: PoolHealth }) {
+  const t = useTranslations("dashboard.poolHealth")
+
   return (
     <div className="max-w-[240px] space-y-1.5 text-left">
-      <p className="font-semibold">Pool health</p>
+      <p className="font-semibold">{t("title")}</p>
       {health.state === "new" ? (
-        <p className="text-background/80">
-          This pool hasn&apos;t completed a full round of deposits yet, so there isn&apos;t enough
-          history to score it reliably. The score will appear once members start participating.
-        </p>
+        <p className="text-background/80">{t("newPoolDescription")}</p>
       ) : (
-        <p className="text-background/80">
-          The average on-time deposit rate across this pool&apos;s {health.memberCount} current
-          member
-          {health.memberCount === 1 ? "" : "s"}, based on their track record so far. Higher means
-          members have been depositing more reliably.
-        </p>
+        <p className="text-background/80">{t("description", { count: health.memberCount })}</p>
       )}
       <p className="text-background/60 pt-0.5">
-        {HEALTHY_THRESHOLD}%+ healthy · {FAIR_THRESHOLD}–{HEALTHY_THRESHOLD - 1}% fair · under{" "}
-        {FAIR_THRESHOLD}% at risk
+        {t("thresholds", {
+          healthy: HEALTHY_THRESHOLD,
+          fair: FAIR_THRESHOLD,
+          healthyMinusOne: HEALTHY_THRESHOLD - 1,
+        })}
       </p>
     </div>
   )
@@ -69,12 +67,15 @@ export function PoolHealthBadge({
   isLoading?: boolean
   className?: string
 }) {
+  const t = useTranslations("dashboard.poolHealth")
+
   if (isLoading || !health) {
     return <Skeleton className={cn("h-5 w-20 rounded-full", className)} />
   }
 
   const isNew = health.state === "new"
   const styles = !isNew && health.band ? BAND_STYLES[health.band] : null
+  const bandLabel = isNew || !health.band ? t("newPool") : t(`band.${health.band}`)
 
   return (
     <Tooltip>
@@ -83,9 +84,7 @@ export function PoolHealthBadge({
           className={chipBase(cn(styles ? styles.chip : NEUTRAL_CHIP, className))}
           role="status"
           aria-label={
-            isNew
-              ? "Pool health: new pool, not enough history to score"
-              : `Pool health: ${health.score}% on-time, ${health.label}`
+            isNew ? t("ariaNew") : t("ariaScored", { score: health.score, label: bandLabel })
           }
         >
           {isNew ? (
@@ -94,7 +93,7 @@ export function PoolHealthBadge({
             <span className={cn("h-2 w-2 rounded-full", styles?.dot)} aria-hidden />
           )}
           {isNew ? (
-            "New pool"
+            t("newPool")
           ) : (
             <>
               <Activity className="h-3 w-3" aria-hidden />

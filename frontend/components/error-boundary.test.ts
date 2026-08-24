@@ -25,11 +25,28 @@ import assert from "node:assert"
 // ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let ErrorBoundary: any
+let ErrorBoundaryClass: any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let SectionErrorBoundary: any
 
 let fetchCalls: Array<{ url: string; body: Record<string, unknown> }> = []
+
+// Mock translated strings — lifecycle/state tests below don't assert on copy,
+// so English placeholders are sufficient here.
+const mockMessages = {
+  defaultSectionLabel: "this section",
+  compactFailedToLoad: ({ label }: { label: string }) => `Failed to load ${label}`,
+  compactDescription: "An unexpected error occurred in this section.",
+  showDetails: "Show details",
+  hideDetails: "Hide details",
+  tryAgain: "Try Again",
+  fullTitle: "Something went wrong",
+  fullDescription: ({ label }: { label: string }) =>
+    `An unexpected error occurred while loading ${label}.`,
+  showErrorDetails: "Show error details",
+  hideErrorDetails: "Hide error details",
+  goToDashboard: "Go to Dashboard",
+}
 
 // ---------------------------------------------------------------------------
 // Setup — runs once before all tests
@@ -55,7 +72,7 @@ before(async () => {
   // Dynamic import ensures our fetch mock is already in place when the module
   // (and its transitive imports) first execute.
   const mod = await import("./error-boundary")
-  ErrorBoundary = mod.ErrorBoundary
+  ErrorBoundaryClass = mod.ErrorBoundaryClass
   SectionErrorBoundary = mod.SectionErrorBoundary
 })
 
@@ -72,7 +89,7 @@ beforeEach(() => {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeInstance(props: Record<string, unknown> = {}): any {
-  const instance = new ErrorBoundary({ children: null, ...props })
+  const instance = new ErrorBoundaryClass({ children: null, messages: mockMessages, ...props })
   // React.Component.setState is async when mounted; here the component is
   // never mounted, so we replace it with a synchronous version for testing.
   instance.setState = function (
@@ -96,7 +113,7 @@ describe("ErrorBoundary", () => {
 
   test("getDerivedStateFromError — sets hasError: true and stores the error", () => {
     const error = new Error("render boom")
-    const state = ErrorBoundary.getDerivedStateFromError(error)
+    const state = ErrorBoundaryClass.getDerivedStateFromError(error)
     assert.strictEqual(state.hasError, true)
     assert.strictEqual(state.error, error)
   })

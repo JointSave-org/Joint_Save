@@ -1,8 +1,12 @@
-{
+﻿{
   "crons": [
     {
       "path": "/api/cron/snapshot-pool-metrics",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/deadline-warnings",
+      "schedule": "0 * * * *"
     }
   ]
 }

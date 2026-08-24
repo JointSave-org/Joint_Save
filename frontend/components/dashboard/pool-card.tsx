@@ -4,16 +4,20 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Users, TrendingUp, Calendar, ArrowRight, AlertTriangle } from "lucide-react"
-import Link from "next/link"
+import { Users, TrendingUp, Calendar, ArrowRight, AlertTriangle, Shield } from "lucide-react"
+import { Link } from "@/i18n/navigation"
 import { motion } from "framer-motion"
+import { useTranslations } from "next-intl"
+import { useState, useEffect } from "react"
 import { usePoolData } from "@/lib/data-layer/PoolDataProvider"
 import {
   formatTokenAmount,
   RotationalPoolState,
   TargetPoolState,
   FlexiblePoolState,
+  fetchMembersReputationData,
 } from "@/hooks/useJointSaveContracts"
+import { getTierFromScore, TIER_DISPLAY } from "@/hooks/useMemberReputation"
 import { usePoolHealth } from "@/hooks/usePoolHealth"
 import { PoolHealthBadge } from "@/components/dashboard/pool-health-badge"
 import { PoolSparkline } from "@/components/dashboard/pool-sparkline"
@@ -83,6 +87,8 @@ export function PoolCardSkeleton() {
 
 // ── Per-pool card that hydrates live balances from the unified cache ──────────
 export function PoolCard({ pool }: { pool: Pool }) {
+  const t = useTranslations("dashboard.poolCard")
+  const tPool = useTranslations("pool")
   const cacheKey =
     pool.contract_address && pool.contract_address !== "pending_deployment"
       ? pool.contract_address
@@ -92,6 +98,27 @@ export function PoolCard({ pool }: { pool: Pool }) {
   const tokenSymbol = pool.token_symbol ?? "XLM"
   const tokenDecimals = pool.token_decimals ?? 7
   const fmt = (v: bigint) => formatTokenAmount(v, tokenDecimals)
+
+  // Average member reputation score
+  const [avgScore, setAvgScore] = useState<number | null>(null)
+  useEffect(() => {
+    const members: string[] =
+      pool.type === "rotational" && data?.onchain
+        ? (data.onchain as RotationalPoolState).members
+        : []
+    if (members.length === 0) return
+    let cancelled = false
+    fetchMembersReputationData(members).then((reps) => {
+      if (cancelled) return
+      const scores = Object.values(reps).map((r) => r.totalScore)
+      if (scores.length > 0) {
+        setAvgScore(Math.round(scores.reduce((a, b) => a + b, 0) / scores.length))
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [pool.type, data?.onchain, pool.id])
 
   const getLiveStats = (): {
     totalSaved: number
@@ -108,7 +135,7 @@ export function PoolCard({ pool }: { pool: Pool }) {
       return {
         totalSaved,
         progress,
-        progressLabel: `Round ${s.currentRound + 1} of ${totalMembers}`,
+        progressLabel: t("roundOf", { current: s.currentRound + 1, total: totalMembers }),
       }
     }
     if (pool.type === "target" && onchain) {
@@ -119,7 +146,11 @@ export function PoolCard({ pool }: { pool: Pool }) {
       return {
         totalSaved: saved,
         progress,
-        progressLabel: `${saved.toFixed(2)} / ${target.toFixed(2)} ${tokenSymbol}`,
+        progressLabel: t("savedOfTarget", {
+          saved: saved.toFixed(2),
+          target: target.toFixed(2),
+          token: tokenSymbol,
+        }),
       }
     }
     if (pool.type === "flexible" && onchain) {
@@ -137,8 +168,12 @@ export function PoolCard({ pool }: { pool: Pool }) {
         progress,
         progressLabel:
           softGoal > 0
-            ? `${totalSaved.toFixed(2)} / ${softGoal.toFixed(2)} ${tokenSymbol}`
-            : `${totalSaved.toFixed(2)} ${tokenSymbol} saved`,
+            ? t("savedOfTarget", {
+                saved: totalSaved.toFixed(2),
+                target: softGoal.toFixed(2),
+                token: tokenSymbol,
+              })
+            : t("savedAmount", { amount: totalSaved.toFixed(2), token: tokenSymbol }),
       }
     }
     return {
@@ -176,12 +211,12 @@ export function PoolCard({ pool }: { pool: Pool }) {
         <div className="flex items-start justify-between mb-4 gap-3">
           <div>
             <h3 className="text-xl font-semibold mb-1">{pool.name}</h3>
-            <Badge variant="secondary">
-              {pool.type.charAt(0).toUpperCase() + pool.type.slice(1)}
-            </Badge>
+            <Badge variant="secondary">{tPool(`type.${pool.type}`)}</Badge>
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0">
-            <Badge className="bg-primary/10 text-primary hover:bg-primary/20">{pool.status}</Badge>
+            <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
+              {tPool(`status.${pool.status}`)}
+            </Badge>
             <PoolHealthBadge health={health} isLoading={healthLoading} />
           </div>
         </div>
@@ -189,14 +224,14 @@ export function PoolCard({ pool }: { pool: Pool }) {
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Members
+              {t("members")}
             </span>
             <span className="font-medium">{pool.members_count}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Total Saved
+              {t("totalSaved")}
             </span>
             <span className="font-medium flex items-center gap-2">
               {isLoading && !data?.onchain ? (
@@ -210,14 +245,34 @@ export function PoolCard({ pool }: { pool: Pool }) {
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              {pool.type === "rotational" ? "Frequency" : "Status"}
+              {pool.type === "rotational" ? t("frequency") : t("status")}
             </span>
-            <span className="font-medium">{pool.frequency || pool.status}</span>
+            <span className="font-medium">{pool.frequency || tPool(`status.${pool.status}`)}</span>
           </div>
+          {avgScore !== null &&
+            (() => {
+              const tier = getTierFromScore(avgScore, avgScore === 500)
+              const display = TIER_DISPLAY[tier]
+              return (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    {t("avgMemberScore")}
+                  </span>
+                  <span className={`font-medium flex items-center gap-1 ${display.textClass}`}>
+                    <span
+                      className="inline-block h-2 w-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: display.dotColor }}
+                    />
+                    {avgScore}
+                  </span>
+                </div>
+              )
+            })()}
         </div>
         <div className="mb-4">
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-muted-foreground">Progress</span>
+            <span className="text-muted-foreground">{t("progress")}</span>
             <span className="font-medium">{progress.toFixed(1)}%</span>
           </div>
           <div className="h-2 bg-muted rounded-full overflow-hidden" aria-hidden="true">
@@ -233,14 +288,12 @@ export function PoolCard({ pool }: { pool: Pool }) {
         {showVersionWarning && (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 mb-4 text-sm font-medium">
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            <span>
-              Contract v{contractVersion} — This pool may run a newer version than expected.
-            </span>
+            <span>{t("versionWarning", { version: contractVersion })}</span>
           </div>
         )}
         <Button className="w-full bg-transparent" variant="outline" asChild tabIndex={-1}>
           <Link href={`/dashboard/group/${pool.id}`} id={`pool-link-${pool.id}`}>
-            View Details <ArrowRight className="ml-2 h-4 w-4" />
+            {t("viewDetails")} <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
       </Card>
