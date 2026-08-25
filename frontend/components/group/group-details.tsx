@@ -505,17 +505,19 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
           <div>
             <h1 className="text-3xl font-bold mb-2">{group.name}</h1>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">{tPool(`type.${group.type}`)}</Badge>
-              <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
+              <Badge variant="secondary" aria-label={"Pool type: " + tPool(`type.${group.type}`)}>
+                {tPool(`type.${group.type}`)}
+              </Badge>
+              <Badge className="bg-primary/10 text-primary hover:bg-primary/20" aria-label={"Pool status: " + tPool(`status.${group.status}`)}>
                 {tPool(`status.${group.status}`)}
               </Badge>
               {onchainState && (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs" aria-label="Status: Live onchain">
                   {t("liveOnchain")}
                 </Badge>
               )}
               {hasAutoTrigger && (
-                <Badge variant="outline" className="text-xs text-blue-600 border-blue-400">
+                <Badge variant="outline" className="text-xs text-blue-600 border-blue-400" aria-label="Status: Auto-trigger enabled">
                   {t("autoTriggerEnabled")}
                 </Badge>
               )}
@@ -525,12 +527,13 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
                   className={`text-xs ${
                     ttlDays < 7 ? "text-destructive border-destructive/40 bg-destructive/10" : ""
                   }`}
+                  aria-label={`State expires in ${ttlDays} days`}
                 >
                   {t("stateExpiresIn", { days: ttlDays })}
                 </Badge>
               )}
               {isStale && !isLoading && (
-                <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/40">
+                <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/40" aria-label="Status: Stale data">
                   {t("stale")}
                 </Badge>
               )}
@@ -538,6 +541,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
                 <Badge
                   variant="outline"
                   className="text-xs text-yellow-600 border-yellow-600/40 bg-yellow-500/10"
+                  aria-label="Status: Transaction pending"
                 >
                   {t("pendingEllipsis")}
                 </Badge>

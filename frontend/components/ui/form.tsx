@@ -140,10 +140,10 @@ function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
   )
 }
 
-function FieldError({ message, className }: { message?: string; className?: string }) {
+function FieldError({ message, className, id }: { message?: string; className?: string; id?: string }) {
   if (!message) return null
   return (
-    <p className={cn("text-destructive text-xs flex items-center gap-1 mt-1", className)}>
+    <p id={id} className={cn("text-destructive text-xs flex items-center gap-1 mt-1", className)}>
       <span aria-hidden>✕</span>
       {message}
     </p>

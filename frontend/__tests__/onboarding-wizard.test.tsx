@@ -84,6 +84,7 @@ function setStep(step: number) {
 describe("OnboardingWizard", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    document.body.innerHTML = "" // Clear any lingering DOM elements
     wizardState = {
       completed: false,
       dismissed: false,
@@ -105,7 +106,7 @@ describe("OnboardingWizard", () => {
 
   it("renders the welcome step with Get Started and Skip", () => {
     render(<OnboardingWizard open={true} onClose={skipMock} />)
-    expect(screen.getByRole("dialog")).toBeInTheDocument()
+    expect(screen.getByRole("dialog", { name: "Onboarding wizard" })).toBeInTheDocument()
     expect(screen.getByText("Welcome to JointSave")).toBeInTheDocument()
     expect(screen.getByText("Get Started")).toBeInTheDocument()
     expect(screen.getByText("Skip Tour")).toBeInTheDocument()
