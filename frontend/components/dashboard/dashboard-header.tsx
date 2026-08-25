@@ -85,6 +85,9 @@ export function DashboardHeader() {
               <Link href="/explore">Explore</Link>
             </Button>
             <Button variant="ghost" size="sm" asChild className="hidden lg:flex">
+              <Link href="/dashboard/templates">Templates</Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild className="hidden lg:flex">
               <Link href="/bridge">Bridge USDC</Link>
             </Button>
             <ThemeToggle />
@@ -161,14 +164,24 @@ export function DashboardHeader() {
                       </DropdownMenuItem>
                     ))
                   )}
-                  {!initialLoading && notifications.length > 0 && (
+                  {!initialLoading && (
                     <>
                       <DropdownMenuSeparator />
+                      {notifications.length > 0 && (
+                        <DropdownMenuItem
+                          asChild
+                          className="justify-center text-sm font-medium text-primary cursor-pointer"
+                        >
+                          <Link href="/dashboard/notifications">View all notifications</Link>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         asChild
-                        className="justify-center text-sm font-medium text-primary cursor-pointer"
+                        className="justify-center text-sm text-muted-foreground cursor-pointer"
                       >
-                        <Link href="/dashboard/notifications">View all notifications</Link>
+                        <Link href="/dashboard/notifications/preferences">
+                          Notification preferences
+                        </Link>
                       </DropdownMenuItem>
                     </>
                   )}

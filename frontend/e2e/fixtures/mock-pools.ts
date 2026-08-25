@@ -200,6 +200,23 @@ export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<P
       return json(route, pools)
     }
 
+    if (method === "POST" && url.pathname.endsWith("/api/pools/deposit")) {
+      const body = req.postDataJSON() ?? {}
+      const pool = pools.find((p) => p.id === body.poolId)
+      if (pool) {
+        pool.pool_activity.unshift({
+          id: `act-deposit-${Date.now()}-${Math.random()}`,
+          activity_type: "deposit",
+          user_address: (body.userAddress ?? E2E_ADDRESS).toLowerCase(),
+          amount: body.amount ?? null,
+          description: "Deposit transaction",
+          created_at: new Date(0).toISOString(),
+          tx_hash: body.txHash ?? null,
+        })
+      }
+      return json(route, { verified: true })
+    }
+
     if (method === "POST") {
       const body = req.postDataJSON() ?? {}
       const created = makePool({

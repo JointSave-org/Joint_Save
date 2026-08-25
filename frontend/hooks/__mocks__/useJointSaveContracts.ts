@@ -46,17 +46,20 @@ export const getRpc = vi.fn().mockReturnValue({
 /**
  * Stands in for the real simulate → sign → send → poll pipeline. Walks the
  * caller through every phase so status-tracking logic is exercised end to end,
- * then resolves with a canned hash.
+ * then resolves with a canned hash. Mirrors the real signature: the caller
+ * hands over a builder, not a prepared transaction.
  */
-export const submitContractTx = vi.fn(
+export const submitTx = vi.fn(
   async (
-    _tx: unknown,
-    opts?: { onPhase?: (phase: "signing" | "submitted" | "confirmed", hash?: string) => void }
+    _address: string,
+    _buildTx: unknown,
+    _pendingTx?: unknown,
+    onPhase?: (phase: "signing" | "submitted" | "confirmed", hash?: string) => void
   ) => {
     const hash = "tx_hash_mock"
-    opts?.onPhase?.("signing")
-    opts?.onPhase?.("submitted", hash)
-    opts?.onPhase?.("confirmed", hash)
+    onPhase?.("signing")
+    onPhase?.("submitted", hash)
+    onPhase?.("confirmed", hash)
     return hash
   }
 )

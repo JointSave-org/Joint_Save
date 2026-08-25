@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react"
 import {
+  Account,
   Contract,
   TransactionBuilder,
   BASE_FEE,
@@ -9,12 +10,7 @@ import {
   nativeToScVal,
 } from "@stellar/stellar-sdk"
 import { useStellar, STELLAR_NETWORK_PASSPHRASE } from "@/components/web3-provider"
-import {
-  fetchRotationalState,
-  fetchIsPaused,
-  getRpc,
-  submitContractTx,
-} from "@/hooks/useJointSaveContracts"
+import { fetchRotationalState, fetchIsPaused, submitTx } from "@/hooks/useJointSaveContracts"
 import { TX_TIMEOUT } from "@/lib/constants"
 import {
   chunk,
@@ -60,14 +56,14 @@ interface MemberPoolRecord {
 export interface PlannedDeposit {
   pool: BatchDepositPool
   /**
-   * Builds the unsigned deposit transaction for this pool.
+   * Builds this pool's unsigned deposit transaction from a given account.
    *
-   * Deferred rather than pre-built because every Soroban transaction consumes
-   * the source account's next sequence number. Building at submit time — after
-   * the previous deposit has settled — means a skipped or failed deposit can
-   * never leave the rest of the run holding invalid sequence numbers.
+   * A builder rather than a prepared transaction because every Soroban
+   * transaction consumes the source account's next sequence number: the submit
+   * pipeline fetches a fresh account and rebuilds per attempt, so a retried or
+   * skipped deposit can never leave the rest of the run on a stale sequence.
    */
-  buildTx: () => Promise<Transaction>
+  buildTx: (account: Account) => Transaction
 }
 
 export interface BatchDepositPlan {
@@ -146,11 +142,11 @@ async function logDepositActivity(pool: BatchDepositPool, address: string, txHas
 }
 
 /** Build the unsigned `deposit(member)` transaction for one rotational pool. */
-export async function buildDepositTransaction(
+export function buildDepositTransaction(
+  account: Account,
   contractAddress: string,
   memberAddress: string
-): Promise<Transaction> {
-  const account = await getRpc().getAccount(memberAddress)
+): Transaction {
   return new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
@@ -283,7 +279,8 @@ export function useBatchDeposit() {
 
       const planned: PlannedDeposit[] = selected.map((pool) => ({
         pool,
-        buildTx: () => buildDepositTransaction(pool.contractAddress, address),
+        buildTx: (account: Account) =>
+          buildDepositTransaction(account, pool.contractAddress, address),
       }))
 
       const batches = chunk(planned)
@@ -326,20 +323,21 @@ export function useBatchDeposit() {
           }
 
           try {
-            const tx = await buildTx()
-            const txHash = await submitContractTx(tx, {
-              pendingTx: {
+            const txHash = await submitTx(
+              address,
+              buildTx,
+              {
                 address,
                 type: "deposit",
                 poolId: pool.contractAddress,
                 amount: pool.amount ? String(pool.amount) : undefined,
               },
-              onPhase: (phase, hash) => {
+              (phase, hash) => {
                 if (phase === "signing") setItemStatus(pool.id, "signing")
                 else if (phase === "submitted")
                   setItemStatus(pool.id, "submitted", { txHash: hash })
-              },
-            })
+              }
+            )
 
             setItemStatus(pool.id, "confirmed", { txHash, error: undefined })
             result.confirmed.push(pool.id)

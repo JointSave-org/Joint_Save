@@ -7,7 +7,8 @@ import { GroupDetails } from "@/components/group/group-details"
 import { GroupMembers } from "@/components/group/group-members"
 import { GroupActions } from "@/components/group/group-actions"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ArrowLeft, LayoutDashboard, HandCoins } from "lucide-react"
 import Link from "next/link"
 import { fetchIsPaused, fetchPoolAdmin } from "@/hooks/useJointSaveContracts"
 import { useStellar } from "@/components/web3-provider"
@@ -50,6 +51,16 @@ const AdminActionsLog = dynamic(
   }
 )
 
+const LendingTab = dynamic(
+  () => import("@/components/lending/lending-tab").then((mod) => mod.LendingTab),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-4 bg-muted/20 animate-pulse rounded-lg h-48">Loading Lending...</div>
+    ),
+  }
+)
+
 interface Pool {
   id: string
   name: string
@@ -57,6 +68,8 @@ interface Pool {
   contract_address: string
   token_address: string
   creator_address: string
+  /** Pool member list returned by /api/pools — used for lending eligibility checks */
+  pool_members?: { member_address: string }[]
 }
 
 const isPendingAddress = (addr: string) => !addr || addr === "pending_deployment"
@@ -127,6 +140,18 @@ export default function GroupPage({
       ? pool.contract_address
       : pool.id
 
+  // Derive membership and member list from pool_members array
+  const poolMemberAddresses: string[] = pool.pool_members?.map((m) => m.member_address) ?? []
+  const isMember =
+    !!address &&
+    (poolMemberAddresses.some((m) => m.toLowerCase() === address.toLowerCase()) ||
+      pool.creator_address?.toLowerCase() === address.toLowerCase())
+
+  const isAdmin =
+    !!address &&
+    (poolAdmin?.toLowerCase() === address.toLowerCase() ||
+      pool.creator_address?.toLowerCase() === address.toLowerCase())
+
   return (
     <ErrorBoundary sectionName="Group Detail" walletAddress={address}>
       <div className="min-h-screen bg-background">
@@ -139,47 +164,78 @@ export default function GroupPage({
             </Link>
           </Button>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <SectionErrorBoundary sectionName="Pool Details" walletAddress={address}>
-                <GroupDetails groupId={id} contractAddress={cacheKey} poolAdmin={poolAdmin} />
-              </SectionErrorBoundary>
-              <SectionErrorBoundary sectionName="Activity Feed" walletAddress={address}>
-                <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
-              </SectionErrorBoundary>
-              {/* Admin audit log with CSV export — only shown to the pool creator */}
-              <SectionErrorBoundary sectionName="Audit Log" walletAddress={address}>
-                <AdminAuditLog groupId={id} creatorAddress={pool.creator_address} />
-              </SectionErrorBoundary>
-              {/* Admin actions log — visible to all pool members */}
-              <SectionErrorBoundary sectionName="Admin Actions" walletAddress={address}>
-                <AdminActionsLog groupId={id} />
-              </SectionErrorBoundary>
-            </div>
+          {/* Top-level Overview / Lending tabs */}
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="overview" className="gap-1.5">
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="lending" className="gap-1.5">
+                <HandCoins className="h-3.5 w-3.5" />
+                Lending
+              </TabsTrigger>
+            </TabsList>
 
-            <div className="space-y-6">
-              <SectionErrorBoundary sectionName="Group Actions" walletAddress={address}>
-                <GroupActions
-                  groupId={id}
-                  poolAddress={pool.contract_address}
-                  poolType={pool.type}
+            {/* ── Overview tab — existing pool content ────────────────── */}
+            <TabsContent value="overview">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <SectionErrorBoundary sectionName="Pool Details" walletAddress={address}>
+                    <GroupDetails groupId={id} contractAddress={cacheKey} poolAdmin={poolAdmin} />
+                  </SectionErrorBoundary>
+                  <SectionErrorBoundary sectionName="Activity Feed" walletAddress={address}>
+                    <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
+                  </SectionErrorBoundary>
+                  {/* Admin audit log with CSV export — only shown to the pool creator */}
+                  <SectionErrorBoundary sectionName="Audit Log" walletAddress={address}>
+                    <AdminAuditLog groupId={id} creatorAddress={pool.creator_address} />
+                  </SectionErrorBoundary>
+                  {/* Admin actions log — visible to all pool members */}
+                  <SectionErrorBoundary sectionName="Admin Actions" walletAddress={address}>
+                    <AdminActionsLog groupId={id} />
+                  </SectionErrorBoundary>
+                </div>
+
+                <div className="space-y-6">
+                  <SectionErrorBoundary sectionName="Group Actions" walletAddress={address}>
+                    <GroupActions
+                      groupId={id}
+                      poolAddress={pool.contract_address}
+                      poolType={pool.type}
+                      tokenAddress={pool.token_address}
+                      creatorAddress={pool.creator_address}
+                      isPaused={isPaused}
+                      poolAdmin={poolAdmin}
+                      onPauseChange={refreshPoolState}
+                    />
+                  </SectionErrorBoundary>
+                  {pool.type === "flexible" && (
+                    <SectionErrorBoundary sectionName="Yield Dashboard" walletAddress={address}>
+                      <YieldDashboard poolAddress={pool.contract_address} />
+                    </SectionErrorBoundary>
+                  )}
+                  <SectionErrorBoundary sectionName="Members List" walletAddress={address}>
+                    <GroupMembers groupId={id} contractAddress={cacheKey} poolType={pool.type} />
+                  </SectionErrorBoundary>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* ── Lending tab — P2P microloan marketplace ──────────────── */}
+            <TabsContent value="lending">
+              <SectionErrorBoundary sectionName="Lending" walletAddress={address}>
+                <LendingTab
+                  poolId={cacheKey}
                   tokenAddress={pool.token_address}
-                  creatorAddress={pool.creator_address}
-                  isPaused={isPaused}
-                  poolAdmin={poolAdmin}
-                  onPauseChange={refreshPoolState}
+                  poolMembers={poolMemberAddresses}
+                  isMember={isMember}
+                  isAdmin={isAdmin}
+                  walletAddress={address}
                 />
               </SectionErrorBoundary>
-              {pool.type === "flexible" && (
-                <SectionErrorBoundary sectionName="Yield Dashboard" walletAddress={address}>
-                  <YieldDashboard poolAddress={pool.contract_address} />
-                </SectionErrorBoundary>
-              )}
-              <SectionErrorBoundary sectionName="Members List" walletAddress={address}>
-                <GroupMembers groupId={id} contractAddress={cacheKey} poolType={pool.type} />
-              </SectionErrorBoundary>
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
     </ErrorBoundary>

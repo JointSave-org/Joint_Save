@@ -14,7 +14,11 @@ import {
   useRegisterPool,
   resolveTokenAddress,
 } from "@/hooks/useJointSaveContracts"
-import { TokenSelect, type SelectedToken } from "@/components/create-group/token-select"
+import {
+  TokenSelect,
+  tokenFromPrefill,
+  type SelectedToken,
+} from "@/components/create-group/token-select"
 import { FieldTooltip } from "@/components/ui/field-tooltip"
 import { FieldError } from "@/components/ui/form"
 import { FormProgress, type ProgressField } from "@/components/ui/form-progress"
@@ -28,7 +32,10 @@ import {
 } from "@/lib/form-validation"
 import { MAX_POOL_MEMBERS, DEFAULT_TREASURY_FEE_BPS } from "@/lib/constants"
 import type { DuplicatePrefill } from "@/app/dashboard/create/[type]/page"
+import type { PoolTemplateConfig } from "@/lib/templates"
+import { SaveTemplateDialog } from "@/components/templates/save-template-dialog"
 import { toastManager } from "@/lib/toast"
+import { LayoutTemplate } from "lucide-react"
 
 function isValidStellarAddress(addr: string) {
   return /^G[A-Z2-7]{55}$/.test(addr)
@@ -42,11 +49,10 @@ type Touched = Partial<Record<"name" | "minimumDeposit" | "withdrawalFee", boole
 export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
   const router = useRouter()
   const { address } = useStellar()
-  const [token, setToken] = useState<SelectedToken>({
-    address: "native",
-    symbol: prefill?.token || "XLM",
-    decimals: 7,
-  })
+  const [token, setToken] = useState<SelectedToken>(
+    tokenFromPrefill(prefill?.token) ?? { address: "native", symbol: "XLM", decimals: 7 }
+  )
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
   const initialMembers = prefill?.members?.filter((m: string) => m !== address) ?? [""]
   const [members, setMembers] = useState<string[]>(
     initialMembers.length > 0 ? initialMembers : [""]
@@ -58,8 +64,8 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
     name: prefill?.name || "",
     description: prefill?.description || "",
     minimumDeposit: prefill?.minimumDeposit || "",
-    enableYield: false,
-    withdrawalFee: "1",
+    enableYield: prefill?.enableYield ?? false,
+    withdrawalFee: prefill?.withdrawalFee || "1",
   })
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Touched>({})
@@ -207,6 +213,18 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
     { label: "Members (2+)", valid: validMembers.length >= 2 },
   ]
 
+  const templateToken = token.address === "native" ? "XLM" : token.address
+  const templateConfig: PoolTemplateConfig = {
+    name: formData.name,
+    description: formData.description || null,
+    poolType: "flexible",
+    minimumDeposit: formData.minimumDeposit,
+    withdrawalFee: formData.withdrawalFee,
+    enableYield: formData.enableYield,
+    members: validMembers,
+    token: templateToken,
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {isCreating && (
@@ -279,7 +297,7 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
         />
       </div>
 
-      <TokenSelect onChange={setToken} />
+      <TokenSelect onChange={setToken} defaultToken={tokenFromPrefill(prefill?.token)} />
       {/* Bulk Import Component */}
       <BulkImport onMembersChange={setMembers} />
 
@@ -455,7 +473,24 @@ export function FlexibleForm({ prefill }: { prefill?: DuplicatePrefill }) {
             "Create Flexible Pool"
           )}
         </Button>
+
+        <button
+          type="button"
+          onClick={() => setSaveTemplateOpen(true)}
+          disabled={isCreating}
+          className="w-full mt-2 flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+        >
+          <LayoutTemplate className="h-4 w-4" />
+          Save as Template
+        </button>
       </div>
+
+      <SaveTemplateDialog
+        open={saveTemplateOpen}
+        onOpenChange={setSaveTemplateOpen}
+        config={templateConfig}
+        creatorAddress={address}
+      />
     </form>
   )
 }

@@ -163,3 +163,19 @@
 .animate-glow {
   animation: glow 3s ease-in-out infinite;
 }
+
+/* Slide-up dismissal for the pending transaction banner */
+@keyframes slide-up {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.35s ease-in forwards;
+}

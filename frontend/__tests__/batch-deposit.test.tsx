@@ -3,12 +3,8 @@ import { render, screen, waitFor, within } from "@/test-utils"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { BatchDepositPanel } from "@/components/dashboard/batch-deposit-panel"
-import {
-  fetchRotationalState,
-  fetchIsPaused,
-  submitContractTx,
-} from "@/hooks/useJointSaveContracts"
-import { Address, Operation, Transaction, scValToNative } from "@stellar/stellar-sdk"
+import { fetchRotationalState, fetchIsPaused, submitTx } from "@/hooks/useJointSaveContracts"
+import { Account, Address, Operation, Transaction, scValToNative } from "@stellar/stellar-sdk"
 
 /**
  * Drives the real BatchDepositPanel through the real useBatchDeposit hook.
@@ -97,16 +93,16 @@ beforeEach(() => {
   vi.stubGlobal("fetch", mockFetch())
   vi.mocked(fetchRotationalState).mockResolvedValue(chainStateOwing())
   vi.mocked(fetchIsPaused).mockResolvedValue(false)
-  vi.mocked(submitContractTx).mockImplementation(
+  vi.mocked(submitTx).mockImplementation(
     async (
-      _tx: unknown,
-      opts?: {
-        onPhase?: (phase: "signing" | "submitted" | "confirmed", hash?: string) => void
-      }
+      _address: string,
+      _buildTx: unknown,
+      _pendingTx?: unknown,
+      onPhase?: (phase: "signing" | "submitted" | "confirmed", hash?: string) => void
     ) => {
-      opts?.onPhase?.("signing")
-      opts?.onPhase?.("submitted", "tx_hash_mock")
-      opts?.onPhase?.("confirmed", "tx_hash_mock")
+      onPhase?.("signing")
+      onPhase?.("submitted", "tx_hash_mock")
+      onPhase?.("confirmed", "tx_hash_mock")
       return "tx_hash_mock"
     }
   )
@@ -214,9 +210,14 @@ describe("BatchDepositPanel", () => {
     const dialog = await openDialog(user)
     await user.click(within(dialog).getByTestId("batch-deposit-now"))
 
-    await waitFor(() => expect(submitContractTx).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(submitTx).toHaveBeenCalledTimes(2))
 
-    const submitted = vi.mocked(submitContractTx).mock.calls.map(([tx]) => tx as Transaction)
+    // The pipeline receives a builder, not a prepared transaction — invoke it
+    // with a stand-in account to inspect exactly what would be submitted.
+    const sourceAccount = new Account(WALLET, "0")
+    const submitted = vi
+      .mocked(submitTx)
+      .mock.calls.map(([, buildTx]) => (buildTx as (a: Account) => Transaction)(sourceAccount))
     const invocations = submitted.map((tx) => {
       // Soroban permits exactly one host-function invocation per transaction.
       expect(tx.operations).toHaveLength(1)
@@ -239,9 +240,7 @@ describe("BatchDepositPanel", () => {
       { contractId: CONTRACTS[2], fn: "deposit", args: [WALLET] },
     ])
 
-    const poolIds = vi
-      .mocked(submitContractTx)
-      .mock.calls.map(([, opts]) => opts?.pendingTx?.poolId)
+    const poolIds = vi.mocked(submitTx).mock.calls.map(([, , pendingTx]) => pendingTx?.poolId)
     expect(poolIds).toEqual([CONTRACTS[1], CONTRACTS[2]])
   })
 
@@ -272,19 +271,18 @@ describe("BatchDepositPanel", () => {
     const user = userEvent.setup()
     memberPools = [poolRow(1, { name: "Alpha" }), poolRow(2, { name: "Beta" })]
 
-    vi.mocked(submitContractTx).mockImplementation(
+    vi.mocked(submitTx).mockImplementation(
       async (
-        _tx: unknown,
-        opts?: {
-          pendingTx?: { poolId: string }
-          onPhase?: (phase: "signing" | "submitted" | "confirmed", hash?: string) => void
-        }
+        _address: string,
+        _buildTx: unknown,
+        pendingTx?: { poolId: string },
+        onPhase?: (phase: "signing" | "submitted" | "confirmed", hash?: string) => void
       ) => {
-        if (opts?.pendingTx?.poolId === CONTRACTS[2 % CONTRACTS.length]) {
+        if (pendingTx?.poolId === CONTRACTS[2]) {
           throw new Error("Simulation failed: insufficient balance")
         }
-        opts?.onPhase?.("signing")
-        opts?.onPhase?.("confirmed", "tx_hash_mock")
+        onPhase?.("signing")
+        onPhase?.("confirmed", "tx_hash_mock")
         return "tx_hash_mock"
       }
     )
@@ -313,18 +311,17 @@ describe("BatchDepositPanel", () => {
     memberPools = [poolRow(1, { name: "Alpha" }), poolRow(2, { name: "Beta" })]
 
     let failBeta = true
-    vi.mocked(submitContractTx).mockImplementation(
+    vi.mocked(submitTx).mockImplementation(
       async (
-        _tx: unknown,
-        opts?: {
-          pendingTx?: { poolId: string }
-          onPhase?: (phase: "signing" | "submitted" | "confirmed", hash?: string) => void
-        }
+        _address: string,
+        _buildTx: unknown,
+        pendingTx?: { poolId: string },
+        onPhase?: (phase: "signing" | "submitted" | "confirmed", hash?: string) => void
       ) => {
-        const isBeta = opts?.pendingTx?.poolId === CONTRACTS[2 % CONTRACTS.length]
+        const isBeta = pendingTx?.poolId === CONTRACTS[2]
         if (isBeta && failBeta) throw new Error("Send failed")
-        opts?.onPhase?.("signing")
-        opts?.onPhase?.("confirmed", "tx_hash_mock")
+        onPhase?.("signing")
+        onPhase?.("confirmed", "tx_hash_mock")
         return "tx_hash_mock"
       }
     )
@@ -335,16 +332,14 @@ describe("BatchDepositPanel", () => {
 
     const retryButton = await screen.findByTestId("batch-retry-failed")
     expect(retryButton).toHaveTextContent("Retry 1 failed")
-    expect(submitContractTx).toHaveBeenCalledTimes(2)
+    expect(submitTx).toHaveBeenCalledTimes(2)
 
     failBeta = false
     await user.click(retryButton)
 
     // Exactly one extra transaction — Alpha was already confirmed on-chain.
-    await waitFor(() => expect(submitContractTx).toHaveBeenCalledTimes(3))
-    expect(vi.mocked(submitContractTx).mock.calls[2][1]?.pendingTx?.poolId).toBe(
-      CONTRACTS[2 % CONTRACTS.length]
-    )
+    await waitFor(() => expect(submitTx).toHaveBeenCalledTimes(3))
+    expect(vi.mocked(submitTx).mock.calls[2][2]?.poolId).toBe(CONTRACTS[2])
 
     await waitFor(() => expect(screen.queryByTestId("batch-retry-failed")).not.toBeInTheDocument())
   })
