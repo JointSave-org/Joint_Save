@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -52,11 +53,12 @@ function EventToggle({
 // ─── Permission status badge ──────────────────────────────────────────────────
 
 function PermissionBadge({ permission }: { permission: NotificationPermission | "unsupported" }) {
+  const t = useTranslations("settings.preferences")
   if (permission === "unsupported") {
     return (
       <Badge variant="secondary" className="gap-1 text-xs">
         <ShieldCheck className="h-3 w-3" />
-        Not supported in this browser
+        {t("notSupported")}
       </Badge>
     )
   }
@@ -64,7 +66,7 @@ function PermissionBadge({ permission }: { permission: NotificationPermission | 
     return (
       <Badge variant="default" className="gap-1 bg-emerald-500 hover:bg-emerald-600 text-xs">
         <ShieldCheck className="h-3 w-3" />
-        Permission granted
+        {t("permissionGranted")}
       </Badge>
     )
   }
@@ -72,14 +74,14 @@ function PermissionBadge({ permission }: { permission: NotificationPermission | 
     return (
       <Badge variant="destructive" className="gap-1 text-xs">
         <AlertCircle className="h-3 w-3" />
-        Permission denied — re-enable in browser settings
+        {t("permissionDenied")}
       </Badge>
     )
   }
   return (
     <Badge variant="outline" className="gap-1 text-xs">
       <Bell className="h-3 w-3" />
-      Permission not yet requested
+      {t("permissionNotRequested")}
     </Badge>
   )
 }
@@ -98,6 +100,7 @@ export function NotificationPreferencesPanel({
   poolId = null,
   poolName,
 }: NotificationPreferencesProps) {
+  const t = useTranslations("settings.preferences")
   const {
     preferences,
     loading,
@@ -115,9 +118,9 @@ export function NotificationPreferencesPanel({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            Notification Preferences
+            {t("title")}
           </CardTitle>
-          <CardDescription>Connect your wallet to manage push notifications.</CardDescription>
+          <CardDescription>{t("connectWalletNotice")}</CardDescription>
         </CardHeader>
       </Card>
     )
@@ -161,33 +164,33 @@ export function NotificationPreferencesPanel({
   const eventToggles: { key: EventKey; label: string; description: string }[] = [
     {
       key: "event_deposit",
-      label: "Deposits",
-      description: "When a member makes a deposit in this pool.",
+      label: t("eventDepositLabel"),
+      description: t("eventDepositDescription"),
     },
     {
       key: "event_payout",
-      label: "Payouts",
-      description: "When a payout is distributed to a pool member.",
+      label: t("eventPayoutLabel"),
+      description: t("eventPayoutDescription"),
     },
     {
       key: "event_member_joined",
-      label: "New members",
-      description: "When someone joins the pool.",
+      label: t("eventMemberJoinedLabel"),
+      description: t("eventMemberJoinedDescription"),
     },
     {
       key: "event_member_left",
-      label: "Member departures",
-      description: "When a member leaves or is removed.",
+      label: t("eventMemberLeftLabel"),
+      description: t("eventMemberLeftDescription"),
     },
     {
       key: "event_deadline_warning",
-      label: "Deadline warnings",
-      description: "When a deposit deadline is less than 24 hours away.",
+      label: t("eventDeadlineWarningLabel"),
+      description: t("eventDeadlineWarningDescription"),
     },
     {
       key: "event_paused",
-      label: "Pool paused / resumed",
-      description: "When the pool is paused or unpaused by an admin.",
+      label: t("eventPausedLabel"),
+      description: t("eventPausedDescription"),
     },
   ]
 
@@ -201,14 +204,11 @@ export function NotificationPreferencesPanel({
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <BellRing className="h-5 w-5" />
-              Browser Push Notifications
+              {t("browserPushTitle")}
             </CardTitle>
             <PermissionBadge permission={pushPermission} />
           </div>
-          <CardDescription>
-            Get browser notifications even when the app is not open. Works on desktop and supported
-            mobile browsers.
-          </CardDescription>
+          <CardDescription>{t("browserPushDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
@@ -221,28 +221,20 @@ export function NotificationPreferencesPanel({
           {!isPushSupported ? (
             <Alert>
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Your browser does not support push notifications. In-app notifications are still
-                active.
-              </AlertDescription>
+              <AlertDescription>{t("pushNotSupported")}</AlertDescription>
             </Alert>
           ) : pushPermission === "denied" ? (
             <Alert variant="destructive">
               <BellOff className="h-4 w-4" />
-              <AlertDescription>
-                Push notifications are blocked. Open your browser settings and allow notifications
-                for this site, then come back to enable them.
-              </AlertDescription>
+              <AlertDescription>{t("pushBlocked")}</AlertDescription>
             </Alert>
           ) : prefs.push_enabled ? (
             <div className="flex items-center gap-3">
               <div className="flex-1">
                 <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                  Push notifications are enabled ✓
+                  {t("pushEnabled")}
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  You will receive browser alerts for the events you have toggled on below.
-                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("pushEnabledHint")}</p>
               </div>
               <Button
                 variant="outline"
@@ -252,15 +244,13 @@ export function NotificationPreferencesPanel({
                 className="shrink-0"
               >
                 <BellOff className="h-4 w-4 mr-1.5" />
-                Disable
+                {t("disable")}
               </Button>
             </div>
           ) : (
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <p className="text-sm text-muted-foreground">
-                  Enable browser push notifications to be alerted even when the app is closed.
-                </p>
+                <p className="text-sm text-muted-foreground">{t("enablePushHint")}</p>
               </div>
               <Button
                 size="sm"
@@ -273,7 +263,7 @@ export function NotificationPreferencesPanel({
                 ) : (
                   <Bell className="h-4 w-4 mr-1.5" />
                 )}
-                Enable Push
+                {t("enablePush")}
               </Button>
             </div>
           )}
@@ -284,12 +274,10 @@ export function NotificationPreferencesPanel({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {poolId && poolName ? `Events — ${poolName}` : "Global Event Preferences"}
+            {poolId && poolName ? t("eventsForPool", { poolName }) : t("globalEventPreferences")}
           </CardTitle>
           <CardDescription>
-            {poolId
-              ? "Override which events trigger notifications for this specific pool."
-              : "Set your default notification preferences. These apply to all pools unless overridden per-pool."}
+            {poolId ? t("perPoolOverrideDescription") : t("globalPreferencesDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="divide-y divide-border">

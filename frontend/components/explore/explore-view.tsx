@@ -9,7 +9,8 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useTranslations } from "next-intl"
+import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -43,7 +44,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import Link from "next/link"
+import { Link, useRouter } from "@/i18n/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -77,6 +78,9 @@ interface Recommendation {
   pool?: { health_score: number }
 }
 
+/** Sentinel Select value for "no filter" (Radix forbids empty-string item values). */
+const FILTER_ALL = "__all__"
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const container = {
@@ -85,12 +89,15 @@ const container = {
 }
 const itemAnim = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
-function timeAgo(date: string) {
-  const secs = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
-  if (secs < 60) return "just now"
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`
-  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`
-  return `${Math.floor(secs / 86400)}d ago`
+function useTimeAgo() {
+  const t = useTranslations("explore.timeAgo")
+  return (date: string) => {
+    const secs = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
+    if (secs < 60) return t("justNow")
+    if (secs < 3600) return t("minutesAgo", { count: Math.floor(secs / 60) })
+    if (secs < 86400) return t("hoursAgo", { count: Math.floor(secs / 3600) })
+    return t("daysAgo", { count: Math.floor(secs / 86400) })
+  }
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -147,9 +154,11 @@ function PoolCard({
   onToggleCompare: (key: string) => void
   compareDisabled: boolean
 }) {
-  const typeLabel = pool.type.charAt(0).toUpperCase() + pool.type.slice(1)
-  const statusLabel =
-    pool.status === "active" ? "Active" : pool.status === "completed" ? "Completed" : "Paused"
+  const t = useTranslations("explore")
+  const tPool = useTranslations("pool")
+  const timeAgo = useTimeAgo()
+  const typeLabel = tPool(`type.${pool.type}`)
+  const statusLabel = tPool(`status.${pool.status}`)
 
   return (
     <motion.div
@@ -157,7 +166,7 @@ function PoolCard({
       variants={itemAnim}
       tabIndex={tabIndex}
       role="link"
-      aria-label={`View details for ${pool.name}`}
+      aria-label={t("viewDetailsAria", { name: pool.name })}
       aria-selected={isSelected}
       onFocus={onFocus}
       onClick={onClick}
@@ -176,15 +185,15 @@ function PoolCard({
               isSelected ? "bg-primary/10" : "bg-background/80 hover:bg-muted"
             }`}
             onClick={(event) => event.stopPropagation()}
-            aria-label={`Select ${pool.name} for comparison`}
+            aria-label={t("selectForCompareAria", { name: pool.name })}
           >
             <Checkbox
               checked={isSelected}
               disabled={compareDisabled}
               onCheckedChange={() => onToggleCompare(compareKey)}
-              aria-label={`Compare ${pool.name}`}
+              aria-label={t("compareAria", { name: pool.name })}
             />
-            <span className="text-[10px] font-medium text-muted-foreground">Compare</span>
+            <span className="text-[10px] font-medium text-muted-foreground">{t("compare")}</span>
           </label>
         </div>
 
@@ -210,27 +219,27 @@ function PoolCard({
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Members
+              {t("members")}
             </span>
             <span className="font-medium">{pool.members_count}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Total Saved
+              {t("totalSaved")}
             </span>
             <span className="font-medium">{pool.total_saved?.toFixed(2) ?? "0.00"} XLM</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              {pool.type === "rotational" ? "Frequency" : "Created"}
+              {pool.type === "rotational" ? t("frequency") : t("created")}
             </span>
             <span className="font-medium">{pool.frequency || timeAgo(pool.created_at)}</span>
           </div>
           {pool.type === "target" && pool.target_amount != null && (
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Target</span>
+              <span className="text-muted-foreground">{t("target")}</span>
               <span className="font-medium">{pool.target_amount.toFixed(2)} XLM</span>
             </div>
           )}
@@ -252,11 +261,11 @@ function PoolCard({
             ) : (
               <Send className="h-4 w-4 mr-1" />
             )}
-            Request to Join
+            {t("requestToJoin")}
           </Button>
           <Button variant="outline" size="sm" asChild>
             <Link href={`/dashboard/group/${pool.id}`} onClick={(event) => event.stopPropagation()}>
-              View
+              {t("view")}
             </Link>
           </Button>
         </div>
@@ -286,7 +295,9 @@ function RecommendedPoolCard({
   onToggleCompare: (key: string) => void
   compareDisabled: boolean
 }) {
-  const typeLabel = pool.type.charAt(0).toUpperCase() + pool.type.slice(1)
+  const t = useTranslations("explore")
+  const tPool = useTranslations("pool")
+  const typeLabel = tPool(`type.${pool.type}`)
 
   return (
     <Card
@@ -301,15 +312,15 @@ function RecommendedPoolCard({
             isSelected ? "bg-primary/10" : "bg-background/80 hover:bg-muted"
           }`}
           onClick={(event) => event.stopPropagation()}
-          aria-label={`Select ${pool.name} for comparison`}
+          aria-label={t("selectForCompareAria", { name: pool.name })}
         >
           <Checkbox
             checked={isSelected}
             disabled={compareDisabled}
             onCheckedChange={() => onToggleCompare(compareKey)}
-            aria-label={`Compare ${pool.name}`}
+            aria-label={t("compareAria", { name: pool.name })}
           />
-          <span className="text-[10px] font-medium text-muted-foreground">Compare</span>
+          <span className="text-[10px] font-medium text-muted-foreground">{t("compare")}</span>
         </label>
       </div>
 
@@ -321,7 +332,7 @@ function RecommendedPoolCard({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    aria-label="Why this pool?"
+                    aria-label={t("whyThisPoolAria")}
                     className="text-muted-foreground hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full shrink-0"
                   >
                     <AlertCircle className="h-4 w-4 text-indigo-500" />
@@ -329,7 +340,7 @@ function RecommendedPoolCard({
                 </TooltipTrigger>
                 <TooltipContent>
                   <div className="space-y-1 max-w-[200px]">
-                    <p className="font-semibold text-sm">Why this pool?</p>
+                    <p className="font-semibold text-sm">{t("whyThisPoolTitle")}</p>
                     <ul className="text-xs list-disc pl-4 text-muted-foreground">
                       {reasons.map((r, i) => (
                         <li key={i}>{r}</li>
@@ -350,14 +361,14 @@ function RecommendedPoolCard({
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Members
+            {t("members")}
           </span>
           <span className="font-medium">{pool.members_count}</span>
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
-            Contribution
+            {t("contribution")}
           </span>
           <span className="font-medium">{pool.contribution_amount?.toFixed(2) ?? "0.00"} XLM</span>
         </div>
@@ -365,7 +376,7 @@ function RecommendedPoolCard({
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
               <Heart className="h-4 w-4 text-rose-500" />
-              Health Score
+              {t("healthScore")}
             </span>
             <span className="font-medium text-emerald-500">{healthScore}%</span>
           </div>
@@ -388,11 +399,11 @@ function RecommendedPoolCard({
           ) : (
             <Send className="h-4 w-4 mr-1" />
           )}
-          Join
+          {t("join")}
         </Button>
         <Button variant="outline" size="sm" asChild>
           <Link href={`/dashboard/group/${pool.id}`} onClick={(event) => event.stopPropagation()}>
-            View
+            {t("view")}
           </Link>
         </Button>
       </div>
@@ -403,6 +414,8 @@ function RecommendedPoolCard({
 // ── Explore Content Component ──────────────────────────────────────────────
 
 export function ExploreContent() {
+  const t = useTranslations("explore")
+  const tPool = useTranslations("pool")
   const { address } = useStellar()
   const { toast } = useToast()
   const router = useRouter()
@@ -432,15 +445,15 @@ export function ExploreContent() {
     (key: string) => {
       if (!compareSelected.includes(key) && compareAtMax) {
         toast({
-          title: "Comparison limit reached",
-          description: `You can compare up to ${MAX_COMPARISON_POOLS} pools at once. Remove one first.`,
+          title: t("comparisonLimitTitle"),
+          description: t("comparisonLimitDescription", { max: MAX_COMPARISON_POOLS }),
           variant: "error",
         })
         return
       }
       toggleComparePool(key)
     },
-    [compareSelected, compareAtMax, toggleComparePool, toast]
+    [compareSelected, compareAtMax, toggleComparePool, toast, t]
   )
 
   // Filter state is derived from the URL so it survives refresh and can be shared.
@@ -520,7 +533,7 @@ export function ExploreContent() {
           fetchFactoryPools().catch(() => ({ rotational: [], target: [], flexible: [] })),
         ])
 
-        if (!dbRes.ok) throw new Error("Failed to fetch pools")
+        if (!dbRes.ok) throw new Error(t("failedToLoadPools"))
 
         let dbPools: Pool[] = await dbRes.json()
         if (!Array.isArray(dbPools)) dbPools = []
@@ -541,13 +554,13 @@ export function ExploreContent() {
           console.info(`${missingFromDb.length} pool(s) from factory not yet in database`)
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load pools")
+        setError(err instanceof Error ? err.message : t("failedToLoadPools"))
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [])
+  }, [t])
 
   // Filtering
   const filteredPools = useMemo(() => {
@@ -646,8 +659,8 @@ export function ExploreContent() {
     async (poolId: string) => {
       if (!address) {
         toast({
-          title: "Connect Wallet",
-          description: "Please connect your wallet to request joining a pool.",
+          title: t("connectWalletTitle"),
+          description: t("connectWalletToJoinDescription"),
         })
         return
       }
@@ -660,20 +673,20 @@ export function ExploreContent() {
         })
         if (!res.ok) {
           const err = await res.json()
-          throw new Error(err.error || "Failed to send request")
+          throw new Error(err.error || t("failedToSendRequest"))
         }
-        toast({ title: "Request Sent", description: "The pool creator will review your request." })
+        toast({ title: t("requestSentTitle"), description: t("requestSentDescription") })
       } catch (err) {
         toast({
-          title: "Error",
-          description: err instanceof Error ? err.message : "Something went wrong",
+          title: t("errorTitle"),
+          description: err instanceof Error ? err.message : t("somethingWentWrong"),
           variant: "error",
         })
       } finally {
         setJoining(null)
       }
     },
-    [address, toast]
+    [address, toast, t]
   )
 
   return (
@@ -686,10 +699,8 @@ export function ExploreContent() {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <h1 className="text-3xl sm:text-4xl font-bold mb-2">Explore Pools</h1>
-          <p className="text-muted-foreground">
-            Discover savings pools on Stellar, filter by type, and request to join.
-          </p>
+          <h1 className="text-3xl sm:text-4xl font-bold mb-2">{t("explorePools")}</h1>
+          <p className="text-muted-foreground">{t("subheading")}</p>
         </motion.div>
 
         {/* Recommended for You Section */}
@@ -698,9 +709,9 @@ export function ExploreContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="mb-12"
-            aria-label="Recommended for You"
+            aria-label={t("recommendedForYou")}
           >
-            <h2 className="text-2xl font-bold mb-6">Recommended for You</h2>
+            <h2 className="text-2xl font-bold mb-6">{t("recommendedForYou")}</h2>
             <div className="relative max-w-full">
               <Carousel
                 opts={{
@@ -747,33 +758,40 @@ export function ExploreContent() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by pool name..."
+              placeholder={t("searchPlaceholder")}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="pl-9"
             />
           </div>
 
-          <Select value={filterType} onValueChange={setFilterType}>
+          {/* Radix forbids SelectItem value="" — use a sentinel for "no filter". */}
+          <Select
+            value={filterType || FILTER_ALL}
+            onValueChange={(v) => setFilterType(v === FILTER_ALL ? "" : v)}
+          >
             <SelectTrigger className="w-full sm:w-[140px]">
-              <SelectValue placeholder="All Types" />
+              <SelectValue placeholder={t("allTypes")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
-              <SelectItem value="rotational">Rotational</SelectItem>
-              <SelectItem value="target">Target</SelectItem>
-              <SelectItem value="flexible">Flexible</SelectItem>
+              <SelectItem value={FILTER_ALL}>{t("allTypes")}</SelectItem>
+              <SelectItem value="rotational">{tPool("type.rotational")}</SelectItem>
+              <SelectItem value="target">{tPool("type.target")}</SelectItem>
+              <SelectItem value="flexible">{tPool("type.flexible")}</SelectItem>
             </SelectContent>
           </Select>
 
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <Select
+            value={filterStatus || FILTER_ALL}
+            onValueChange={(v) => setFilterStatus(v === FILTER_ALL ? "" : v)}
+          >
             <SelectTrigger className="w-full sm:w-[140px]">
-              <SelectValue placeholder="All Status" />
+              <SelectValue placeholder={t("allStatus")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value={FILTER_ALL}>{t("allStatus")}</SelectItem>
+              <SelectItem value="active">{tPool("status.active")}</SelectItem>
+              <SelectItem value="completed">{tPool("status.completed")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -791,10 +809,10 @@ export function ExploreContent() {
         {error && !loading && (
           <Card className="p-8 text-center">
             <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
-            <p className="text-destructive font-medium mb-2">Failed to load pools</p>
+            <p className="text-destructive font-medium mb-2">{t("failedToLoadPools")}</p>
             <p className="text-sm text-muted-foreground mb-4">{error}</p>
             <Button variant="outline" onClick={() => window.location.reload()}>
-              Try Again
+              {t("tryAgain")}
             </Button>
           </Card>
         )}
@@ -803,11 +821,9 @@ export function ExploreContent() {
         {!loading && !error && filteredPools.length === 0 && (
           <div className="text-center py-16">
             <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-1">No pools found</h3>
+            <h3 className="text-lg font-semibold mb-1">{t("noPoolsFound")}</h3>
             <p className="text-sm text-muted-foreground">
-              {search || filterType || filterStatus
-                ? "Try adjusting your search or filters."
-                : "No pools have been created yet. Be the first!"}
+              {search || filterType || filterStatus ? t("adjustFiltersHint") : t("beFirstHint")}
             </p>
           </div>
         )}
@@ -853,7 +869,7 @@ export function ExploreContent() {
           >
             <div className="flex items-center gap-2 rounded-full border border-border bg-background/95 backdrop-blur px-4 py-2 shadow-lg">
               <span className="text-sm font-medium">
-                {compareSelected.length} pool{compareSelected.length !== 1 ? "s" : ""} selected
+                {t("poolsSelected", { count: compareSelected.length })}
               </span>
               <Button
                 size="sm"
@@ -863,14 +879,14 @@ export function ExploreContent() {
               >
                 {compareSelected.length >= 2 ? (
                   <Link href={`/explore/compare?pools=${compareSelected.join(",")}`}>
-                    Compare ({compareSelected.length})
+                    {t("compareCount", { count: compareSelected.length })}
                   </Link>
                 ) : (
-                  <span>Compare ({compareSelected.length})</span>
+                  <span>{t("compareCount", { count: compareSelected.length })}</span>
                 )}
               </Button>
               <Button variant="ghost" size="sm" className="rounded-full" onClick={clearCompare}>
-                Clear
+                {t("clear")}
               </Button>
             </div>
           </motion.div>

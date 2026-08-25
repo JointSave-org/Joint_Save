@@ -10,12 +10,15 @@
  */
 
 import { useEffect, useRef, useState } from "react"
+import { useTranslations } from "next-intl"
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react"
 import { useStellar } from "@/components/web3-provider"
 import { pendingTxLabel, usePendingTransactions } from "@/hooks/usePendingTransactions"
 import { TxRecoveryDialog } from "@/components/shared/tx-recovery-dialog"
 
 export function PendingTxBanner() {
+  const t = useTranslations("common.pendingTx")
+  const tBanner = useTranslations("common.pendingBanner")
   const { isConnected } = useStellar()
   const { pending, failed, retryingHash, canRetry, retryTransaction, dismissFailed } =
     usePendingTransactions()
@@ -75,8 +78,11 @@ export function PendingTxBanner() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
                   {active.length === 1
-                    ? `Your ${pendingTxLabel(active[0].type)} on ${active[0].poolName} is confirming on-chain…`
-                    : `${active.length} transactions are confirming on-chain…`}
+                    ? tBanner("confirmingOne", {
+                        label: pendingTxLabel(active[0].type, (k) => t(k)),
+                        pool: active[0].poolName,
+                      })
+                    : tBanner("confirmingMany", { count: active.length })}
                 </p>
               </div>
               <button
@@ -87,11 +93,11 @@ export function PendingTxBanner() {
               >
                 {detailsOpen ? (
                   <>
-                    Hide Details <ChevronUp className="h-3 w-3" />
+                    {tBanner("hideDetails")} <ChevronUp className="h-3 w-3" />
                   </>
                 ) : (
                   <>
-                    View Details <ChevronDown className="h-3 w-3" />
+                    {tBanner("viewDetails")} <ChevronDown className="h-3 w-3" />
                   </>
                 )}
               </button>
@@ -105,11 +111,14 @@ export function PendingTxBanner() {
                     className="flex items-center justify-between gap-4 text-xs text-yellow-700/90 dark:text-yellow-400/90"
                   >
                     <span className="truncate">
-                      {pendingTxLabel(record.type)} · {record.poolName}
+                      {pendingTxLabel(record.type, (k) => t(k))} · {record.poolName}
                     </span>
                     <span className="shrink-0">
-                      {record.attempts} attempt{record.attempts === 1 ? "" : "s"} · checked{" "}
-                      {formatCheckedAt(record.lastChecked, now)}
+                      {tBanner(record.attempts === 1 ? "attempt" : "attempts", {
+                        count: record.attempts,
+                      })}{" "}
+                      · {tBanner("checkedPrefix")}{" "}
+                      {formatCheckedAt(record.lastChecked, now, tBanner)}
                     </span>
                   </div>
                 ))}
@@ -122,9 +131,13 @@ export function PendingTxBanner() {
   )
 }
 
-function formatCheckedAt(timestamp: number, now: number): string {
+function formatCheckedAt(
+  timestamp: number,
+  now: number,
+  t: (key: string, values?: Record<string, number>) => string
+): string {
   const diffSecs = Math.max(0, Math.round((now - timestamp) / 1000))
-  if (diffSecs < 60) return `${diffSecs}s ago`
-  if (diffSecs < 3600) return `${Math.floor(diffSecs / 60)}m ago`
-  return `${Math.floor(diffSecs / 3600)}h ago`
+  if (diffSecs < 60) return t("agoSeconds", { n: diffSecs })
+  if (diffSecs < 3600) return t("agoMinutes", { n: Math.floor(diffSecs / 60) })
+  return t("agoHours", { n: Math.floor(diffSecs / 3600) })
 }

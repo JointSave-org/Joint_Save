@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import {
   Contract,
   TransactionBuilder,
@@ -318,6 +319,7 @@ interface UseMicroloansResult {
 }
 
 export function useMicroloans(poolId: string | null | undefined): UseMicroloansResult {
+  const t = useTranslations("lending.hook")
   const { address, kit } = useStellar()
 
   const [poolLoans, setPoolLoans] = useState<Loan[]>([])
@@ -367,12 +369,12 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
         setMyLoans(mine)
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to load loans"
+      const msg = err instanceof Error ? err.message : t("loadFailed")
       setError(msg)
     } finally {
       setIsLoading(false)
     }
-  }, [poolId, address])
+  }, [poolId, address, t])
 
   useEffect(() => {
     fetchLoans()
@@ -382,13 +384,13 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
 
   const kitSign = useCallback(
     async (xdrStr: string): Promise<string> => {
-      if (!kit) throw new Error("Wallet not connected")
+      if (!kit) throw new Error(t("walletNotConnected"))
       const { signedTxXdr } = await kit.signTransaction(xdrStr, {
         networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
       })
       return signedTxXdr
     },
-    [kit]
+    [kit, t]
   )
 
   // ── createLoanRequest ───────────────────────────────────────────────────
@@ -396,7 +398,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
   const createLoanRequest = useCallback(
     async (params: CreateLoanParams): Promise<string | null> => {
       if (!address || !MICROLOAN_CONFIGURED) {
-        toastManager.error("Wallet not connected or microloan contract not configured")
+        toastManager.error(t("walletNotConfigured"))
         return null
       }
       setIsMutating(true)
@@ -417,18 +419,18 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
           ],
           kitSign
         )
-        toastManager.success("Loan request created successfully", 5000, txHash)
+        toastManager.success(t("requestCreated"), 5000, txHash)
         await fetchLoans()
         return txHash
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to create loan request"
+        const msg = err instanceof Error ? err.message : t("createFailed")
         toastManager.error(msg)
         return null
       } finally {
         setIsMutating(false)
       }
     },
-    [address, kitSign, fetchLoans]
+    [address, kitSign, fetchLoans, t]
   )
 
   // ── acceptLoan ──────────────────────────────────────────────────────────
@@ -436,7 +438,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
   const acceptLoan = useCallback(
     async (params: AcceptLoanParams): Promise<boolean> => {
       if (!address || !MICROLOAN_CONFIGURED) {
-        toastManager.error("Wallet not connected or microloan contract not configured")
+        toastManager.error(t("walletNotConfigured"))
         return false
       }
       setIsMutating(true)
@@ -455,18 +457,18 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
           ],
           kitSign
         )
-        toastManager.success("Loan accepted — funds transferred to borrower", 5000, txHash)
+        toastManager.success(t("loanAccepted"), 5000, txHash)
         await fetchLoans()
         return true
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to accept loan"
+        const msg = err instanceof Error ? err.message : t("acceptFailed")
         toastManager.error(msg)
         return false
       } finally {
         setIsMutating(false)
       }
     },
-    [address, kitSign, fetchLoans]
+    [address, kitSign, fetchLoans, t]
   )
 
   // ── repayLoan ───────────────────────────────────────────────────────────
@@ -474,7 +476,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
   const repayLoan = useCallback(
     async (params: RepayLoanParams): Promise<boolean> => {
       if (!address || !MICROLOAN_CONFIGURED) {
-        toastManager.error("Wallet not connected or microloan contract not configured")
+        toastManager.error(t("walletNotConfigured"))
         return false
       }
       setIsMutating(true)
@@ -493,18 +495,18 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
           ],
           kitSign
         )
-        toastManager.success("Repayment submitted successfully", 5000, txHash)
+        toastManager.success(t("repaymentSubmitted"), 5000, txHash)
         await fetchLoans()
         return true
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to repay loan"
+        const msg = err instanceof Error ? err.message : t("repayFailed")
         toastManager.error(msg)
         return false
       } finally {
         setIsMutating(false)
       }
     },
-    [address, kitSign, fetchLoans]
+    [address, kitSign, fetchLoans, t]
   )
 
   // ── cancelLoanRequest ───────────────────────────────────────────────────
@@ -512,7 +514,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
   const cancelLoanRequest = useCallback(
     async (loanId: string): Promise<boolean> => {
       if (!address || !MICROLOAN_CONFIGURED) {
-        toastManager.error("Wallet not connected or microloan contract not configured")
+        toastManager.error(t("walletNotConfigured"))
         return false
       }
       setIsMutating(true)
@@ -526,18 +528,18 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
           [bytesN32Val(loanId), addressVal(address)],
           kitSign
         )
-        toastManager.success("Loan request cancelled", 5000, txHash)
+        toastManager.success(t("requestCancelled"), 5000, txHash)
         await fetchLoans()
         return true
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to cancel loan request"
+        const msg = err instanceof Error ? err.message : t("cancelFailed")
         toastManager.error(msg)
         return false
       } finally {
         setIsMutating(false)
       }
     },
-    [address, kitSign, fetchLoans]
+    [address, kitSign, fetchLoans, t]
   )
 
   // ── defaultLoan ─────────────────────────────────────────────────────────
@@ -545,7 +547,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
   const defaultLoan = useCallback(
     async (loanId: string): Promise<boolean> => {
       if (!address || !MICROLOAN_CONFIGURED) {
-        toastManager.error("Wallet not connected or microloan contract not configured")
+        toastManager.error(t("walletNotConfigured"))
         return false
       }
       setIsMutating(true)
@@ -559,18 +561,18 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
           [bytesN32Val(loanId)],
           kitSign
         )
-        toastManager.success("Loan marked as defaulted — reputation penalty applied", 5000, txHash)
+        toastManager.success(t("markedDefaulted"), 5000, txHash)
         await fetchLoans()
         return true
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to default loan"
+        const msg = err instanceof Error ? err.message : t("defaultFailed")
         toastManager.error(msg)
         return false
       } finally {
         setIsMutating(false)
       }
     },
-    [address, kitSign, fetchLoans]
+    [address, kitSign, fetchLoans, t]
   )
 
   return {
@@ -617,9 +619,9 @@ export function isOverdue(loan: Loan): boolean {
 }
 
 /** Format a Unix timestamp as a human-readable date string */
-export function formatDueDate(unixSecs: number): string {
+export function formatDueDate(unixSecs: number, locale?: string): string {
   if (!unixSecs) return "—"
-  return new Date(unixSecs * 1000).toLocaleDateString(undefined, {
+  return new Date(unixSecs * 1000).toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",

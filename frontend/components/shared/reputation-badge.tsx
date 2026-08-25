@@ -1,5 +1,6 @@
 ﻿"use client"
 
+import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-react"
@@ -45,6 +46,7 @@ function ReputationTooltipContent({
   data: ReputationData
   display: ReputationDisplay
 }) {
+  const t = useTranslations("common.reputation")
   const reliabilityPct = (data.depositReliability / 10).toFixed(1)
   const completionPct =
     data.poolsJoined > 0 ? ((data.poolsCompleted / data.poolsJoined) * 100).toFixed(0) : "—"
@@ -52,31 +54,29 @@ function ReputationTooltipContent({
   return (
     <div className="space-y-2 min-w-[200px]">
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-sm">Reputation Score</span>
+        <span className="font-semibold text-sm">{t("scoreLabel")}</span>
         <span className={`text-sm font-bold ${display.textClass}`}>{data.totalScore} / 1000</span>
       </div>
       {data.isProvisional && (
-        <p className="text-xs text-muted-foreground italic">
-          Provisional — fewer than 10 deposits recorded
-        </p>
+        <p className="text-xs text-muted-foreground italic">{t("provisionalNote")}</p>
       )}
       <div className="space-y-1 text-xs border-t pt-2">
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Deposit reliability</span>
+          <span className="text-muted-foreground">{t("depositReliability")}</span>
           <span className="font-medium">{reliabilityPct}%</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Pools completed</span>
+          <span className="text-muted-foreground">{t("poolsCompleted")}</span>
           <span className="font-medium">
             {data.poolsCompleted} / {data.poolsJoined} ({completionPct}%)
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Total deposits</span>
+          <span className="text-muted-foreground">{t("totalDeposits")}</span>
           <span className="font-medium">{data.totalDeposits}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Missed rounds</span>
+          <span className="text-muted-foreground">{t("missedRounds")}</span>
           <span className="font-medium">{data.missedDeposits}</span>
         </div>
       </div>
@@ -99,6 +99,7 @@ export function ReputationBadge({
   compact = false,
   className,
 }: ReputationBadgeProps) {
+  const t = useTranslations("common.reputation")
   if (!data && !isLoading) return null
   if (isLoading) {
     return compact ? (
@@ -114,6 +115,7 @@ export function ReputationBadge({
 
   const tier = getTierFromScore(data.totalScore, data.isProvisional)
   const display = TIER_DISPLAY[tier]
+  const tierLabel = t(`tiers.${tier}`)
 
   if (compact) {
     return (
@@ -122,7 +124,7 @@ export function ReputationBadge({
           <span
             className="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0 cursor-help"
             style={{ backgroundColor: display.dotColor }}
-            aria-label={`Reputation: ${display.label} (${data.totalScore}/1000)`}
+            aria-label={t("ariaLabel", { label: tierLabel, score: data.totalScore })}
           />
         </TooltipTrigger>
         <TooltipContent
@@ -146,10 +148,10 @@ export function ReputationBadge({
             display.textClass,
             className ?? "",
           ].join(" ")}
-          aria-label={`Reputation: ${display.label} (${data.totalScore}/1000)`}
+          aria-label={t("ariaLabel", { label: tierLabel, score: data.totalScore })}
         >
           <TierIcon tier={tier} className="h-3 w-3" />
-          {display.label}
+          {tierLabel}
           {!data.isProvisional && <span className="opacity-70 font-normal">{data.totalScore}</span>}
         </Badge>
       </TooltipTrigger>

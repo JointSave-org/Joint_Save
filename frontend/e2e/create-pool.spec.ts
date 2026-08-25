@@ -4,7 +4,10 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
+  waitForPoolsResponse,
   E2E_MEMBER_2,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -17,6 +20,7 @@ import {
 test.beforeEach(async ({ page }) => {
   await connectWallet(page)
   await seedChainState(page) // sane on-chain defaults for the new pool
+  await mockCommonApis(page)
   await mockPoolsApi(page)
 })
 
@@ -51,7 +55,7 @@ const cases = [
 
 for (const c of cases) {
   test(`creates a ${c.type} pool and surfaces it everywhere`, async ({ page }) => {
-    await page.goto(`/dashboard/create/${c.type}`)
+    await page.goto(localePath(`/dashboard/create/${c.type}`))
 
     // Heading confirms the right form rendered
     await expect(page.getByRole("heading", { name: new RegExp(c.type, "i") })).toBeVisible()
@@ -75,8 +79,10 @@ for (const c of cases) {
     await expect(page.getByText("Live onchain")).toBeVisible()
 
     // 3) Pool now appears in "My Groups"
-    await page.goto("/dashboard")
-    await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
+    const poolsResponse = waitForPoolsResponse(page)
+    await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
+    await poolsResponse
+    await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
     await expect(page.getByText(c.name)).toBeVisible()
   })
 }

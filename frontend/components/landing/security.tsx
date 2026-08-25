@@ -1,31 +1,12 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { Card } from "@/components/ui/card"
 import { Shield, Lock, Eye, FileCheck } from "lucide-react"
 import { motion } from "framer-motion"
 
-const securityFeatures = [
-  {
-    icon: Shield,
-    title: "Soroban Smart Contracts",
-    description: "All funds are held in Soroban smart contracts on the Stellar network.",
-  },
-  {
-    icon: Lock,
-    title: "Non-Custodial",
-    description: "You maintain full control of your funds. JointSave never holds your assets.",
-  },
-  {
-    icon: Eye,
-    title: "Full Transparency",
-    description: "Every transaction is recorded on Stellar and publicly verifiable.",
-  },
-  {
-    icon: FileCheck,
-    title: "Reputation System",
-    description: "Build your onchain savings history for future opportunities.",
-  },
-]
+const SECURITY_ICONS = [Shield, Lock, Eye, FileCheck] as const
+const SECURITY_KEYS = ["contracts", "nonCustodial", "transparency", "reputation"] as const
 
 const container = {
   hidden: { opacity: 0 },
@@ -38,6 +19,8 @@ const item = {
 }
 
 export function Security() {
+  const t = useTranslations("landing.security")
+
   return (
     <section id="security" className="py-20 sm:py-32">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -49,11 +32,11 @@ export function Security() {
           className="max-w-2xl mx-auto text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 text-balance">
-            Built with <span className="text-primary">security</span> in mind
+            {t.rich("title", {
+              highlight: (chunks) => <span className="text-primary">{chunks}</span>,
+            })}
           </h2>
-          <p className="text-lg text-muted-foreground text-pretty">
-            Your funds are protected by Stellar blockchain technology and Soroban smart contracts
-          </p>
+          <p className="text-lg text-muted-foreground text-pretty">{t("subtitle")}</p>
         </motion.div>
 
         <motion.div
@@ -63,17 +46,22 @@ export function Security() {
           viewport={{ once: true }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8"
         >
-          {securityFeatures.map((feature, index) => (
-            <motion.div key={index} variants={item}>
-              <Card className="p-6 h-full text-center hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 border-border/50">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 mx-auto mb-4">
-                  <feature.icon className="h-7 w-7 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground text-pretty">{feature.description}</p>
-              </Card>
-            </motion.div>
-          ))}
+          {SECURITY_KEYS.map((key, index) => {
+            const Icon = SECURITY_ICONS[index]
+            return (
+              <motion.div key={key} variants={item}>
+                <Card className="p-6 h-full text-center hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 border-border/50">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 mx-auto mb-4">
+                    <Icon className="h-7 w-7 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">{t(`items.${key}.title`)}</h3>
+                  <p className="text-sm text-muted-foreground text-pretty">
+                    {t(`items.${key}.description`)}
+                  </p>
+                </Card>
+              </motion.div>
+            )
+          })}
         </motion.div>
       </div>
     </section>

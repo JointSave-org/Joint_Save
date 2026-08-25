@@ -187,6 +187,30 @@ function vecVal(addrs: string[]): xdr.ScVal {
 export type TxPhase = "signing" | "submitted" | "confirmed"
 
 /**
+ * Build a contract-call transaction without submitting it.
+ *
+ * Used by the simulation dialog flow to pre-validate transactions before
+ * presenting them to the user for signing. The returned `Transaction` can
+ * be passed directly to `simulateTransaction()` from `@/lib/tx-simulator`.
+ */
+export async function buildContractCallTx(
+  userAddress: string,
+  contractId: string,
+  method: string,
+  ...args: xdr.ScVal[]
+): Promise<Transaction> {
+  const server = getRpc()
+  const account = await server.getAccount(userAddress)
+  return new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+  })
+    .addOperation(new Contract(normalizeId(contractId)).call(method, ...args))
+    .setTimeout(TX_TIMEOUT)
+    .build()
+}
+
+/**
  * Simulate → assemble → sign → send → poll with automatic retry.
  *
  * `buildTx` receives a freshly fetched account on every attempt so each
@@ -290,17 +314,22 @@ async function submitTxWithSponsorship(
     type: PendingTransactionType
     poolId: string
     amount?: string
-  }
+  },
+  skipSimulation = false
 ): Promise<string> {
   if (IS_E2E) return E2E_TX_HASH
   const server = getRpc()
 
-  const simResult = await server.simulateTransaction(tx)
-  if (rpc.Api.isSimulationError(simResult)) {
-    throw new Error(`Simulation failed: ${simResult.error}`)
+  let preparedTx: Transaction
+  if (skipSimulation) {
+    preparedTx = tx
+  } else {
+    const simResult = await server.simulateTransaction(tx)
+    if (rpc.Api.isSimulationError(simResult)) {
+      throw new Error(`Simulation failed: ${simResult.error}`)
+    }
+    preparedTx = rpc.assembleTransaction(tx, simResult).build()
   }
-
-  const preparedTx = rpc.assembleTransaction(tx, simResult).build()
 
   // Request fee-bump from sponsor server
   const sponsorRes = await fetch("/api/sponsor/fee-bump", {
@@ -1453,6 +1482,7 @@ export function useAddPoolMember(contractId: string) {
 
   const addMember = async (newMember: string): Promise<string | undefined> => {
     if (!kit || !address || !contractId || !newMember) return
+    if (IS_E2E) return E2E_TX_HASH
     setIsLoading(true)
     try {
       return await submitTx(address, (account) =>

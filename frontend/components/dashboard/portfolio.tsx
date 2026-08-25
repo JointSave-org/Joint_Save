@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useTranslations } from "next-intl"
 import { useQuery } from "@tanstack/react-query"
 import { useStellar } from "@/components/web3-provider"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -59,6 +60,8 @@ type SortField = "name" | "type" | "contribution" | "total_balance" | "health_sc
 type SortDir = "asc" | "desc"
 
 export function Portfolio() {
+  const t = useTranslations("portfolio")
+  const tPool = useTranslations("pool")
   const { address } = useStellar()
   const [sortField, setSortField] = useState<SortField>("contribution")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
@@ -130,10 +133,8 @@ export function Portfolio() {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <Wallet className="h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-xl font-semibold">Wallet Connection Required</h3>
-        <p className="text-muted-foreground mt-1 max-w-sm">
-          Connect your Stellar wallet to view your portfolio summary.
-        </p>
+        <h3 className="text-xl font-semibold">{t("walletRequiredTitle")}</h3>
+        <p className="text-muted-foreground mt-1 max-w-sm">{t("walletRequiredBody")}</p>
       </div>
     )
   }
@@ -167,9 +168,7 @@ export function Portfolio() {
       <Card className="p-6 bg-destructive/10 border-destructive/20">
         <div className="flex items-center gap-3">
           <AlertTriangle className="h-5 w-5 text-destructive" />
-          <p className="text-destructive font-medium">
-            Failed to load portfolio data. Please try again.
-          </p>
+          <p className="text-destructive font-medium">{t("loadError")}</p>
         </div>
       </Card>
     )
@@ -179,16 +178,14 @@ export function Portfolio() {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold">Portfolio</h2>
-          <p className="text-muted-foreground mt-1">Your consolidated savings overview</p>
+          <h2 className="text-3xl font-bold">{t("title")}</h2>
+          <p className="text-muted-foreground mt-1">{t("subtitle")}</p>
         </div>
         <Card className="border-dashed border-2 py-16 text-center">
           <CardContent className="flex flex-col items-center gap-3">
             <PiggyBank className="h-12 w-12 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-semibold">No Active Pools</h3>
-            <p className="text-muted-foreground max-w-sm">
-              Join or create a savings pool to see your portfolio aggregated here.
-            </p>
+            <h3 className="text-lg font-semibold">{t("noPoolsTitle")}</h3>
+            <p className="text-muted-foreground max-w-sm">{t("noPoolsBody")}</p>
           </CardContent>
         </Card>
       </div>
@@ -204,10 +201,9 @@ export function Portfolio() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold">Portfolio</h2>
+        <h2 className="text-3xl font-bold">{t("title")}</h2>
         <p className="text-muted-foreground mt-1">
-          Consolidated overview across {data.total_pools.total} pool
-          {data.total_pools.total !== 1 ? "s" : ""}
+          {t("subtitleWithCount", { count: data.total_pools.total })}
         </p>
       </div>
 
@@ -215,7 +211,9 @@ export function Portfolio() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Saved</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t("totalSaved")}
+            </CardTitle>
             <Wallet className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
@@ -244,27 +242,27 @@ export function Portfolio() {
                 </div>
               )
             })()}
-            <p className="text-xs text-muted-foreground mt-1">Net deposits minus withdrawals</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("netDepositsNote")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Yield Earned
+              {t("yieldEarned")}
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{data.total_yield_earned.toFixed(2)} XLM</div>
-            <p className="text-xs text-muted-foreground mt-1">Across all pools</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("acrossAllPools")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Active Pools
+              {t("activePools")}
             </CardTitle>
             <BarChart3 className="h-4 w-4 text-blue-500" />
           </CardHeader>
@@ -272,17 +270,29 @@ export function Portfolio() {
             <div className="text-2xl font-bold">{data.total_pools.total}</div>
             <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
               {data.total_pools.rotational > 0 && (
-                <span>{data.total_pools.rotational} rotational</span>
+                <span>
+                  {data.total_pools.rotational} {t("rotationalSuffix")}
+                </span>
               )}
-              {data.total_pools.target > 0 && <span>{data.total_pools.target} target</span>}
-              {data.total_pools.flexible > 0 && <span>{data.total_pools.flexible} flexible</span>}
+              {data.total_pools.target > 0 && (
+                <span>
+                  {data.total_pools.target} {t("targetSuffix")}
+                </span>
+              )}
+              {data.total_pools.flexible > 0 && (
+                <span>
+                  {data.total_pools.flexible} {t("flexibleSuffix")}
+                </span>
+              )}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Reputation</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t("reputation")}
+            </CardTitle>
             <Award className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
@@ -290,8 +300,7 @@ export function Portfolio() {
               {data.reputation_summary.average_on_time_rate}%
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {data.reputation_summary.pools_completed} pool
-              {data.reputation_summary.pools_completed !== 1 ? "s" : ""} completed
+              {t("poolsCompletedCount", { count: data.reputation_summary.pools_completed })}
             </p>
           </CardContent>
         </Card>
@@ -304,19 +313,19 @@ export function Portfolio() {
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
-              Upcoming Deposits
+              {t("upcomingDeposits")}
             </CardTitle>
             <CardDescription>
               {data.upcoming_commitments.length === 0
-                ? "No upcoming deposit deadlines"
-                : `${data.upcoming_commitments.length} commitment${data.upcoming_commitments.length !== 1 ? "s" : ""} ahead`}
+                ? t("noUpcomingDeadlines")
+                : t("commitmentsAhead", { count: data.upcoming_commitments.length })}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {data.upcoming_commitments.length === 0 ? (
               <div className="flex flex-col items-center py-8 text-center">
                 <Clock className="h-8 w-8 text-muted-foreground opacity-40 mb-2" />
-                <p className="text-sm text-muted-foreground">All caught up — no pending deposits</p>
+                <p className="text-sm text-muted-foreground">{t("allCaughtUp")}</p>
               </div>
             ) : (
               <div className="space-y-0">
@@ -341,11 +350,11 @@ export function Portfolio() {
                           variant={isDeadlineSoon(c.deadline) ? "destructive" : "secondary"}
                           className="text-xs"
                         >
-                          {formatRelativeTime(c.deadline)}
+                          {formatRelativeTime(c.deadline, t)}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mt-0.5">
-                        {c.amount.toFixed(2)} XLM deposit
+                        {t("depositSuffix", { amount: c.amount.toFixed(2) })}
                       </p>
                     </div>
                   </div>
@@ -360,9 +369,9 @@ export function Portfolio() {
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <Award className="h-5 w-5 text-amber-500" />
-              Reputation Overview
+              {t("reputationOverview")}
             </CardTitle>
-            <CardDescription>Your savings behaviour across all pools</CardDescription>
+            <CardDescription>{t("reputationOverviewSubtitle")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-center">
@@ -396,7 +405,7 @@ export function Portfolio() {
                     {data.reputation_summary.average_on_time_rate}%
                   </span>
                   <span className="text-[10px] text-muted-foreground font-semibold uppercase">
-                    On-Time Rate
+                    {t("onTimeRate")}
                   </span>
                 </div>
               </div>
@@ -404,13 +413,13 @@ export function Portfolio() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-muted/40 rounded-lg p-3 text-center">
-                <p className="text-xs text-muted-foreground">Total Deposits</p>
+                <p className="text-xs text-muted-foreground">{t("totalDeposits")}</p>
                 <p className="text-lg font-bold">
                   {data.reputation_summary.total_deposits.toFixed(2)} XLM
                 </p>
               </div>
               <div className="bg-muted/40 rounded-lg p-3 text-center">
-                <p className="text-xs text-muted-foreground">Pools Completed</p>
+                <p className="text-xs text-muted-foreground">{t("poolsCompleted")}</p>
                 <p className="text-lg font-bold">{data.reputation_summary.pools_completed}</p>
               </div>
             </div>
@@ -418,7 +427,7 @@ export function Portfolio() {
             {avgHealth !== null && (
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-muted-foreground">Average Pool Health</span>
+                  <span className="text-muted-foreground">{t("averagePoolHealth")}</span>
                   <span className="font-semibold">{avgHealth}%</span>
                 </div>
                 <Progress value={avgHealth} className="h-2" />
@@ -433,9 +442,9 @@ export function Portfolio() {
         <CardHeader>
           <CardTitle className="text-lg font-bold flex items-center gap-2">
             <ListOrdered className="h-5 w-5 text-primary" />
-            Pool Comparison
+            {t("poolComparison")}
           </CardTitle>
-          <CardDescription>Sort by any column to compare your pools side by side</CardDescription>
+          <CardDescription>{t("poolComparisonSubtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -443,21 +452,21 @@ export function Portfolio() {
               <thead>
                 <tr className="border-b border-border text-muted-foreground">
                   <th className="py-3 px-3 text-left font-medium">
-                    <SortHeader field="name" label="Pool Name" />
+                    <SortHeader field="name" label={t("colPoolName")} />
                   </th>
                   <th className="py-3 px-3 text-left font-medium">
-                    <SortHeader field="type" label="Type" />
+                    <SortHeader field="type" label={t("colType")} />
                   </th>
                   <th className="py-3 px-3 text-right font-medium">
-                    <SortHeader field="contribution" label="Your Contribution" />
+                    <SortHeader field="contribution" label={t("colYourContribution")} />
                   </th>
                   <th className="py-3 px-3 text-right font-medium">
-                    <SortHeader field="total_balance" label="Pool Balance" />
+                    <SortHeader field="total_balance" label={t("colPoolBalance")} />
                   </th>
                   <th className="py-3 px-3 text-center font-medium">
-                    <SortHeader field="health_score" label="Health" />
+                    <SortHeader field="health_score" label={t("colHealth")} />
                   </th>
-                  <th className="py-3 px-3 text-left font-medium">Next Action</th>
+                  <th className="py-3 px-3 text-left font-medium">{t("colNextAction")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -469,7 +478,7 @@ export function Portfolio() {
                     <td className="py-3 px-3 font-medium">{pool.name}</td>
                     <td className="py-3 px-3">
                       <Badge variant="outline" className="capitalize">
-                        {pool.type}
+                        {tPool(`type.${pool.type}`)}
                       </Badge>
                     </td>
                     <td className="py-3 px-3 text-right font-semibold">
@@ -504,15 +513,18 @@ export function Portfolio() {
   )
 }
 
-function formatRelativeTime(dateStr: string): string {
+function formatRelativeTime(
+  dateStr: string,
+  t: (key: string, values?: Record<string, number>) => string
+): string {
   const d = new Date(dateStr)
   const now = new Date()
   const diff = d.getTime() - now.getTime()
-  if (diff < 0) return "Overdue"
+  if (diff < 0) return t("overdue")
   const days = Math.floor(diff / 86400000)
-  if (days === 0) return "Today"
-  if (days === 1) return "Tomorrow"
-  return `${days} days`
+  if (days === 0) return t("today")
+  if (days === 1) return t("tomorrow")
+  return t("daysCount", { count: days })
 }
 
 function isDeadlineSoon(dateStr: string): boolean {

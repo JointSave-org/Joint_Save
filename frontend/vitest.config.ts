@@ -9,6 +9,11 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: ["__tests__/**/*.test.{ts,tsx}"],
+    server: {
+      deps: {
+        inline: [/next-intl/],
+      },
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
@@ -18,7 +23,7 @@ export default defineConfig({
         "components/group/group-actions.tsx",
         "components/group/group-details.tsx",
         "components/create-group/flexible-form.tsx",
-        "app/dashboard/group/[id]/page.tsx",
+        "app/[locale]/dashboard/group/[id]/page.tsx",
         "lib/data-layer/PoolDataProvider.tsx",
         "hooks/useOptimisticTransactions.ts",
         "components/providers/web3-provider.tsx",

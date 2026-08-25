@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { HelpCircle } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ONBOARDING_CHANGE_EVENT } from "@/hooks/useOnboarding"
@@ -29,6 +30,7 @@ interface ContextualHelpProps {
  * pulse turns off as soon as the tour is completed or dismissed.
  */
 export function ContextualHelp({ content, title, pulse, className }: ContextualHelpProps) {
+  const t = useTranslations("onboarding.help")
   const [pulsing, setPulsing] = useState(
     () => !isOnboardingCompleteOrDismissed(getOnboardingState())
   )
@@ -51,7 +53,7 @@ export function ContextualHelp({ content, title, pulse, className }: ContextualH
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label={title ? `Help: ${title}` : "Help"}
+            aria-label={title ? t("ariaLabelWithTitle", { title }) : t("ariaLabelDefault")}
             className={`inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               shouldPulse ? "animate-pulse" : ""
             } ${className ?? ""}`}

@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useContext, useEffect, useRef, useState } from "react"
+import { useTranslations } from "next-intl"
 import { useStellar } from "@/components/web3-provider"
 import { PoolDataContext } from "@/lib/data-layer/PoolDataProvider"
 import { toastManager } from "@/lib/toast"
@@ -52,7 +53,9 @@ export async function checkTxOnHorizon(
   }
 }
 
-export function pendingTxLabel(type: PendingTxType): string {
+/** English fallback used outside React render (e.g. default prop values). */
+export function pendingTxLabel(type: PendingTxType, t?: (key: PendingTxType) => string): string {
+  if (t) return t(type)
   switch (type) {
     case "deposit":
       return "deposit"
@@ -71,10 +74,6 @@ export function pendingTxLabel(type: PendingTxType): string {
   }
 }
 
-function pendingTxSuccessMessage(type: PendingTxType): string {
-  return `Your ${pendingTxLabel(type)} completed successfully.`
-}
-
 export interface UsePendingTransactionsReturn {
   /** All tracked transactions (pending + failed). */
   pending: PendingTransaction[]
@@ -90,6 +89,7 @@ export interface UsePendingTransactionsReturn {
 }
 
 export function usePendingTransactions(): UsePendingTransactionsReturn {
+  const t = useTranslations("common.pendingTx")
   const { isConnected } = useStellar()
   const poolData = useContext(PoolDataContext)
   const [records, setRecords] = useState<PendingTransaction[]>([])
@@ -140,13 +140,15 @@ export function usePendingTransactions(): UsePendingTransactionsReturn {
           if (outcome === "confirmed") {
             removePendingTx(record.hash)
             clearRetryHandler(record.hash)
-            toastManager.success(pendingTxSuccessMessage(record.type))
+            toastManager.success(
+              t("successMessage", { label: pendingTxLabel(record.type, (k) => t(k)) })
+            )
             refetchPoolData(record)
             changed = true
           } else if (outcome === "failed") {
             updatePendingTx(record.hash, {
               status: "failed",
-              error: "Transaction failed on-chain.",
+              error: t("failedOnChain"),
               lastChecked: Date.now(),
             })
             changed = true

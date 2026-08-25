@@ -1,5 +1,6 @@
 // src/components/create-group/BulkImport.tsx
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AlertCircle, X } from "lucide-react"
@@ -22,6 +23,7 @@ type BulkImportProps = {
 }
 
 export default function BulkImport({ onMembersChange }: BulkImportProps) {
+  const t = useTranslations("pool.create.bulkImport")
   const [members, setMembers] = useState<Member[]>([])
   const [errors, setErrors] = useState<string[]>([])
 
@@ -40,27 +42,23 @@ export default function BulkImport({ onMembersChange }: BulkImportProps) {
           const address = row[0]?.trim() ?? ""
           const name = row[1]?.trim()
           if (!address) {
-            errorLines.push(`Line ${lineNum}: empty address`)
+            errorLines.push(t("emptyAddress", { line: lineNum }))
             return
           }
           if (!isValidStellarAddress(address)) {
-            errorLines.push(`Line ${lineNum}: invalid Stellar address`)
+            errorLines.push(t("invalidAddress", { line: lineNum }))
             return
           }
           const firstLine = firstLineForAddress.get(address)
           if (firstLine !== undefined) {
-            errorLines.push(
-              `Line ${lineNum}: duplicate address (already added on line ${firstLine})`
-            )
+            errorLines.push(t("duplicateAddress", { line: lineNum, firstLine }))
             return
           }
           firstLineForAddress.set(address, lineNum)
           parsed.push({ address, name, line: lineNum })
         })
         if (parsed.length > MAX_POOL_MEMBERS) {
-          errorLines.push(
-            `Too many members (${parsed.length}). The maximum allowed is ${MAX_POOL_MEMBERS}.`
-          )
+          errorLines.push(t("tooManyMembers", { count: parsed.length, max: MAX_POOL_MEMBERS }))
         }
         const acceptedMembers = parsed.slice(0, MAX_POOL_MEMBERS)
         setMembers(acceptedMembers)
@@ -68,7 +66,7 @@ export default function BulkImport({ onMembersChange }: BulkImportProps) {
         onMembersChange(acceptedMembers.map((m) => m.address))
       },
       error: (err) => {
-        setErrors([`Parsing error: ${err.message}`])
+        setErrors([t("parsingError", { message: err.message })])
         setMembers([])
         onMembersChange([])
       },
@@ -86,7 +84,7 @@ export default function BulkImport({ onMembersChange }: BulkImportProps) {
       <div className="flex items-center gap-2">
         <Input type="file" accept=".csv" onChange={handleFile} />
         <span className="text-sm text-muted-foreground">
-          CSV format: <code>address[,name]</code>
+          {t.rich("csvFormat", { code: (chunks) => <code>{chunks}</code> })}
         </span>
       </div>
 
@@ -106,9 +104,9 @@ export default function BulkImport({ onMembersChange }: BulkImportProps) {
           <table className="w-full text-sm">
             <thead className="bg-muted/30">
               <tr>
-                <th className="p-2 text-left">Line</th>
-                <th className="p-2 text-left">Address</th>
-                <th className="p-2 text-left">Name (optional)</th>
+                <th className="p-2 text-left">{t("lineHeader")}</th>
+                <th className="p-2 text-left">{t("addressHeader")}</th>
+                <th className="p-2 text-left">{t("nameHeader")}</th>
                 <th className="p-2"></th>
               </tr>
             </thead>

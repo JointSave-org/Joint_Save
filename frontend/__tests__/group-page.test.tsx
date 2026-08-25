@@ -1,6 +1,6 @@
 import React from "react"
 import { render, screen, waitFor } from "@/test-utils"
-import GroupPage from "@/app/dashboard/group/[id]/page"
+import GroupPage from "@/app/[locale]/dashboard/group/[id]/page"
 import { vi, describe, it, expect, beforeEach } from "vitest"
 
 vi.mock("@/hooks/useJointSaveContracts")

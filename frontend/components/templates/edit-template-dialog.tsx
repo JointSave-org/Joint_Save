@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,8 @@ export function EditTemplateDialog({
   address: string | null
   onSaved: () => void
 }) {
+  const t = useTranslations("templates.edit")
+  const tForm = useTranslations("templates.form")
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [isPublic, setIsPublic] = useState(false)
@@ -78,7 +81,7 @@ export function EditTemplateDialog({
 
   const handleSave = async () => {
     if (!address) {
-      toastManager.error("Connect your wallet before editing a template")
+      toastManager.error(t("connectWalletError"))
       return
     }
     const nameResult = validateTemplateName(name)
@@ -130,13 +133,13 @@ export function EditTemplateDialog({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to update template")
+        throw new Error(data?.error || t("updateFailed"))
       }
-      toastManager.success("Template updated")
+      toastManager.success(t("updated"))
       onOpenChange(false)
       onSaved()
     } catch (error) {
-      toastManager.error((error as Error).message || "Failed to update template")
+      toastManager.error((error as Error).message || t("updateFailed"))
     } finally {
       setSaving(false)
     }
@@ -146,13 +149,13 @@ export function EditTemplateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Template</DialogTitle>
-          <DialogDescription>Update this template's details and configuration.</DialogDescription>
+          <DialogTitle>{t("dialogTitle")}</DialogTitle>
+          <DialogDescription>{t("dialogDescription")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1">
-            <Label htmlFor="edit-template-name">Template Name</Label>
+            <Label htmlFor="edit-template-name">{tForm("templateName")}</Label>
             <div className="flex items-center gap-2">
               <Input
                 id="edit-template-name"
@@ -173,7 +176,7 @@ export function EditTemplateDialog({
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="edit-template-description">Description (optional)</Label>
+            <Label htmlFor="edit-template-description">{tForm("descriptionOptional")}</Label>
             <Textarea
               id="edit-template-description"
               maxLength={TEMPLATE_DESCRIPTION_MAX_LENGTH}
@@ -190,7 +193,7 @@ export function EditTemplateDialog({
           {template.pool_type === "rotational" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="edit-template-amount">Contribution Amount (XLM)</Label>
+                <Label htmlFor="edit-template-amount">{tForm("contributionAmount")}</Label>
                 <Input
                   id="edit-template-amount"
                   type="number"
@@ -201,7 +204,7 @@ export function EditTemplateDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="edit-template-frequency">Payout Frequency</Label>
+                <Label htmlFor="edit-template-frequency">{tForm("payoutFrequency")}</Label>
                 <Input
                   id="edit-template-frequency"
                   value={frequency}
@@ -214,7 +217,7 @@ export function EditTemplateDialog({
           {template.pool_type === "target" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="edit-template-target">Target Amount (XLM)</Label>
+                <Label htmlFor="edit-template-target">{tForm("targetAmount")}</Label>
                 <Input
                   id="edit-template-target"
                   type="number"
@@ -225,7 +228,7 @@ export function EditTemplateDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="edit-template-deadline">Deadline (days)</Label>
+                <Label htmlFor="edit-template-deadline">{tForm("deadlineDays")}</Label>
                 <Input
                   id="edit-template-deadline"
                   type="number"
@@ -241,7 +244,7 @@ export function EditTemplateDialog({
           {template.pool_type === "flexible" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="edit-template-minimum">Minimum Deposit (XLM)</Label>
+                <Label htmlFor="edit-template-minimum">{tForm("minimumDeposit")}</Label>
                 <Input
                   id="edit-template-minimum"
                   type="number"
@@ -252,7 +255,7 @@ export function EditTemplateDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="edit-template-fee">Withdrawal Fee (%)</Label>
+                <Label htmlFor="edit-template-fee">{tForm("withdrawalFee")}</Label>
                 <Input
                   id="edit-template-fee"
                   type="number"
@@ -264,57 +267,55 @@ export function EditTemplateDialog({
                 />
               </div>
               <div className="flex items-center justify-between sm:col-span-2 rounded-lg border border-border p-4">
-                <Label htmlFor="edit-template-yield">Enable Yield Generation</Label>
+                <Label htmlFor="edit-template-yield">{tForm("enableYield")}</Label>
                 <Switch
                   id="edit-template-yield"
                   checked={enableYield}
                   onCheckedChange={setEnableYield}
-                  aria-label="Enable yield generation"
+                  aria-label={tForm("enableYieldAria")}
                 />
               </div>
             </div>
           )}
 
           <div className="space-y-1">
-            <Label htmlFor="edit-template-members">Member Addresses (optional)</Label>
+            <Label htmlFor="edit-template-members">{tForm("memberAddresses")}</Label>
             <Textarea
               id="edit-template-members"
               rows={3}
               value={membersText}
               onChange={(e) => setMembersText(e.target.value)}
               className="font-mono text-xs"
-              placeholder="One Stellar address per line (G…)"
+              placeholder={tForm("memberAddressesPlaceholderEdit")}
             />
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-border p-4">
             <div className="space-y-0.5">
-              <Label htmlFor="edit-template-public">Share with community</Label>
-              <p className="text-sm text-muted-foreground">
-                Public templates appear in the Community Templates tab.
-              </p>
+              <Label htmlFor="edit-template-public">{tForm("shareWithCommunity")}</Label>
+              <p className="text-sm text-muted-foreground">{tForm("shareWithCommunityBody")}</p>
             </div>
             <Switch
               id="edit-template-public"
               checked={isPublic}
               onCheckedChange={setIsPublic}
-              aria-label="Make template public"
+              aria-label={tForm("makePublicAria")}
             />
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
+            {tForm("cancel")}
           </Button>
           <Button onClick={handleSave} disabled={saving || !address}>
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving…
+                {tForm("saving")}
               </>
             ) : (
-              "Save Changes"
+              t("saveChanges")
             )}
           </Button>
         </DialogFooter>

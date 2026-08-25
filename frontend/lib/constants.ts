@@ -211,6 +211,22 @@ export const KNOWN_CONTRACT_VERSIONS = {
   factory: 1,
 } as const
 
+// ── Transaction Simulation ───────────────────────────────────────────────────
+
+/**
+ * How long a simulation result is cached (keyed by XDR hash).
+ * Prevents duplicate RPC calls when the user re-triggers the same action
+ * within a short window. Unit: **milliseconds** (30 seconds).
+ */
+export const SIMULATION_CACHE_TTL_MS = 30_000 as const
+
+/**
+ * Maximum time to wait for a Soroban RPC simulateTransaction response
+ * before falling back to "simulation unavailable" behaviour. Unit:
+ * **milliseconds** (10 seconds).
+ */
+export const SIMULATION_TIMEOUT_MS = 10_000 as const
+
 // ── Chat ──────────────────────────────────────────────────────────────────────
 
 /**
@@ -242,3 +258,71 @@ export const MAX_PER_WALLET_SPONSORSHIPS = 1 as const
  * sponsorship is disabled and a warning is shown (circuit breaker).
  */
 export const MIN_SPONSOR_BALANCE_XLM = 10 as const
+
+// ── Security Monitoring ────────────────────────────────────────────────────
+
+/**
+ * Number of emergency withdrawals within this window that triggers a CRITICAL alert.
+ */
+export const SECURITY_RAPID_EMERGENCY_WITHDRAW_THRESHOLD = 3 as const
+
+/**
+ * Time window (ms) for the rapid emergency withdraw rule.
+ * 1 hour.
+ */
+export const SECURITY_RAPID_EMERGENCY_WITHDRAW_WINDOW_MS = 3_600_000 as const
+
+/**
+ * Deposit amount must exceed this multiple of the average to trigger a WARNING.
+ */
+export const SECURITY_DEPOSIT_SPIKE_MULTIPLIER = 10 as const
+
+/**
+ * Percentage of members removed within the window that triggers a CRITICAL alert.
+ * 0.5 = 50%.
+ */
+export const SECURITY_MASS_REMOVAL_THRESHOLD = 0.5 as const
+
+/**
+ * Time window (ms) for the mass member removal rule.
+ * 24 hours.
+ */
+export const SECURITY_MASS_REMOVAL_WINDOW_MS = 86_400_000 as const
+
+/**
+ * Number of pools paused within this window that triggers a WARNING.
+ */
+export const SECURITY_PAUSE_CASCADE_THRESHOLD = 5 as const
+
+/**
+ * Time window (ms) for the pool pause cascade rule.
+ * 1 hour.
+ */
+export const SECURITY_PAUSE_CASCADE_WINDOW_MS = 3_600_000 as const
+
+/**
+ * Days of inactivity before a pool is considered dormant.
+ */
+export const SECURITY_DORMANT_POOL_DAYS = 90 as const
+
+/**
+ * Number of failed transactions from the same wallet within this window that triggers a WARNING.
+ */
+export const SECURITY_FAILED_TX_STORM_THRESHOLD = 10 as const
+
+/**
+ * Time window (ms) for the failed transaction storm rule.
+ * 5 minutes.
+ */
+export const SECURITY_FAILED_TX_STORM_WINDOW_MS = 300_000 as const
+
+/**
+ * Number of pools with identical members created by the same wallet that triggers a WARNING.
+ */
+export const SECURITY_REPUTATION_MANIPULATION_THRESHOLD = 3 as const
+
+/**
+ * Maximum time (ms) between manual security scans.
+ * 5 minutes.
+ */
+export const SECURITY_SCAN_COOLDOWN_MS = 300_000 as const
