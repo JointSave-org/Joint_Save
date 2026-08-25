@@ -20,6 +20,7 @@ import { useStellar } from "@/components/web3-provider"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { FirstPoolTooltip } from "@/components/dashboard/first-pool-tooltip"
 import { PoolCard, PoolCardSkeleton, type Pool } from "@/components/dashboard/pool-card"
+import { BatchDepositPanel } from "@/components/dashboard/batch-deposit-panel"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 
 const PAGE_SIZE = 6
@@ -163,6 +164,10 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
           <p className="text-muted-foreground mt-1">{t("activeGroupsCount", { count: total })}</p>
         </div>
       </motion.div>
+
+      {/* Deposits owed across every pool the wallet belongs to. Renders
+          nothing when there is nothing outstanding. */}
+      <BatchDepositPanel onDepositsComplete={() => loadPools(page)} />
 
       {/* Search input */}
       <div className="relative">

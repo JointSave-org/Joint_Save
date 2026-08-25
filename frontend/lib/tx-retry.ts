@@ -322,6 +322,12 @@ export interface TxRetryOptions {
   dedup?: { poolId: string; type: PendingTxType }
   /** Register the broadcast transaction in the `jointsave_pending_txs` tracker. */
   track?: { type: PendingTxType; poolId: string; poolName?: string; amount?: string }
+  /**
+   * Called with the hash the moment a transaction is accepted for broadcast,
+   * before confirmation polling begins. Lets a caller surface a "submitted"
+   * state per transaction (used by the batch-deposit progress list).
+   */
+  onBroadcast?: (hash: string) => void
   /** Legacy per-address pending record (kept for the existing recovery provider). */
   legacy?: { address: string; type: LegacyPendingTransactionType; poolId: string; amount?: string }
   storage?: StorageLike
@@ -402,6 +408,7 @@ export async function submitWithRetry(options: TxRetryOptions): Promise<TxResult
     dedup,
     track,
     legacy,
+    onBroadcast,
     storage,
     now = Date.now,
   } = options
@@ -412,6 +419,7 @@ export async function submitWithRetry(options: TxRetryOptions): Promise<TxResult
   const prepare = options.prepare ?? ((tx: Transaction) => defaultPrepare(tx, rpcServer))
 
   const registerRecord = (hash: string, attempts: number) => {
+    onBroadcast?.(hash)
     if (track) {
       addPendingTx(
         {
