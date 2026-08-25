@@ -436,6 +436,79 @@ export type Database = {
         }
         Relationships: []
       }
+      disputes: {
+        Row: {
+          id: string
+          pool_id: string
+          filer_address: string
+          target_address: string | null
+          dispute_type:
+            "missed_deposit" | "unfair_penalty" | "admin_abuse" | "member_misconduct" | "other"
+          description: string
+          evidence_urls: string[]
+          status: "open" | "voting" | "resolved_upheld" | "resolved_dismissed" | "expired"
+          resolution: string | null
+          votes_for: number
+          votes_against: number
+          resolved_by: string | null
+          resolved_at: string | null
+          created_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          filer_address: string
+          target_address?: string | null
+          dispute_type:
+            "missed_deposit" | "unfair_penalty" | "admin_abuse" | "member_misconduct" | "other"
+          description: string
+          evidence_urls?: string[]
+          status?: "open" | "voting" | "resolved_upheld" | "resolved_dismissed" | "expired"
+          resolution?: string | null
+          votes_for?: number
+          votes_against?: number
+          resolved_by?: string | null
+          resolved_at?: string | null
+          created_at?: string
+          expires_at: string
+        }
+        Update: {
+          pool_id?: string
+          filer_address?: string
+          target_address?: string | null
+          dispute_type?:
+            "missed_deposit" | "unfair_penalty" | "admin_abuse" | "member_misconduct" | "other"
+          description?: string
+          evidence_urls?: string[]
+          status?: "open" | "voting" | "resolved_upheld" | "resolved_dismissed" | "expired"
+          resolution?: string | null
+          votes_for?: number
+          votes_against?: number
+          resolved_by?: string | null
+          resolved_at?: string | null
+          expires_at?: string
+        }
+        Relationships: []
+      }
+      dispute_votes: {
+        Row: {
+          dispute_id: string
+          voter_address: string
+          vote: boolean
+          created_at: string
+        }
+        Insert: {
+          dispute_id: string
+          voter_address: string
+          vote: boolean
+          created_at?: string
+        }
+        Update: {
+          vote?: boolean
+        }
+        Relationships: []
+      }
       pool_templates: {
         Row: {
           id: string

@@ -8,6 +8,7 @@ import { GroupActivity } from "@/components/group/group-activity"
 import { GroupActions } from "@/components/group/group-actions"
 import { RotationalTimelineContainer } from "@/components/group/rotational-timeline-container"
 import { PoolChat } from "@/components/group/pool-chat"
+import { DisputesPanel } from "@/components/disputes/disputes-panel"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -136,6 +137,15 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
             <GroupMembers groupId={id} contractAddress={cacheKey} />
           </div>
         </div>
+
+        {/* Dispute resolution — full width so cards have room for evidence links */}
+        <section className="mt-6">
+          <DisputesPanel
+            poolId={pool.id}
+            memberAddresses={(pool.pool_members ?? []).map((m) => m.member_address)}
+            poolAdmin={poolAdmin}
+          />
+        </section>
       </main>
     </div>
   )
