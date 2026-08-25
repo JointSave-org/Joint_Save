@@ -38,6 +38,8 @@ import { isContractVersionUnknown } from "@/lib/contract-version"
 import { useToast } from "@/hooks/use-toast"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import { GroupMuteNotificationsToggle } from "@/components/group/GroupMuteNotificationsToggle"
+import { ScheduleManager } from "@/components/group/schedule-manager"
+import { DeadlineCountdown } from "@/components/group/deadline-countdown"
 
 const FREQUENCY_KEYS = ["daily", "weekly", "biweekly", "monthly"] as const
 
@@ -659,6 +661,32 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
           {/* pool_id in DB is the same as groupId route param */}
           <GroupMuteNotificationsToggle poolId={groupId} />
         </div>
+
+        {/* Deadline Countdown display */}
+        {group.next_payout || (onchainState as RotationalPoolState)?.nextPayoutTime ? (
+          <div className="mb-6">
+            <DeadlineCountdown
+              targetTimestamp={
+                (onchainState as RotationalPoolState)?.nextPayoutTime ||
+                (group.next_payout ? new Date(group.next_payout).getTime() / 1000 : 0)
+              }
+            />
+          </div>
+        ) : null}
+
+        {/* Schedule Manager for rotational pools */}
+        {group.type === "rotational" && (
+          <div className="mb-6">
+            <ScheduleManager
+              poolId={group.id}
+              contractAddress={group.contract_address}
+              isAdmin={isAdmin || isCreator}
+              currentRoundDuration={604800}
+              currentRound={(onchainState as RotationalPoolState)?.currentRound || 0}
+              onScheduleUpdated={() => refetch()}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {stats.map((stat, i) => (
