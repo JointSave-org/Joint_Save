@@ -14,6 +14,7 @@ import {
   usePausePool, useUnpausePool,
 } from "@/hooks/useJointSaveContracts"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { AdminQuorumManager } from "./admin-quorum-manager"
 
 interface GroupActionsProps {
   groupId: string
@@ -310,6 +311,13 @@ export function GroupActions({ groupId, poolAddress, poolType, isPaused = false,
             {address || "Not connected"}
           </p>
         </div>
+
+        {/* Multi-sig Admin Quorum Manager */}
+        {!isPending && (
+          <div className="border-t border-border pt-6">
+            <AdminQuorumManager poolAddress={poolAddress} poolAdmin={poolAdmin} />
+          </div>
+        )}
       </div>
     </Card>
   )

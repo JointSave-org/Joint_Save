@@ -867,3 +867,200 @@ export function useUnpausePool(contractId: string) {
 
   return { unpause, isLoading }
 }
+
+// ── Multi-sig hooks ──────────────────────────────────────────────────────────
+
+function bytesN32Val(hex: string): xdr.ScVal {
+  // Remove 0x prefix if present, pad to 64 hex chars (32 bytes)
+  const clean = hex.startsWith("0x") ? hex.slice(2) : hex
+  const padded = clean.padStart(64, "0")
+  return xdr.ScVal.scvBytes(Buffer.from(padded, "hex"))
+}
+
+// ── Quorum read helpers ──────────────────────────────────────────────────────
+
+export async function fetchAdminQuorum(contractId: string): Promise<string[]> {
+  try {
+    const val = await viewCall(contractId, "get_admin_quorum")
+    if (val.switch().name === "scvVec") {
+      return (val.vec() ?? []).map(scValToString).filter(Boolean)
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+export async function fetchApprovalCount(
+  contractId: string,
+  actionHashHex: string
+): Promise<number> {
+  try {
+    const val = await viewCall(contractId, "get_approval_count", bytesN32Val(actionHashHex))
+    if (val.switch().name === "scvU32") return val.u32()
+    return 0
+  } catch {
+    return 0
+  }
+}
+
+export async function fetchActionTime(
+  contractId: string,
+  actionHashHex: string
+): Promise<number> {
+  try {
+    const val = await viewCall(contractId, "get_action_time", bytesN32Val(actionHashHex))
+    return Number(scValToBigInt(val))
+  } catch {
+    return 0
+  }
+}
+
+export async function fetchApprovals(
+  contractId: string,
+  actionHashHex: string
+): Promise<string[]> {
+  try {
+    const val = await viewCall(contractId, "get_approvals", bytesN32Val(actionHashHex))
+    if (val.switch().name === "scvVec") {
+      return (val.vec() ?? []).map(scValToString).filter(Boolean)
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+// ── Set admin quorum ─────────────────────────────────────────────────────────
+
+export function useSetAdminQuorum(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const setQuorum = async (newAdmins: string[]): Promise<string | undefined> => {
+    if (!kit || !address || !contractId || newAdmins.length === 0) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(normalizeId(contractId)).call(
+            "set_admin_quorum",
+            addressVal(address),
+            vecVal(newAdmins)
+          )
+        )
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { setQuorum, isLoading }
+}
+
+// ── Approve / revoke / execute ───────────────────────────────────────────────
+
+export function useApproveAction(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const approve = async (actionHashHex: string): Promise<string | undefined> => {
+    if (!kit || !address || !contractId) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(normalizeId(contractId)).call(
+            "approve_action",
+            addressVal(address),
+            bytesN32Val(actionHashHex)
+          )
+        )
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { approve, isLoading }
+}
+
+export function useRevokeApproval(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const revoke = async (actionHashHex: string): Promise<string | undefined> => {
+    if (!kit || !address || !contractId) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(normalizeId(contractId)).call(
+            "revoke_approval",
+            addressVal(address),
+            bytesN32Val(actionHashHex)
+          )
+        )
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { revoke, isLoading }
+}
+
+export function useExecuteApproved(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const execute = async (
+    actionHashHex: string,
+    actionType: number, // 1=pause, 2=unpause, 3=emergency_withdraw, 4=remove_member
+    target: string // recipient for emergency_withdraw, member to remove, or dummy
+  ): Promise<string | undefined> => {
+    if (!kit || !address || !contractId) return
+    setIsLoading(true)
+    try {
+      const account = await getRpc().getAccount(address)
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(
+          new Contract(normalizeId(contractId)).call(
+            "execute_approved",
+            addressVal(address),
+            bytesN32Val(actionHashHex),
+            u32Val(actionType),
+            addressVal(target)
+          )
+        )
+        .setTimeout(TX_TIMEOUT)
+        .build()
+      return await submitTx(kit, tx)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { execute, isLoading }
+}

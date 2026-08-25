@@ -2,6 +2,9 @@
 cache/
 out/
 
+# Test snapshots
+test_snapshots/
+
 # Ignores development broadcast logs
 !/broadcast
 /broadcast/*/31337/
