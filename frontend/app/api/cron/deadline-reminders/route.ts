@@ -1,8 +1,16 @@
 import { getAdminClient } from "@/lib/supabase-admin"
 import { NextRequest, NextResponse } from "next/server"
 
-export async function POST(_req: NextRequest) {
+const CRON_SECRET = process.env.CRON_SECRET ?? ""
+
+export async function POST(req: NextRequest) {
   try {
+    // Validate Vercel Cron / manual auth header
+    const authHeader = req.headers.get("authorization")
+    if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const supabase = getAdminClient()
 
     // Query active rotational pools
@@ -61,6 +69,15 @@ export async function POST(_req: NextRequest) {
         (m) => m.has_deposited === false || m.status !== "deposited"
       )
 
+      const notificationsToInsert: {
+        wallet_address: string
+        pool_id: string
+        activity_type: string
+        message: string
+        priority: "normal" | "high" | "urgent"
+        read: boolean
+      }[] = []
+
       for (const member of pendingMembers) {
         const message = `Reminder: Contribution deadline for pool "${pool.name}" is ${urgencyText}.`
 
@@ -77,19 +94,24 @@ export async function POST(_req: NextRequest) {
 
         if (existing && existing.length > 0) continue
 
-        const { error: notifError } = await supabase.from("notifications").insert([
-          {
-            wallet_address: member.member_address.toLowerCase(),
-            pool_id: pool.id,
-            activity_type: "deadline_reminder",
-            message,
-            priority,
-            read: false,
-          },
-        ])
+        notificationsToInsert.push({
+          wallet_address: member.member_address.toLowerCase(),
+          pool_id: pool.id,
+          activity_type: "deadline_reminder",
+          message,
+          priority,
+          read: false,
+        })
+      }
+
+      // Bulk insert all eligible notifications in a single batch
+      if (notificationsToInsert.length > 0) {
+        const { error: notifError } = await supabase
+          .from("notifications")
+          .insert(notificationsToInsert)
 
         if (!notifError) {
-          notificationsSent++
+          notificationsSent += notificationsToInsert.length
         }
       }
 
@@ -98,7 +120,7 @@ export async function POST(_req: NextRequest) {
         poolName: pool.name,
         hoursRemaining: Math.round(hoursRemaining * 10) / 10,
         priority,
-        notifiedCount: pendingMembers.length,
+        notifiedCount: notificationsToInsert.length,
       })
     }
 

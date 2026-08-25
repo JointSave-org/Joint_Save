@@ -136,7 +136,7 @@ export function DeadlineCountdown({
               onClick={onDepositClick}
               className={`w-full sm:w-auto font-semibold gap-1.5 shadow-sm ${
                 isUrgent
-                  ? "bg-red-600 hover:bg-red-700 text-white animate-bounce"
+                  ? "bg-red-600 hover:bg-red-700 text-white animate-pulse"
                   : isImminent
                     ? "bg-amber-600 hover:bg-amber-700 text-white"
                     : "bg-emerald-600 hover:bg-emerald-700 text-white"

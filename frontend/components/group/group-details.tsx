@@ -676,7 +676,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
             <ScheduleManager
               poolId={group.id}
               contractAddress={group.contract_address}
-              isAdmin={true}
+              isAdmin={isAdmin || isCreator}
               currentRoundDuration={604800}
               currentRound={(onchainState as RotationalPoolState)?.currentRound || 0}
               onScheduleUpdated={() => refetch()}
