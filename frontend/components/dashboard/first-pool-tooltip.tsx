@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { motion, AnimatePresence } from "framer-motion"
 import { X } from "lucide-react"
 
@@ -12,6 +13,7 @@ interface FirstPoolTooltipProps {
 }
 
 export function FirstPoolTooltip({ poolCount }: FirstPoolTooltipProps) {
+  const t = useTranslations("dashboard.firstPoolTooltip")
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -47,11 +49,14 @@ export function FirstPoolTooltip({ poolCount }: FirstPoolTooltipProps) {
           className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-foreground shadow-sm"
         >
           <span className="flex-1">
-            🎉 <strong>Great!</strong> Invite members or make your first deposit to get started.
+            🎉{" "}
+            {t.rich("message", {
+              bold: (chunks) => <strong>{chunks}</strong>,
+            })}
           </span>
           <button
             onClick={dismiss}
-            aria-label="Dismiss tip"
+            aria-label={t("dismiss")}
             className="shrink-0 rounded p-0.5 hover:bg-primary/20 transition-colors"
           >
             <X className="h-4 w-4 text-muted-foreground" aria-hidden="true" />

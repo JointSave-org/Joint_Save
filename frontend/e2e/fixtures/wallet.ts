@@ -45,5 +45,21 @@ export async function connectWallet(page: Page, address: string = E2E_ADDRESS) {
   await page.addInitScript((addr) => {
     localStorage.setItem("jointsave_address", addr)
     localStorage.setItem("jointsave_wallet_id", "freighter")
+    // Dismiss the onboarding wizard so it doesn't overlay the dashboard.
+    localStorage.setItem(
+      "jointsave:onboarding",
+      JSON.stringify({
+        completed: true,
+        currentStep: 4,
+        steps: {
+          welcome: true,
+          walletConnected: true,
+          poolTypeSelected: true,
+          firstPoolCreated: true,
+          firstDepositMade: true,
+        },
+        dismissed: false,
+      })
+    )
   }, address)
 }

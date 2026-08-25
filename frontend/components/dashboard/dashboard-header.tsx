@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations, useLocale } from "next-intl"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
+import { Link, useRouter } from "@/i18n/navigation"
 import Image from "next/image"
 import { useStellar } from "@/components/web3-provider"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { useRouter } from "next/navigation"
+import { LanguageSwitcher } from "@/components/shared/language-switcher"
 import { useToast } from "@/hooks/use-toast"
 import { Copy, Check, ExternalLink, LogOut, ChevronDown, Clock, Bell } from "lucide-react"
 import {
@@ -25,6 +26,9 @@ import { formatRelativeTime } from "@/lib/utils"
 import { ContextualHelp } from "@/components/onboarding/contextual-help"
 
 export function DashboardHeader() {
+  const t = useTranslations("nav")
+  const tPool = useTranslations("pool")
+  const locale = useLocale()
   const { address, disconnect } = useStellar()
   const router = useRouter()
   const { toast } = useToast()
@@ -45,7 +49,10 @@ export function DashboardHeader() {
     if (!address) return
     await navigator.clipboard.writeText(address)
     setCopied(true)
-    toast({ title: "Address copied", description: "Wallet address copied to clipboard." })
+    toast({
+      title: t("wallet.addressCopiedTitle"),
+      description: t("wallet.addressCopiedDescription"),
+    })
     setTimeout(() => setCopied(false), 2500)
   }
 
@@ -69,27 +76,25 @@ export function DashboardHeader() {
             <span className="hidden text-xl font-bold sm:inline">JointSave</span>
           </Link>
 
-          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-            <span className="text-xs text-muted-foreground hidden md:flex items-center gap-1">
-              Press{" "}
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-4">
+            <span className="text-xs text-muted-foreground hidden xl:flex items-center gap-1 whitespace-nowrap">
+              {t("shortcutsHintPrefix")}{" "}
               <kbd className="rounded-sm border border-border bg-muted px-1 font-sans text-[10px] font-medium">
                 ?
               </kbd>{" "}
-              for shortcuts
-              <ContextualHelp
-                content="Manage your savings groups from this dashboard. Use the tabs above to explore pools, create a new one, view your portfolio, or check analytics."
-                title="Your dashboard"
-              />
+              {t("shortcutsHintSuffix")}
+              <ContextualHelp content={t("dashboardHelpContent")} title={t("dashboardHelpTitle")} />
             </span>
             <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
-              <Link href="/explore">Explore</Link>
+              <Link href="/explore">{t("explore")}</Link>
             </Button>
             <Button variant="ghost" size="sm" asChild className="hidden lg:flex">
-              <Link href="/dashboard/templates">Templates</Link>
+              <Link href="/dashboard/templates">{t("templates")}</Link>
             </Button>
             <Button variant="ghost" size="sm" asChild className="hidden lg:flex">
-              <Link href="/bridge">Bridge USDC</Link>
+              <Link href="/bridge">{t("bridge")}</Link>
             </Button>
+            <LanguageSwitcher />
             <ThemeToggle />
 
             {/* Notification bell — only shown when wallet is connected */}
@@ -104,7 +109,7 @@ export function DashboardHeader() {
                     variant="ghost"
                     size="icon"
                     className="relative"
-                    aria-label="Notifications"
+                    aria-label={t("notifications")}
                   >
                     <Bell className="h-5 w-5" />
                     {unreadCount > 0 && (
@@ -115,7 +120,7 @@ export function DashboardHeader() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t("notifications")}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {initialLoading ? (
                     [0, 1, 2].map((i) => (
@@ -126,7 +131,7 @@ export function DashboardHeader() {
                     ))
                   ) : notifications.length === 0 ? (
                     <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                      No notifications yet
+                      {t("noNotificationsYet")}
                     </p>
                   ) : (
                     notifications.map((n) => (
@@ -146,7 +151,7 @@ export function DashboardHeader() {
                               {n.message}
                             </span>
                             <span className="text-[11px] text-muted-foreground">
-                              {formatRelativeTime(new Date(n.created_at))}
+                              {formatRelativeTime(new Date(n.created_at), locale)}
                             </span>
                           </Link>
                         ) : (
@@ -157,24 +162,41 @@ export function DashboardHeader() {
                               {n.message}
                             </span>
                             <span className="text-[11px] text-muted-foreground">
-                              {formatRelativeTime(new Date(n.created_at))}
+                              {formatRelativeTime(new Date(n.created_at), locale)}
                             </span>
                           </>
                         )}
                       </DropdownMenuItem>
                     ))
                   )}
-                  {!initialLoading && notifications.length > 0 && (
+                  {!initialLoading && (
                     <>
                       <DropdownMenuSeparator />
+                      {notifications.length > 0 && (
+                        <DropdownMenuItem
+                          asChild
+                          className="justify-center text-sm font-medium text-primary cursor-pointer"
+                        >
+                          <Link href="/dashboard/notifications">{t("viewAllNotifications")}</Link>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         asChild
-                        className="justify-center text-sm font-medium text-primary cursor-pointer"
+                        className="justify-center text-sm text-muted-foreground cursor-pointer"
                       >
-                        <Link href="/dashboard/notifications">View all notifications</Link>
+                        <Link href="/dashboard/notifications/preferences">
+                          {t("notificationPreferences")}
+                        </Link>
                       </DropdownMenuItem>
                     </>
                   )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    asChild
+                    className="justify-center text-sm text-muted-foreground cursor-pointer"
+                  >
+                    <Link href="/settings/notifications">{t("emailPreferences")}</Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -184,15 +206,15 @@ export function DashboardHeader() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-1.5">
                     <Clock className="h-4 w-4" />
-                    <span className="hidden sm:inline">Recent</span>
+                    <span className="hidden sm:inline">{t("recent")}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64">
-                  <DropdownMenuLabel>Recent Pools</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t("recentPools")}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {recentPools.length === 0 ? (
                     <div className="px-2 py-3 text-center text-sm text-muted-foreground">
-                      No recent pools yet
+                      {t("noRecentPoolsYet")}
                     </div>
                   ) : (
                     recentPools.map((pool) => (
@@ -207,10 +229,10 @@ export function DashboardHeader() {
                               variant="secondary"
                               className="text-[10px] px-1.5 py-0 capitalize"
                             >
-                              {pool.type}
+                              {tPool(`type.${pool.type}`)}
                             </Badge>
                             <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                              {formatRelativeTime(new Date(pool.visitedAt))}
+                              {formatRelativeTime(new Date(pool.visitedAt), locale)}
                             </span>
                           </span>
                         </Link>
@@ -240,7 +262,7 @@ export function DashboardHeader() {
                     ) : (
                       <Copy className="mr-2 h-4 w-4" />
                     )}
-                    {copied ? "Copied" : "Copy Address"}
+                    {copied ? t("wallet.copied") : t("wallet.copyAddress")}
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <a
@@ -250,19 +272,19 @@ export function DashboardHeader() {
                       className="flex w-full cursor-pointer items-center"
                     >
                       <ExternalLink className="mr-2 h-4 w-4" />
-                      View on Explorer
+                      {t("wallet.viewOnExplorer")}
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleDisconnect} variant="destructive">
                     <LogOut className="mr-2 h-4 w-4" />
-                    Disconnect Wallet
+                    {t("wallet.disconnectWallet")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <Button asChild variant="outline">
-                <Link href="/">Back to Home</Link>
+                <Link href="/">{t("backToHome")}</Link>
               </Button>
             )}
           </div>

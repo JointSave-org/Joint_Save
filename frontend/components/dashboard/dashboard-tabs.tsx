@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import dynamic from "next/dynamic"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MyGroups } from "@/components/dashboard/my-groups"
@@ -29,6 +30,7 @@ export function DashboardTabs({
   activeTab?: string
   onTabChange?: (tab: string) => void
 }) {
+  const t = useTranslations("dashboard.tabs")
   const [internalActiveTab, setInternalActiveTab] = useState("groups")
   const activeTab = controlledActiveTab ?? internalActiveTab
   const setActiveTab = onTabChange ?? setInternalActiveTab
@@ -42,31 +44,31 @@ export function DashboardTabs({
       <TabsList className="grid w-full grid-cols-7 mb-8">
         <TabsTrigger value="groups" className="flex items-center gap-2">
           <Home className="h-4 w-4" />
-          <span className="hidden sm:inline">My Groups</span>
+          <span className="hidden sm:inline">{t("groups")}</span>
         </TabsTrigger>
         <TabsTrigger value="portfolio" className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4" />
-          <span className="hidden sm:inline">Portfolio</span>
+          <span className="hidden sm:inline">{t("portfolio")}</span>
         </TabsTrigger>
         <TabsTrigger value="explore" className="flex items-center gap-2">
           <Compass className="h-4 w-4" />
-          <span className="hidden sm:inline">Explore</span>
+          <span className="hidden sm:inline">{t("explore")}</span>
         </TabsTrigger>
         <TabsTrigger value="create" className="flex items-center gap-2">
           <PlusCircle className="h-4 w-4" />
-          <span className="hidden sm:inline">Create</span>
+          <span className="hidden sm:inline">{t("create")}</span>
         </TabsTrigger>
         <TabsTrigger value="transactions" className="flex items-center gap-2">
           <Receipt className="h-4 w-4" />
-          <span className="hidden sm:inline">Transactions</span>
+          <span className="hidden sm:inline">{t("transactions")}</span>
         </TabsTrigger>
         <TabsTrigger value="analytics" className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4" />
-          <span className="hidden sm:inline">Analytics</span>
+          <span className="hidden sm:inline">{t("analytics")}</span>
         </TabsTrigger>
         <TabsTrigger value="profile" className="flex items-center gap-2">
           <User className="h-4 w-4" />
-          <span className="hidden sm:inline">Profile</span>
+          <span className="hidden sm:inline">{t("profile")}</span>
         </TabsTrigger>
       </TabsList>
 

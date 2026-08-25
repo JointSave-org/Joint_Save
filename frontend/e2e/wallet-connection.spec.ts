@@ -1,4 +1,4 @@
-import { test, expect, truncate, E2E_ADDRESS } from "./fixtures/test-base"
+import { test, expect, truncate, E2E_ADDRESS, localePath } from "./fixtures/test-base"
 
 /**
  * wallet-connection.spec — connect via the landing header (driven by the stub
@@ -10,7 +10,7 @@ import { test, expect, truncate, E2E_ADDRESS } from "./fixtures/test-base"
  */
 
 test("connects, shows the truncated address, then disconnects", async ({ page }) => {
-  await page.goto("/")
+  await page.goto(localePath("/"))
 
   // The marketing page has multiple "Connect Wallet" CTAs — drive the one in
   // the header (banner) to keep the assertion unambiguous.
@@ -36,6 +36,6 @@ test("connects, shows the truncated address, then disconnects", async ({ page })
   await page.getByRole("menuitem", { name: /disconnect/i }).click()
 
   // Back on the landing page with the Connect button restored
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(new RegExp(`${localePath("/")}$`))
   await expect(header.getByRole("button", { name: "Connect Wallet" })).toBeVisible()
 })

@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { Input } from "@/components/ui/input"
+import { Link } from "@/i18n/navigation"
 import {
   Select,
   SelectContent,
@@ -65,6 +67,7 @@ export function TokenSelect({
   onChange: (token: SelectedToken) => void
   defaultToken?: SelectedToken
 }) {
+  const t = useTranslations("pool.create.tokenSelect")
   const [mode, setMode] = useState<TokenMode>("native")
   const [customId, setCustomId] = useState("")
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle")
@@ -95,10 +98,10 @@ export function TokenSelect({
         })
         .catch(() => {
           setStatus("error")
-          setError("Couldn't read this token — is it a valid SEP-41 contract?")
+          setError(t("couldNotReadToken"))
         })
     }
-  }, [defaultToken, onChange])
+  }, [defaultToken, onChange, t])
 
   const handleMode = (v: string) => {
     const next = v as TokenMode
@@ -120,7 +123,7 @@ export function TokenSelect({
     if (!id) return
     if (!isValidContractId(id)) {
       setStatus("error")
-      setError("Enter a valid token contract id (starts with C, 56 chars).")
+      setError(t("invalidContractId"))
       return
     }
     setStatus("loading")
@@ -133,42 +136,40 @@ export function TokenSelect({
     } catch {
       setStatus("error")
       setMeta(null)
-      setError("Couldn't read this token — is it a valid SEP-41 contract?")
+      setError(t("couldNotReadToken"))
     }
   }
 
   return (
     <div className="space-y-2">
-      <FieldTooltip
-        label="Deposit Currency"
-        tooltip="The asset members deposit. Defaults to native XLM. Choose USDC to use Stellar's native USDC, or 'Custom token' for any other SEP-41 token by its contract id."
-        required
-      />
+      <FieldTooltip label={t("depositCurrency")} tooltip={t("depositCurrencyTooltip")} required />
       <Select value={mode} onValueChange={handleMode}>
         <SelectTrigger>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="native">XLM (native)</SelectItem>
+          <SelectItem value="native">{t("xlmNative")}</SelectItem>
           <SelectItem value="usdc">USDC</SelectItem>
-          <SelectItem value="custom">Custom token…</SelectItem>
+          <SelectItem value="custom">{t("customToken")}</SelectItem>
         </SelectContent>
       </Select>
 
       {mode === "usdc" && (
         <p className="text-xs text-muted-foreground">
-          Members deposit native USDC on Stellar. Bridging USDC from another chain?{" "}
-          <a href="/bridge" className="text-primary hover:underline">
-            See the bridge guide
-          </a>
-          .
+          {t.rich("usdcNotice", {
+            link: (chunks) => (
+              <Link href="/bridge" className="text-primary hover:underline">
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
       )}
 
       {mode === "custom" && (
         <div className="space-y-1">
           <Input
-            placeholder="Token contract id (C…)"
+            placeholder={t("contractIdPlaceholder")}
             value={customId}
             onChange={(e) => {
               setCustomId(e.target.value)
@@ -183,13 +184,17 @@ export function TokenSelect({
           />
           {status === "loading" && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" /> Reading token…
+              <Loader2 className="h-3 w-3 animate-spin" /> {t("readingToken")}
             </p>
           )}
           {status === "ok" && meta && (
             <p className="text-xs text-green-600 flex items-center gap-1">
               <CheckCircle2 className="h-3 w-3" />
-              {meta.name} ({meta.symbol}) · {meta.decimals} decimals
+              {t("tokenResolved", {
+                name: meta.name,
+                symbol: meta.symbol,
+                decimals: meta.decimals,
+              })}
             </p>
           )}
           {status === "error" && (

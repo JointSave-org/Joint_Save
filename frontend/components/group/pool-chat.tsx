@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
+import { useTranslations, useLocale } from "next-intl"
 import { useStellar } from "@/components/web3-provider"
 import { usePoolChat, type PoolMessage } from "@/hooks/usePoolChat"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -26,19 +27,6 @@ import { cn } from "@/lib/utils"
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function formatTime(iso: string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffMins = Math.floor(diffMs / 60_000)
-
-  if (diffMins < 1) return "just now"
-  if (diffMins < 60) return `${diffMins}m ago`
-  const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-}
-
 function shortAddress(addr: string): string {
   if (addr.length <= 12) return addr
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`
@@ -46,7 +34,22 @@ function shortAddress(addr: string): string {
 
 /** A single chat bubble */
 function MessageBubble({ msg, isOwn }: { msg: PoolMessage; isOwn: boolean }) {
+  const t = useTranslations("group.chat")
+  const locale = useLocale()
   const isOptimistic = msg.id.startsWith("optimistic-")
+
+  const formatTime = (iso: string): string => {
+    const d = new Date(iso)
+    const now = new Date()
+    const diffMs = now.getTime() - d.getTime()
+    const diffMins = Math.floor(diffMs / 60_000)
+
+    if (diffMins < 1) return t("justNow")
+    if (diffMins < 60) return t("minutesAgo", { count: diffMins })
+    const diffHours = Math.floor(diffMins / 60)
+    if (diffHours < 24) return t("hoursAgo", { count: diffHours })
+    return d.toLocaleDateString(locale, { month: "short", day: "numeric" })
+  }
 
   return (
     <div className={cn("flex flex-col gap-0.5", isOwn ? "items-end" : "items-start")}>
@@ -70,7 +73,7 @@ function MessageBubble({ msg, isOwn }: { msg: PoolMessage; isOwn: boolean }) {
       <span className="text-[10px] text-muted-foreground px-1">
         {isOptimistic ? (
           <span className="flex items-center gap-1">
-            <Loader2 className="h-2.5 w-2.5 animate-spin" /> Sending…
+            <Loader2 className="h-2.5 w-2.5 animate-spin" /> {t("sending")}
           </span>
         ) : (
           formatTime(msg.created_at)
@@ -95,10 +98,11 @@ function MessageSkeletons() {
 
 /** Empty state shown when no messages have been sent yet */
 function EmptyChat() {
+  const t = useTranslations("group.chat")
   return (
     <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground py-10">
       <MessageSquare className="h-8 w-8 opacity-30" />
-      <p className="text-sm">No messages yet. Be the first to say something!</p>
+      <p className="text-sm">{t("noMessagesYet")}</p>
     </div>
   )
 }
@@ -112,6 +116,7 @@ interface PoolChatProps {
 }
 
 export function PoolChat({ poolId, isMember }: PoolChatProps) {
+  const t = useTranslations("group.chat")
   const { address: walletAddress } = useStellar()
 
   const {
@@ -186,15 +191,20 @@ export function PoolChat({ poolId, isMember }: PoolChatProps) {
 
   const charsLeft = CHAT_MESSAGE_MAX_LENGTH - draft.length
 
+  const realtimeStatusLabel =
+    realtimeStatus === "connected"
+      ? t("statusConnected")
+      : realtimeStatus === "connecting"
+        ? t("statusConnecting")
+        : t("statusDisconnected")
+
   // ── Non-member wall ─────────────────────────────────────────────────────
   if (!isMember) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-muted-foreground">
           <MessageSquare className="h-8 w-8 opacity-30" />
-          <p className="text-sm text-center">
-            Only members of this pool can view and participate in the discussion.
-          </p>
+          <p className="text-sm text-center">{t("membersOnlyNotice")}</p>
         </CardContent>
       </Card>
     )
@@ -207,7 +217,7 @@ export function PoolChat({ poolId, isMember }: PoolChatProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-sm">Discussion</span>
+            <span className="font-semibold text-sm">{t("discussion")}</span>
           </div>
           <div
             className={cn(
@@ -218,14 +228,14 @@ export function PoolChat({ poolId, isMember }: PoolChatProps) {
             )}
             title={
               realtimeStatus === "connected"
-                ? "Live — messages delivered in real time"
+                ? t("statusConnectedTitle")
                 : realtimeStatus === "connecting"
-                  ? "Connecting to live updates…"
-                  : "Disconnected — refresh to reconnect"
+                  ? t("statusConnectingTitle")
+                  : t("statusDisconnectedTitle")
             }
           >
             <Wifi className="h-3 w-3" />
-            <span className="capitalize">{realtimeStatus}</span>
+            <span>{realtimeStatusLabel}</span>
           </div>
         </div>
       </CardHeader>
@@ -250,7 +260,7 @@ export function PoolChat({ poolId, isMember }: PoolChatProps) {
               ) : (
                 <ChevronUp className="h-3 w-3" />
               )}
-              {loadingOlder ? "Loading…" : "Load earlier messages"}
+              {loadingOlder ? t("loadingEllipsis") : t("loadEarlierMessages")}
             </Button>
           </div>
         )}
@@ -294,15 +304,15 @@ export function PoolChat({ poolId, isMember }: PoolChatProps) {
               rows={1}
               placeholder={
                 rateLimited
-                  ? `Wait ${(rateLimitRemainingMs / 1000).toFixed(1)}s…`
-                  : "Type a message… (Enter to send)"
+                  ? t("waitSeconds", { seconds: (rateLimitRemainingMs / 1000).toFixed(1) })
+                  : t("typeMessagePlaceholder")
               }
               value={draft}
               maxLength={CHAT_MESSAGE_MAX_LENGTH}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={!walletAddress || isSending}
-              aria-label="Chat message input"
+              aria-label={t("chatInputAria")}
             />
             {/* Character counter — only show when approaching limit */}
             {charsLeft < 80 && (
@@ -322,7 +332,7 @@ export function PoolChat({ poolId, isMember }: PoolChatProps) {
             className="h-9 w-9 shrink-0 rounded-xl"
             onClick={handleSend}
             disabled={!draft.trim() || isSending || rateLimited || !walletAddress}
-            aria-label="Send message"
+            aria-label={t("sendMessageAria")}
           >
             {isSending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -336,9 +346,7 @@ export function PoolChat({ poolId, isMember }: PoolChatProps) {
 
         {/* Wallet not connected notice */}
         {!walletAddress && (
-          <p className="text-xs text-muted-foreground mt-1">
-            Connect your wallet to participate in the discussion.
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">{t("connectWalletNotice")}</p>
         )}
       </div>
     </Card>

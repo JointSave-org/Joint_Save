@@ -4,9 +4,12 @@ import {
   connectWallet,
   seedChainState,
   mockPoolsApi,
+  mockCommonApis,
   makePool,
+  waitForPoolsResponse,
   E2E_ADDRESS,
   E2E_CONTRACT_ID,
+  localePath,
 } from "./fixtures/test-base"
 
 /**
@@ -35,6 +38,7 @@ test.beforeEach(async ({ page }) => {
     members: [E2E_ADDRESS],
     currentRound: 0,
   })
+  await mockCommonApis(page)
   await mockPoolsApi(page, [
     makePool({
       id: POOL_ID,
@@ -53,22 +57,28 @@ test("landing → dashboard → group → back renders cleanly", async ({ page, 
   // → Dashboard (header link appears once the wallet is connected)
   const dashboardLink = page.getByRole("banner").getByRole("link", { name: "Dashboard" })
   await expect(dashboardLink).toBeVisible()
+  let poolsResponse = waitForPoolsResponse(page)
   await dashboardLink.click()
   await page.waitForURL(/\/dashboard$/)
-  await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
+  await poolsResponse
+  await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
 
   // → Group detail
+  poolsResponse = waitForPoolsResponse(page)
   await page
     .getByRole("link", { name: /view details/i })
     .first()
     .click()
   await expect(page).toHaveURL(new RegExp(`/dashboard/group/${POOL_ID}`))
-  await expect(page.getByRole("heading", { name: "Navigation Pool" })).toBeVisible()
+  await poolsResponse
+  await expect(page.getByRole("heading", { name: /Navigation Pool/i })).toBeVisible()
 
   // → Back to dashboard
+  poolsResponse = waitForPoolsResponse(page)
   await page.getByRole("link", { name: /back to dashboard/i }).click()
   await expect(page).toHaveURL(/\/dashboard$/)
-  await expect(page.getByRole("heading", { name: "My Groups" })).toBeVisible()
+  await poolsResponse
+  await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
 
   // No real console errors accumulated across the journey
   const real = consoleErrors.filter((e) => !BENIGN.some((re) => re.test(e)))

@@ -1,3 +1,7 @@
+import createNextIntlPlugin from "next-intl/plugin"
+
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts")
+
 let withBundleAnalyzer = (config) => config
 
 try {
@@ -33,4 +37,4 @@ const nextConfig = {
   },
 }
 
-export default withBundleAnalyzer(nextConfig)
+export default withNextIntl(withBundleAnalyzer(nextConfig))
