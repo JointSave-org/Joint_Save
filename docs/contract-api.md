@@ -49,45 +49,45 @@ stellar contract invoke \
 
 ### Functions
 
-| Function | Parameters | Returns | Auth Required | Description |
-|---|---|---|---|---|
-| `initialize` | `admin: Address`, `token: Address`, `treasury: Address` | `()` | `admin` | One-time setup after deployment. Sets admin, token, treasury, and initializes empty pool lists. |
-| `register_rotational` | `caller: Address`, `pool_id: BytesN<32>` | `()` | `caller` | Appends a deployed rotational pool contract ID to the registry. |
-| `register_target` | `caller: Address`, `pool_id: BytesN<32>` | `()` | `caller` | Appends a deployed target pool contract ID to the registry. |
-| `register_flexible` | `caller: Address`, `pool_id: BytesN<32>` | `()` | `caller` | Appends a deployed flexible pool contract ID to the registry. |
-| `set_treasury` | `new_treasury: Address` | `()` | stored `Admin` | Replaces the treasury address. Admin-only. |
-| `token` | — | `Address` | None | Returns the configured token address. |
-| `treasury` | — | `Address` | None | Returns the current treasury address. |
-| `all_rotational` | — | `Vec<BytesN<32>>` | None | Returns all registered rotational pool IDs. |
-| `all_target` | — | `Vec<BytesN<32>>` | None | Returns all registered target pool IDs. |
-| `all_flexible` | — | `Vec<BytesN<32>>` | None | Returns all registered flexible pool IDs. |
+| Function              | Parameters                                              | Returns           | Auth Required  | Description                                                                                     |
+| --------------------- | ------------------------------------------------------- | ----------------- | -------------- | ----------------------------------------------------------------------------------------------- |
+| `initialize`          | `admin: Address`, `token: Address`, `treasury: Address` | `()`              | `admin`        | One-time setup after deployment. Sets admin, token, treasury, and initializes empty pool lists. |
+| `register_rotational` | `caller: Address`, `pool_id: BytesN<32>`                | `()`              | `caller`       | Appends a deployed rotational pool contract ID to the registry.                                 |
+| `register_target`     | `caller: Address`, `pool_id: BytesN<32>`                | `()`              | `caller`       | Appends a deployed target pool contract ID to the registry.                                     |
+| `register_flexible`   | `caller: Address`, `pool_id: BytesN<32>`                | `()`              | `caller`       | Appends a deployed flexible pool contract ID to the registry.                                   |
+| `set_treasury`        | `new_treasury: Address`                                 | `()`              | stored `Admin` | Replaces the treasury address. Admin-only.                                                      |
+| `token`               | —                                                       | `Address`         | None           | Returns the configured token address.                                                           |
+| `treasury`            | —                                                       | `Address`         | None           | Returns the current treasury address.                                                           |
+| `all_rotational`      | —                                                       | `Vec<BytesN<32>>` | None           | Returns all registered rotational pool IDs.                                                     |
+| `all_target`          | —                                                       | `Vec<BytesN<32>>` | None           | Returns all registered target pool IDs.                                                         |
+| `all_flexible`        | —                                                       | `Vec<BytesN<32>>` | None           | Returns all registered flexible pool IDs.                                                       |
 
 ### Events
 
-| Event Topic | Event Body | Emitted When |
-|---|---|---|
+| Event Topic                    | Event Body            | Emitted When                     |
+| ------------------------------ | --------------------- | -------------------------------- |
 | `("rot_reg", caller: Address)` | `pool_id: BytesN<32>` | A rotational pool is registered. |
-| `("tgt_reg", caller: Address)` | `pool_id: BytesN<32>` | A target pool is registered. |
-| `("flx_reg", caller: Address)` | `pool_id: BytesN<32>` | A flexible pool is registered. |
+| `("tgt_reg", caller: Address)` | `pool_id: BytesN<32>` | A target pool is registered.     |
+| `("flx_reg", caller: Address)` | `pool_id: BytesN<32>` | A flexible pool is registered.   |
 
 ### Storage Keys
 
-| Key | Type | Lifetime | Description |
-|---|---|---|---|
-| `Admin` | `Address` | Persistent | Factory administrator address. |
-| `Token` | `Address` | Persistent | SPL token address used across all pools. |
-| `Treasury` | `Address` | Persistent | Treasury address to receive protocol fees. |
+| Key          | Type              | Lifetime   | Description                                      |
+| ------------ | ----------------- | ---------- | ------------------------------------------------ |
+| `Admin`      | `Address`         | Persistent | Factory administrator address.                   |
+| `Token`      | `Address`         | Persistent | SPL token address used across all pools.         |
+| `Treasury`   | `Address`         | Persistent | Treasury address to receive protocol fees.       |
 | `Rotational` | `Vec<BytesN<32>>` | Persistent | List of registered rotational pool contract IDs. |
-| `Target` | `Vec<BytesN<32>>` | Persistent | List of registered target pool contract IDs. |
-| `Flexible` | `Vec<BytesN<32>>` | Persistent | List of registered flexible pool contract IDs. |
+| `Target`     | `Vec<BytesN<32>>` | Persistent | List of registered target pool contract IDs.     |
+| `Flexible`   | `Vec<BytesN<32>>` | Persistent | List of registered flexible pool contract IDs.   |
 
 ### Error Conditions
 
-| Assertion | Trigger Condition |
-|---|---|
-| (implicit auth panic) | `initialize` called by non-`admin` address. |
+| Assertion             | Trigger Condition                               |
+| --------------------- | ----------------------------------------------- |
+| (implicit auth panic) | `initialize` called by non-`admin` address.     |
 | (implicit auth panic) | `register_*` called without `caller` signature. |
-| (implicit auth panic) | `set_treasury` called by non-`admin` address. |
+| (implicit auth panic) | `set_treasury` called by non-`admin` address.   |
 
 > **Note:** `initialize` uses `admin.require_auth()` so the admin must be the transaction source or have authorized the call. Subsequent view calls like `token()` and `all_rotational()` panic with `unwrap()` if called before `initialize` (storage key absent).
 
@@ -168,53 +168,53 @@ stellar contract invoke \
 
 ### Functions
 
-| Function | Parameters | Returns | Auth Required | Description |
-|---|---|---|---|---|
-| `initialize` | `token: Address`, `members: Vec<Address>`, `deposit_amount: i128`, `round_duration: u64`, `treasury_fee_bps: u32`, `relayer_fee_bps: u32`, `treasury: Address` | `()` | None | One-time setup. Sets all pool parameters, initializes `CurrentRound = 0`, and sets `NextPayoutTime = now + round_duration`. |
-| `deposit` | `member: Address` | `()` | `member` | Member transfers `deposit_amount` tokens to the pool for the current round. Each member may deposit once per round. |
-| `trigger_payout` | `relayer: Address` | `()` | `relayer` | Executes the payout for the current round. Distributes treasury fee, relayer fee, and net payout to current beneficiary. Advances the round or marks the pool inactive after the final round. |
-| `is_active` | — | `bool` | None | Returns whether the pool is still running. |
-| `current_round` | — | `u32` | None | Returns the zero-based index of the current round (also the index of the current beneficiary in the members list). |
-| `members` | — | `Vec<Address>` | None | Returns the ordered member list. |
-| `has_deposited` | `member: Address` | `bool` | None | Returns whether `member` has deposited for the current round. |
-| `next_payout_time` | — | `u64` | None | Returns the Unix timestamp after which `trigger_payout` may be called. |
+| Function           | Parameters                                                                                                                                                     | Returns        | Auth Required | Description                                                                                                                                                                                   |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initialize`       | `token: Address`, `members: Vec<Address>`, `deposit_amount: i128`, `round_duration: u64`, `treasury_fee_bps: u32`, `relayer_fee_bps: u32`, `treasury: Address` | `()`           | None          | One-time setup. Sets all pool parameters, initializes `CurrentRound = 0`, and sets `NextPayoutTime = now + round_duration`.                                                                   |
+| `deposit`          | `member: Address`                                                                                                                                              | `()`           | `member`      | Member transfers `deposit_amount` tokens to the pool for the current round. Each member may deposit once per round.                                                                           |
+| `trigger_payout`   | `relayer: Address`                                                                                                                                             | `()`           | `relayer`     | Executes the payout for the current round. Distributes treasury fee, relayer fee, and net payout to current beneficiary. Advances the round or marks the pool inactive after the final round. |
+| `is_active`        | —                                                                                                                                                              | `bool`         | None          | Returns whether the pool is still running.                                                                                                                                                    |
+| `current_round`    | —                                                                                                                                                              | `u32`          | None          | Returns the zero-based index of the current round (also the index of the current beneficiary in the members list).                                                                            |
+| `members`          | —                                                                                                                                                              | `Vec<Address>` | None          | Returns the ordered member list.                                                                                                                                                              |
+| `has_deposited`    | `member: Address`                                                                                                                                              | `bool`         | None          | Returns whether `member` has deposited for the current round.                                                                                                                                 |
+| `next_payout_time` | —                                                                                                                                                              | `u64`          | None          | Returns the Unix timestamp after which `trigger_payout` may be called.                                                                                                                        |
 
 ### Events
 
-| Event Topic | Event Body | Emitted When |
-|---|---|---|
-| `("deposit", member: Address)` | `amount: i128` | A member completes their deposit for the round. |
-| `("payout", beneficiary: Address)` | `net_amount: i128` | Payout distributed to current round's beneficiary (after fees). |
-| `("complete",)` | `"pool_done": Symbol` | Final round completed; pool becomes inactive. |
+| Event Topic                        | Event Body            | Emitted When                                                    |
+| ---------------------------------- | --------------------- | --------------------------------------------------------------- |
+| `("deposit", member: Address)`     | `amount: i128`        | A member completes their deposit for the round.                 |
+| `("payout", beneficiary: Address)` | `net_amount: i128`    | Payout distributed to current round's beneficiary (after fees). |
+| `("complete",)`                    | `"pool_done": Symbol` | Final round completed; pool becomes inactive.                   |
 
 ### Storage Keys
 
-| Key | Type | Lifetime | Description |
-|---|---|---|---|
-| `Token` | `Address` | Persistent | Token contract address. |
-| `Treasury` | `Address` | Persistent | Treasury address for fee collection. |
-| `Members` | `Vec<Address>` | Persistent | Ordered list of members; index = round number. |
-| `DepositAmount` | `i128` | Persistent | Fixed deposit required from each member per round. |
-| `RoundDuration` | `u64` | Persistent | Duration of each round in seconds. |
-| `TreasuryFeeBps` | `u32` | Persistent | Treasury fee in basis points. |
-| `RelayerFeeBps` | `u32` | Persistent | Relayer fee in basis points. |
-| `CurrentRound` | `u32` | Persistent | Index of the active round. |
-| `NextPayoutTime` | `u64` | Persistent | Unix timestamp when next payout becomes eligible. |
-| `Active` | `bool` | Persistent | Whether the pool is accepting deposits and payouts. |
-| `HasDeposited(Address)` | `bool` | Persistent (cleared each round) | Per-member deposit flag. Removed from storage after each `trigger_payout`. |
+| Key                     | Type           | Lifetime                        | Description                                                                |
+| ----------------------- | -------------- | ------------------------------- | -------------------------------------------------------------------------- |
+| `Token`                 | `Address`      | Persistent                      | Token contract address.                                                    |
+| `Treasury`              | `Address`      | Persistent                      | Treasury address for fee collection.                                       |
+| `Members`               | `Vec<Address>` | Persistent                      | Ordered list of members; index = round number.                             |
+| `DepositAmount`         | `i128`         | Persistent                      | Fixed deposit required from each member per round.                         |
+| `RoundDuration`         | `u64`          | Persistent                      | Duration of each round in seconds.                                         |
+| `TreasuryFeeBps`        | `u32`          | Persistent                      | Treasury fee in basis points.                                              |
+| `RelayerFeeBps`         | `u32`          | Persistent                      | Relayer fee in basis points.                                               |
+| `CurrentRound`          | `u32`          | Persistent                      | Index of the active round.                                                 |
+| `NextPayoutTime`        | `u64`          | Persistent                      | Unix timestamp when next payout becomes eligible.                          |
+| `Active`                | `bool`         | Persistent                      | Whether the pool is accepting deposits and payouts.                        |
+| `HasDeposited(Address)` | `bool`         | Persistent (cleared each round) | Per-member deposit flag. Removed from storage after each `trigger_payout`. |
 
 ### Error Conditions
 
-| Assertion Message | Trigger Condition |
-|---|---|
-| `"need >=2 members"` | `members.len() < 2` in `initialize`. |
-| `"deposit must be > 0"` | `deposit_amount <= 0` in `initialize`. |
-| `"round_duration must be > 0"` | `round_duration == 0` in `initialize`. |
-| `"pool inactive"` | `deposit` or `trigger_payout` called after pool is marked inactive. |
-| `"not a member"` | `deposit` called by an address not in the members list. |
-| `"already deposited this round"` | `deposit` called by a member who already deposited this round. |
-| `"too early"` | `trigger_payout` called before `NextPayoutTime` has elapsed. |
-| `"no deposits this round"` | `trigger_payout` called when no member deposited this round. |
+| Assertion Message                | Trigger Condition                                                   |
+| -------------------------------- | ------------------------------------------------------------------- |
+| `"need >=2 members"`             | `members.len() < 2` in `initialize`.                                |
+| `"deposit must be > 0"`          | `deposit_amount <= 0` in `initialize`.                              |
+| `"round_duration must be > 0"`   | `round_duration == 0` in `initialize`.                              |
+| `"pool inactive"`                | `deposit` or `trigger_payout` called after pool is marked inactive. |
+| `"not a member"`                 | `deposit` called by an address not in the members list.             |
+| `"already deposited this round"` | `deposit` called by a member who already deposited this round.      |
+| `"too early"`                    | `trigger_payout` called before `NextPayoutTime` has elapsed.        |
+| `"no deposits this round"`       | `trigger_payout` called when no member deposited this round.        |
 
 ### Example CLI Invocations
 
@@ -280,55 +280,55 @@ stellar contract invoke \
 
 ### Functions
 
-| Function | Parameters | Returns | Auth Required | Description |
-|---|---|---|---|---|
-| `initialize` | `token: Address`, `admin: Address`, `members: Vec<Address>`, `target_amount: i128`, `deadline: u32` | `()` | None | One-time setup. Sets token, admin, members, target, and deadline. Initializes `TotalDeposited = 0`, `Active = true`, `Unlocked = false`. |
-| `deposit` | `member: Address`, `amount: i128` | `()` | `member` | Transfers `amount` from member to the pool. Auto-unlocks the pool if this deposit brings `TotalDeposited >= target_amount`. |
-| `withdraw` | `member: Address` | `()` | `member` | Transfers the member's full deposited balance back to them. Only callable after the pool is unlocked. |
-| `refund` | `admin: Address` | `()` | stored `Admin` | Refunds all members their individual balances. Only callable by admin, only after deadline has passed, and only if the target was never reached. |
-| `balance_of` | `member: Address` | `i128` | None | Returns the member's current deposited balance. |
-| `total_deposited` | — | `i128` | None | Returns total tokens deposited across all members. |
-| `is_unlocked` | — | `bool` | None | Returns whether the target has been reached and withdrawals are open. |
-| `target_amount` | — | `i128` | None | Returns the savings target in stroops. |
+| Function          | Parameters                                                                                          | Returns | Auth Required  | Description                                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------- | ------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `initialize`      | `token: Address`, `admin: Address`, `members: Vec<Address>`, `target_amount: i128`, `deadline: u32` | `()`    | None           | One-time setup. Sets token, admin, members, target, and deadline. Initializes `TotalDeposited = 0`, `Active = true`, `Unlocked = false`.         |
+| `deposit`         | `member: Address`, `amount: i128`                                                                   | `()`    | `member`       | Transfers `amount` from member to the pool. Auto-unlocks the pool if this deposit brings `TotalDeposited >= target_amount`.                      |
+| `withdraw`        | `member: Address`                                                                                   | `()`    | `member`       | Transfers the member's full deposited balance back to them. Only callable after the pool is unlocked.                                            |
+| `refund`          | `admin: Address`                                                                                    | `()`    | stored `Admin` | Refunds all members their individual balances. Only callable by admin, only after deadline has passed, and only if the target was never reached. |
+| `balance_of`      | `member: Address`                                                                                   | `i128`  | None           | Returns the member's current deposited balance.                                                                                                  |
+| `total_deposited` | —                                                                                                   | `i128`  | None           | Returns total tokens deposited across all members.                                                                                               |
+| `is_unlocked`     | —                                                                                                   | `bool`  | None           | Returns whether the target has been reached and withdrawals are open.                                                                            |
+| `target_amount`   | —                                                                                                   | `i128`  | None           | Returns the savings target in stroops.                                                                                                           |
 
 ### Events
 
-| Event Topic | Event Body | Emitted When |
-|---|---|---|
-| `("deposit", member: Address)` | `amount: i128` | A member successfully deposits. |
-| `("unlocked",)` | `new_total: i128` | Pool reaches or exceeds the target; withdrawals open. |
-| `("withdraw", member: Address)` | `amount: i128` | Member withdraws their full balance. |
-| `("refunded",)` | `()` | Admin triggers refund; all member balances returned. |
+| Event Topic                     | Event Body        | Emitted When                                          |
+| ------------------------------- | ----------------- | ----------------------------------------------------- |
+| `("deposit", member: Address)`  | `amount: i128`    | A member successfully deposits.                       |
+| `("unlocked",)`                 | `new_total: i128` | Pool reaches or exceeds the target; withdrawals open. |
+| `("withdraw", member: Address)` | `amount: i128`    | Member withdraws their full balance.                  |
+| `("refunded",)`                 | `()`              | Admin triggers refund; all member balances returned.  |
 
 ### Storage Keys
 
-| Key | Type | Lifetime | Description |
-|---|---|---|---|
-| `Token` | `Address` | Persistent | Token contract address. |
-| `Admin` | `Address` | Persistent | Pool administrator (can trigger refund). |
-| `Members` | `Vec<Address>` | Persistent | List of authorized members. |
-| `TargetAmount` | `i128` | Persistent | Collective savings goal in stroops. |
-| `Deadline` | `u32` | Persistent | Ledger sequence number after which refund becomes available. |
-| `TotalDeposited` | `i128` | Persistent | Running total of all member deposits. |
-| `Active` | `bool` | Persistent | Whether the pool accepts deposits (set to `false` on `refund`). |
-| `Unlocked` | `bool` | Persistent | Whether the target has been reached; gates `withdraw`. |
-| `Balance(Address)` | `i128` | Persistent | Individual member deposit balance. |
+| Key                | Type           | Lifetime   | Description                                                     |
+| ------------------ | -------------- | ---------- | --------------------------------------------------------------- |
+| `Token`            | `Address`      | Persistent | Token contract address.                                         |
+| `Admin`            | `Address`      | Persistent | Pool administrator (can trigger refund).                        |
+| `Members`          | `Vec<Address>` | Persistent | List of authorized members.                                     |
+| `TargetAmount`     | `i128`         | Persistent | Collective savings goal in stroops.                             |
+| `Deadline`         | `u32`          | Persistent | Ledger sequence number after which refund becomes available.    |
+| `TotalDeposited`   | `i128`         | Persistent | Running total of all member deposits.                           |
+| `Active`           | `bool`         | Persistent | Whether the pool accepts deposits (set to `false` on `refund`). |
+| `Unlocked`         | `bool`         | Persistent | Whether the target has been reached; gates `withdraw`.          |
+| `Balance(Address)` | `i128`         | Persistent | Individual member deposit balance.                              |
 
 ### Error Conditions
 
-| Assertion Message | Trigger Condition |
-|---|---|
-| `"need >=2 members"` | `members.len() < 2` in `initialize`. |
-| `"target must be > 0"` | `target_amount <= 0` in `initialize`. |
-| `"pool inactive"` | `deposit` called after the pool is marked inactive (post-refund). |
-| `"not a member"` | `deposit` called by an address not in the members list. |
-| `"amount must be > 0"` | `deposit` called with `amount <= 0`. |
-| `"deadline passed"` | `deposit` called after `ledger.sequence() > deadline`. |
-| `"target not reached yet"` | `withdraw` called before `Unlocked == true`. |
-| `"nothing to withdraw"` | `withdraw` called by a member with zero balance. |
-| `"not admin"` | `refund` called by an address other than the stored admin. |
-| `"target reached, use withdraw"` | `refund` called after pool is already unlocked. |
-| `"deadline not passed"` | `refund` called before `ledger.sequence() > deadline`. |
+| Assertion Message                | Trigger Condition                                                 |
+| -------------------------------- | ----------------------------------------------------------------- |
+| `"need >=2 members"`             | `members.len() < 2` in `initialize`.                              |
+| `"target must be > 0"`           | `target_amount <= 0` in `initialize`.                             |
+| `"pool inactive"`                | `deposit` called after the pool is marked inactive (post-refund). |
+| `"not a member"`                 | `deposit` called by an address not in the members list.           |
+| `"amount must be > 0"`           | `deposit` called with `amount <= 0`.                              |
+| `"deadline passed"`              | `deposit` called after `ledger.sequence() > deadline`.            |
+| `"target not reached yet"`       | `withdraw` called before `Unlocked == true`.                      |
+| `"nothing to withdraw"`          | `withdraw` called by a member with zero balance.                  |
+| `"not admin"`                    | `refund` called by an address other than the stored admin.        |
+| `"target reached, use withdraw"` | `refund` called after pool is already unlocked.                   |
+| `"deadline not passed"`          | `refund` called before `ledger.sequence() > deadline`.            |
 
 ### Example CLI Invocations
 
@@ -401,54 +401,54 @@ stellar contract invoke \
 
 ### Functions
 
-| Function | Parameters | Returns | Auth Required | Description |
-|---|---|---|---|---|
-| `initialize` | `token: Address`, `members: Vec<Address>`, `minimum_deposit: i128`, `withdrawal_fee_bps: u32`, `yield_enabled: bool`, `treasury: Address`, `treasury_fee_bps: u32` | `()` | None | One-time setup. Initializes all pool parameters. Sets `TotalBalance = 0`, `Active = true`. |
-| `deposit` | `member: Address`, `amount: i128` | `()` | `member` | Transfers `amount` from member to pool. Amount must be >= `MinimumDeposit`. Updates member's individual balance and `TotalBalance`. |
-| `withdraw` | `member: Address`, `amount: i128` | `()` | `member` | Withdraws `amount` from member's balance. Deducts `withdrawal_fee_bps` fee sent to treasury; net transferred to member. |
-| `distribute_yield` | `admin: Address`, `yield_amount: i128` | `()` | `admin` | Distributes `yield_amount` tokens proportionally to all members with a positive balance. Only callable when `YieldEnabled = true`. Caller is `admin` — any address with auth can call this (no stored admin check beyond `require_auth`). |
-| `balance_of` | `member: Address` | `i128` | None | Returns the member's current balance including any distributed yield. |
-| `total_balance` | — | `i128` | None | Returns the total tokens held by the pool. |
-| `members` | — | `Vec<Address>` | None | Returns the list of authorized members. |
-| `is_active` | — | `bool` | None | Returns whether the pool is active. |
+| Function           | Parameters                                                                                                                                                         | Returns        | Auth Required | Description                                                                                                                                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initialize`       | `token: Address`, `members: Vec<Address>`, `minimum_deposit: i128`, `withdrawal_fee_bps: u32`, `yield_enabled: bool`, `treasury: Address`, `treasury_fee_bps: u32` | `()`           | None          | One-time setup. Initializes all pool parameters. Sets `TotalBalance = 0`, `Active = true`.                                                                                                                                                |
+| `deposit`          | `member: Address`, `amount: i128`                                                                                                                                  | `()`           | `member`      | Transfers `amount` from member to pool. Amount must be >= `MinimumDeposit`. Updates member's individual balance and `TotalBalance`.                                                                                                       |
+| `withdraw`         | `member: Address`, `amount: i128`                                                                                                                                  | `()`           | `member`      | Withdraws `amount` from member's balance. Deducts `withdrawal_fee_bps` fee sent to treasury; net transferred to member.                                                                                                                   |
+| `distribute_yield` | `admin: Address`, `yield_amount: i128`                                                                                                                             | `()`           | `admin`       | Distributes `yield_amount` tokens proportionally to all members with a positive balance. Only callable when `YieldEnabled = true`. Caller is `admin` — any address with auth can call this (no stored admin check beyond `require_auth`). |
+| `balance_of`       | `member: Address`                                                                                                                                                  | `i128`         | None          | Returns the member's current balance including any distributed yield.                                                                                                                                                                     |
+| `total_balance`    | —                                                                                                                                                                  | `i128`         | None          | Returns the total tokens held by the pool.                                                                                                                                                                                                |
+| `members`          | —                                                                                                                                                                  | `Vec<Address>` | None          | Returns the list of authorized members.                                                                                                                                                                                                   |
+| `is_active`        | —                                                                                                                                                                  | `bool`         | None          | Returns whether the pool is active.                                                                                                                                                                                                       |
 
 ### Events
 
-| Event Topic | Event Body | Emitted When |
-|---|---|---|
-| `("deposit", member: Address)` | `amount: i128` | A member deposits tokens. |
-| `("withdraw", member: Address)` | `net_amount: i128` | A member withdraws (body is the net amount after fee). |
-| `("yield",)` | `yield_amount: i128` | Yield is distributed to member balances. |
+| Event Topic                     | Event Body           | Emitted When                                           |
+| ------------------------------- | -------------------- | ------------------------------------------------------ |
+| `("deposit", member: Address)`  | `amount: i128`       | A member deposits tokens.                              |
+| `("withdraw", member: Address)` | `net_amount: i128`   | A member withdraws (body is the net amount after fee). |
+| `("yield",)`                    | `yield_amount: i128` | Yield is distributed to member balances.               |
 
 ### Storage Keys
 
-| Key | Type | Lifetime | Description |
-|---|---|---|---|
-| `Token` | `Address` | Persistent | Token contract address. |
-| `Treasury` | `Address` | Persistent | Treasury address for withdrawal fee collection. |
-| `Members` | `Vec<Address>` | Persistent | List of authorized members. |
-| `MinimumDeposit` | `i128` | Persistent | Minimum deposit amount in stroops. |
-| `WithdrawalFeeBps` | `u32` | Persistent | Fee charged on withdrawals in basis points. |
-| `TreasuryFeeBps` | `u32` | Persistent | Treasury fee in basis points (stored for reference; used by caller/frontend). |
-| `YieldEnabled` | `bool` | Persistent | Whether `distribute_yield` is callable. |
-| `TotalBalance` | `i128` | Persistent | Sum of all member balances. |
-| `Active` | `bool` | Persistent | Whether the pool is active. |
-| `Balance(Address)` | `i128` | Persistent | Individual member balance including yield. |
+| Key                | Type           | Lifetime   | Description                                                                   |
+| ------------------ | -------------- | ---------- | ----------------------------------------------------------------------------- |
+| `Token`            | `Address`      | Persistent | Token contract address.                                                       |
+| `Treasury`         | `Address`      | Persistent | Treasury address for withdrawal fee collection.                               |
+| `Members`          | `Vec<Address>` | Persistent | List of authorized members.                                                   |
+| `MinimumDeposit`   | `i128`         | Persistent | Minimum deposit amount in stroops.                                            |
+| `WithdrawalFeeBps` | `u32`          | Persistent | Fee charged on withdrawals in basis points.                                   |
+| `TreasuryFeeBps`   | `u32`          | Persistent | Treasury fee in basis points (stored for reference; used by caller/frontend). |
+| `YieldEnabled`     | `bool`         | Persistent | Whether `distribute_yield` is callable.                                       |
+| `TotalBalance`     | `i128`         | Persistent | Sum of all member balances.                                                   |
+| `Active`           | `bool`         | Persistent | Whether the pool is active.                                                   |
+| `Balance(Address)` | `i128`         | Persistent | Individual member balance including yield.                                    |
 
 ### Error Conditions
 
-| Assertion Message | Trigger Condition |
-|---|---|
-| `"need >=2 members"` | `members.len() < 2` in `initialize`. |
-| `"minimum must be > 0"` | `minimum_deposit <= 0` in `initialize`. |
-| `"pool inactive"` | `deposit` called when `Active == false`. |
-| `"not a member"` | `deposit` called by an address not in the members list. |
-| `"below minimum deposit"` | `deposit` called with `amount < MinimumDeposit`. |
-| `"amount must be > 0"` | `withdraw` called with `amount <= 0`. |
-| `"insufficient balance"` | `withdraw` called with `amount > member's balance`. |
-| `"yield disabled"` | `distribute_yield` called when `YieldEnabled == false`. |
-| `"yield must be > 0"` | `distribute_yield` called with `yield_amount <= 0`. |
-| `"no balance"` | `distribute_yield` called when `TotalBalance == 0`. |
+| Assertion Message         | Trigger Condition                                       |
+| ------------------------- | ------------------------------------------------------- |
+| `"need >=2 members"`      | `members.len() < 2` in `initialize`.                    |
+| `"minimum must be > 0"`   | `minimum_deposit <= 0` in `initialize`.                 |
+| `"pool inactive"`         | `deposit` called when `Active == false`.                |
+| `"not a member"`          | `deposit` called by an address not in the members list. |
+| `"below minimum deposit"` | `deposit` called with `amount < MinimumDeposit`.        |
+| `"amount must be > 0"`    | `withdraw` called with `amount <= 0`.                   |
+| `"insufficient balance"`  | `withdraw` called with `amount > member's balance`.     |
+| `"yield disabled"`        | `distribute_yield` called when `YieldEnabled == false`. |
+| `"yield must be > 0"`     | `distribute_yield` called with `yield_amount <= 0`.     |
+| `"no balance"`            | `distribute_yield` called when `TotalBalance == 0`.     |
 
 ### Example CLI Invocations
 
@@ -511,10 +511,10 @@ net = 10_000_000 − 50_000 = 9_950_000 stroops (0.995 XLM)
 
 ## Units & Conversions
 
-| Term | Value |
-|---|---|
-| 1 XLM | 10,000,000 stroops |
-| 1 basis point (bps) | 0.01% |
-| 100 bps | 1% |
-| Deadline unit | Ledger sequence number (not Unix timestamp) |
+| Term                | Value                                        |
+| ------------------- | -------------------------------------------- |
+| 1 XLM               | 10,000,000 stroops                           |
+| 1 basis point (bps) | 0.01%                                        |
+| 100 bps             | 1%                                           |
+| Deadline unit       | Ledger sequence number (not Unix timestamp)  |
 | Round duration unit | Seconds (compared to `ledger().timestamp()`) |

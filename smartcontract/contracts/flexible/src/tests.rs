@@ -2,13 +2,65 @@
 
 use super::{FlexiblePool, FlexiblePoolClient};
 use soroban_sdk::{
-    testutils::{Address as _, Ledger as _},
+    testutils::{storage::Persistent, Address as _, Ledger as _},
     token, Address, Env, Vec,
 };
 
+fn setup_pool(
+    env: &Env,
+    yield_enabled: bool,
+) -> (
+    FlexiblePoolClient<'static>,
+    Address,
+    Address,
+    Address,
+    Address,
+    Address,
+) {
+    let contract_id = env.register_contract(None, FlexiblePool);
+    let client = FlexiblePoolClient::new(env, &contract_id);
+
+    let token_admin = Address::generate(env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let admin = Address::generate(env);
+    let treasury = Address::generate(env);
+    let member_a = Address::generate(env);
+    let member_b = Address::generate(env);
+
+    let mut members = Vec::new(env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &10i128,
+        &0u32,
+        &yield_enabled,
+        &treasury,
+        &0u32,
+    );
+
+    (client, token_address, admin, treasury, member_a, member_b)
+}
+
+// ── Original tests (updated for new initialize signature) ─────────────────────
+
 #[test]
-#[should_panic(expected = "below minimum deposit")]
-fn test_minimum_deposit_rejection() {
+fn test_token_decimals_recorded() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, _admin, _treasury, _a, _b) = setup_pool(&env, false);
+    // SEP-41 decimals are validated at init and stored for display (SAC = 7)
+    assert_eq!(client.token_decimals(), 7);
+}
+
+#[test]
+#[should_panic(expected = "duplicate member address")]
+fn test_initialize_rejects_duplicate_member() {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -18,18 +70,19 @@ fn test_minimum_deposit_rejection() {
     let token_admin = Address::generate(&env);
     let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
     let token_address = token_contract.address();
-    let token_client = token::StellarAssetClient::new(&env, &token_address);
 
-    let treasury = Address::generate(&env);
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
 
+    // member_a appears twice — distribute_yield iterates the raw members
+    // vec, so a duplicate slot would grant member_a a double yield share.
     let mut members = Vec::new(&env);
     members.push_back(member_a.clone());
     members.push_back(member_b.clone());
+    members.push_back(member_a.clone());
 
-    // Minimum deposit = 10
     client.initialize(
         &token_address,
         &admin,
@@ -40,10 +93,16 @@ fn test_minimum_deposit_rejection() {
         &treasury,
         &0u32,
     );
+}
 
+#[test]
+#[should_panic(expected = "below minimum deposit")]
+fn test_minimum_deposit_rejection() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token_address, _admin, _treasury, member_a, _member_b) = setup_pool(&env, false);
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
     token_client.mint(&member_a, &100i128);
-
-    // Try depositing 5 (which is less than 10)
     client.deposit(&member_a, &5i128);
 }
 
@@ -59,10 +118,10 @@ fn test_withdrawal_fee_deduction() {
     let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
     let token_address = token_contract.address();
     let token_client = token::StellarAssetClient::new(&env, &token_address);
-    let token_interface_client = token::Client::new(&env, &token_address);
+    let token_iface = token::Client::new(&env, &token_address);
 
-    let treasury = Address::generate(&env);
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
 
@@ -70,7 +129,6 @@ fn test_withdrawal_fee_deduction() {
     members.push_back(member_a.clone());
     members.push_back(member_b.clone());
 
-    // Minimum deposit = 10, withdrawal_fee_bps = 200 (2%)
     client.initialize(
         &token_address,
         &admin,
@@ -83,16 +141,13 @@ fn test_withdrawal_fee_deduction() {
     );
 
     token_client.mint(&member_a, &1000i128);
-
     client.deposit(&member_a, &1000i128);
     assert_eq!(client.balance_of(&member_a), 1000);
 
-    // Withdraw 500
     client.withdraw(&member_a, &500i128);
 
-    // Fee = 500 * 2% = 10. Net payout = 490.
-    assert_eq!(token_interface_client.balance(&member_a), 490);
-    assert_eq!(token_interface_client.balance(&treasury), 10);
+    assert_eq!(token_iface.balance(&member_a), 490);
+    assert_eq!(token_iface.balance(&treasury), 10);
     assert_eq!(client.balance_of(&member_a), 500);
     assert_eq!(client.total_balance(), 500);
 }
@@ -110,8 +165,8 @@ fn test_proportional_yield_distribution() {
     let token_address = token_contract.address();
     let token_client = token::StellarAssetClient::new(&env, &token_address);
 
-    let treasury = Address::generate(&env);
     let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
     let member_c = Address::generate(&env);
@@ -121,7 +176,6 @@ fn test_proportional_yield_distribution() {
     members.push_back(member_b.clone());
     members.push_back(member_c.clone());
 
-    // Minimum deposit = 10, yield_enabled = true
     client.initialize(
         &token_address,
         &admin,
@@ -138,71 +192,94 @@ fn test_proportional_yield_distribution() {
 
     client.deposit(&member_a, &100i128);
     client.deposit(&member_b, &200i128);
-
     assert_eq!(client.total_balance(), 300);
 
-    // Distribute yield of 60
     client.distribute_yield(&admin, &60i128);
 
-    // A gets 20 (total 120)
     assert_eq!(client.balance_of(&member_a), 120);
-    // B gets 40 (total 240)
     assert_eq!(client.balance_of(&member_b), 240);
-    // C gets 0 (total 0)
     assert_eq!(client.balance_of(&member_c), 0);
-
     assert_eq!(client.total_balance(), 360);
 }
+
+#[test]
+fn test_add_member_can_deposit() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token_address, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+    let member_c = Address::generate(&env);
+
+    client.add_member(&admin, &member_c);
+    token_client.mint(&member_c, &100i128);
+    client.deposit(&member_c, &100i128);
+
+    assert_eq!(client.members().len(), 3);
+    assert_eq!(client.balance_of(&member_c), 100);
+}
+
+#[test]
+fn test_remove_member_refunds_balance() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token_address, admin, _treasury, member_a, member_b) = setup_pool(&env, false);
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+    let token_iface = token::Client::new(&env, &token_address);
+    let member_c = Address::generate(&env);
+
+    client.add_member(&admin, &member_c);
+    token_client.mint(&member_b, &100i128);
+    client.deposit(&member_b, &100i128);
+
+    client.remove_member(&admin, &member_b);
+
+    assert_eq!(token_iface.balance(&member_b), 100);
+    assert_eq!(client.balance_of(&member_b), 0);
+    assert_eq!(client.total_balance(), 0);
+    assert_eq!(client.members().len(), 2);
+
+    token_client.mint(&member_a, &100i128);
+    client.deposit(&member_a, &100i128);
+}
+
+#[test]
+#[should_panic(expected = "not a member")]
+fn test_removed_member_cannot_deposit() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, token_address, admin, _treasury, _member_a, member_b) = setup_pool(&env, false);
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+    let member_c = Address::generate(&env);
+
+    client.add_member(&admin, &member_c);
+    client.remove_member(&admin, &member_b);
+    token_client.mint(&member_b, &100i128);
+    client.deposit(&member_b, &100i128);
+}
+
+// ── Upstream pause/emergency tests ────────────────────────────────────────────
 
 #[test]
 fn test_pause_unpause_deposit_cycle() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
+    let (client, token_address, admin, _treasury, member_a, _member_b) = setup_pool(&env, false);
     let token_client = token::StellarAssetClient::new(&env, &token_address);
-
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
-
     token_client.mint(&member_a, &1000i128);
 
-    // Pool is not paused — deposit succeeds
     assert!(!client.is_paused());
     client.deposit(&member_a, &100i128);
     assert_eq!(client.balance_of(&member_a), 100);
 
-    // Pause the pool
     client.pause(&admin);
     assert!(client.is_paused());
 
-    // Unpause
     client.unpause(&admin);
     assert!(!client.is_paused());
 
-    // Deposit should succeed again after unpause
     client.deposit(&member_a, &100i128);
     assert_eq!(client.balance_of(&member_a), 200);
 }
@@ -212,38 +289,9 @@ fn test_pause_unpause_deposit_cycle() {
 fn test_deposit_fails_when_paused() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
+    let (client, token_address, admin, _treasury, member_a, _member_b) = setup_pool(&env, false);
     let token_client = token::StellarAssetClient::new(&env, &token_address);
-
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
-
     token_client.mint(&member_a, &1000i128);
-
-    // Pause the pool then try to deposit
     client.pause(&admin);
     client.deposit(&member_a, &100i128);
 }
@@ -252,42 +300,15 @@ fn test_deposit_fails_when_paused() {
 fn test_emergency_withdraw_drains_contract() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
+    let (client, token_address, admin, _treasury, member_a, _member_b) = setup_pool(&env, false);
     let token_client = token::StellarAssetClient::new(&env, &token_address);
     let token_iface = token::Client::new(&env, &token_address);
-
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
     let recipient = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
 
     token_client.mint(&member_a, &500i128);
     client.deposit(&member_a, &500i128);
     assert_eq!(client.total_balance(), 500);
 
-    // Must pause before emergency withdraw
     client.pause(&admin);
     client.emergency_withdraw(&admin, &recipient);
 
@@ -300,37 +321,8 @@ fn test_emergency_withdraw_drains_contract() {
 fn test_non_admin_pause_rejected() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let non_admin = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
-
-    // non_admin is a different address — stored admin check must reject it
-    client.pause(&non_admin);
+    let (client, _token, _admin, _treasury, member_a, _member_b) = setup_pool(&env, false);
+    client.pause(&member_a);
 }
 
 #[test]
@@ -338,40 +330,10 @@ fn test_non_admin_pause_rejected() {
 fn test_non_admin_emergency_withdraw_rejected() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let non_admin = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
+    let (client, _token, admin, _treasury, member_a, _member_b) = setup_pool(&env, false);
     let recipient = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
-
-    // Pause with the real admin first so the paused check passes,
-    // proving it is the admin check (not the paused check) that fires.
     client.pause(&admin);
-    client.emergency_withdraw(&non_admin, &recipient);
+    client.emergency_withdraw(&member_a, &recipient);
 }
 
 #[test]
@@ -379,274 +341,149 @@ fn test_non_admin_emergency_withdraw_rejected() {
 fn test_emergency_withdraw_requires_paused() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
+    let (client, _token, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
     let recipient = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
-
-    // Should panic because pool is not paused
     client.emergency_withdraw(&admin, &recipient);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Multi-sig tests
-// ═══════════════════════════════════════════════════════════════════════════════
+// ── Yield strategy tests ───────────────────────────────────────────────────────
 
-use soroban_sdk::BytesN;
-
-fn make_action_hash(env: &Env, seed: u32) -> BytesN<32> {
-    let mut bytes = [0u8; 32];
-    bytes[0..4].copy_from_slice(&seed.to_be_bytes());
-    BytesN::from_array(env, &bytes)
+#[test]
+fn test_set_yield_strategy() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, _a, _b) = setup_pool(&env, true);
+    let strategy = Address::generate(&env);
+    client.set_yield_strategy(&admin, &strategy);
+    assert_eq!(client.yield_strategy(), Some(strategy));
 }
 
 #[test]
-fn test_set_quorum_and_pause_via_multisig() {
+#[should_panic(expected = "yield disabled")]
+fn test_set_yield_strategy_requires_yield_enabled() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-
-    let treasury = Address::generate(&env);
-    let admin1 = Address::generate(&env);
-    let admin2 = Address::generate(&env);
-    let admin3 = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin1,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
-
-    let mut quorum = Vec::new(&env);
-    quorum.push_back(admin1.clone());
-    quorum.push_back(admin2.clone());
-    quorum.push_back(admin3.clone());
-    client.set_admin_quorum(&admin1, &quorum);
-
-    assert_eq!(client.get_admin_quorum().len(), 3);
-    assert!(!client.is_paused());
-
-    // Pause via multi-sig (2 of 3)
-    let hash = make_action_hash(&env, 100);
-    client.approve_action(&admin1, &hash);
-    client.approve_action(&admin2, &hash);
-    let dummy = Address::generate(&env);
-    client.execute_approved(&admin1, &hash, &1u32, &dummy);
-
-    assert!(client.is_paused());
+    let (client, _token, admin, _treasury, _a, _b) = setup_pool(&env, false);
+    let strategy = Address::generate(&env);
+    client.set_yield_strategy(&admin, &strategy);
 }
 
 #[test]
-#[should_panic(expected = "multi-sig enabled")]
-fn test_pause_directly_rejected_when_quorum_set() {
+#[should_panic(expected = "not admin")]
+fn test_set_yield_strategy_only_admin() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let admin2 = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
-
-    let mut quorum = Vec::new(&env);
-    quorum.push_back(admin.clone());
-    quorum.push_back(admin2.clone());
-    client.set_admin_quorum(&admin, &quorum);
-
-    client.pause(&admin);
+    let (client, _token, _admin, _treasury, member_a, _b) = setup_pool(&env, true);
+    let strategy = Address::generate(&env);
+    client.set_yield_strategy(&member_a, &strategy);
 }
 
 #[test]
-fn test_pause_directly_works_without_quorum() {
+fn test_deploy_to_yield_tracks_amount() {
     let env = Env::default();
     env.mock_all_auths();
+    let (client, token_address, admin, _treasury, member_a, member_b) = setup_pool(&env, true);
 
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
-
-    assert!(!client.is_paused());
-    client.pause(&admin);
-    assert!(client.is_paused());
-}
-
-#[test]
-fn test_execute_emergency_withdraw_via_multisig() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
     let token_client = token::StellarAssetClient::new(&env, &token_address);
-    let token_iface = token::Client::new(&env, &token_address);
-
-    let treasury = Address::generate(&env);
-    let admin1 = Address::generate(&env);
-    let admin2 = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
-    let recipient = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin1,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
-
     token_client.mint(&member_a, &500i128);
+    token_client.mint(&member_b, &500i128);
     client.deposit(&member_a, &500i128);
+    client.deposit(&member_b, &500i128);
 
-    // Set quorum of 2
-    let mut quorum = Vec::new(&env);
-    quorum.push_back(admin1.clone());
-    quorum.push_back(admin2.clone());
-    client.set_admin_quorum(&admin1, &quorum);
+    let strategy_id = env.register_contract(None, MockStrategy);
+    client.set_yield_strategy(&admin, &strategy_id);
+    client.deploy_to_yield(&admin, &200i128);
 
-    // First pause via multi-sig
-    let pause_hash = make_action_hash(&env, 200);
-    client.approve_action(&admin1, &pause_hash);
-    client.approve_action(&admin2, &pause_hash);
-    let dummy = Address::generate(&env);
-    client.execute_approved(&admin1, &pause_hash, &1u32, &dummy);
-    assert!(client.is_paused());
-
-    // Emergency withdraw via multi-sig
-    let ew_hash = make_action_hash(&env, 201);
-    client.approve_action(&admin1, &ew_hash);
-    client.approve_action(&admin2, &ew_hash);
-    client.execute_approved(&admin1, &ew_hash, &3u32, &recipient);
-
-    assert_eq!(token_iface.balance(&recipient), 500);
-    assert_eq!(client.total_balance(), 0);
+    assert_eq!(client.deployed_to_yield(), 200);
 }
 
 #[test]
-fn test_execute_remove_member_via_multisig() {
+#[should_panic(expected = "pool paused")]
+fn test_add_member_fails_when_paused() {
     let env = Env::default();
     env.mock_all_auths();
+    let (client, _token, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
+    let member_c = Address::generate(&env);
+    client.pause(&admin);
+    client.add_member(&admin, &member_c);
+}
 
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
+#[test]
+#[should_panic(expected = "pool paused")]
+fn test_remove_member_fails_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, member_a, _member_b) = setup_pool(&env, false);
+    client.pause(&admin);
+    client.remove_member(&admin, &member_a);
+}
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-
-    let treasury = Address::generate(&env);
-    let admin1 = Address::generate(&env);
-    let admin2 = Address::generate(&env);
-    let admin3 = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
+#[test]
+fn test_leave_pool_non_admin_member_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, member_a, member_b) = setup_pool(&env, false);
     let member_c = Address::generate(&env);
 
+    client.add_member(&admin, &member_c);
+
+    // member_b leaves (not admin, pool has 3 members)
+    client.leave_pool(&member_b);
+
+    assert_eq!(client.members().len(), 2);
+    let remaining = client.members();
+    assert_eq!(remaining.get(0).unwrap(), member_a);
+    assert_eq!(remaining.get(1).unwrap(), member_c);
+}
+
+#[test]
+fn test_leave_pool_refunds_balance() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token_address, admin, _treasury, _member_a, member_b) = setup_pool(&env, false);
+    let token_client = token::StellarAssetClient::new(&env, &token_address);
+    let token_iface = token::Client::new(&env, &token_address);
+    let member_c = Address::generate(&env);
+
+    client.add_member(&admin, &member_c);
+
+    token_client.mint(&member_b, &150i128);
+    client.deposit(&member_b, &150i128);
+
+    client.leave_pool(&member_b);
+
+    assert_eq!(token_iface.balance(&member_b), 150);
+    assert_eq!(client.balance_of(&member_b), 0);
+    assert_eq!(client.total_balance(), 0);
+    assert_eq!(client.members().len(), 2);
+}
+
+#[test]
+fn test_leave_pool_admin_can_leave_as_regular_member() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, FlexiblePool);
+    let client = FlexiblePoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    // admin is also a member
     let mut members = Vec::new(&env);
+    members.push_back(admin.clone());
     members.push_back(member_a.clone());
     members.push_back(member_b.clone());
-    members.push_back(member_c.clone());
 
     client.initialize(
         &token_address,
-        &admin1,
+        &admin,
         &members,
         &10i128,
         &0u32,
@@ -655,72 +492,38 @@ fn test_execute_remove_member_via_multisig() {
         &0u32,
     );
 
-    let mut quorum = Vec::new(&env);
-    quorum.push_back(admin1.clone());
-    quorum.push_back(admin2.clone());
-    quorum.push_back(admin3.clone());
-    client.set_admin_quorum(&admin1, &quorum);
-
-    assert_eq!(client.members().len(), 3);
-
-    let rm_hash = make_action_hash(&env, 300);
-    client.approve_action(&admin1, &rm_hash);
-    client.approve_action(&admin2, &rm_hash);
-    client.execute_approved(&admin1, &rm_hash, &4u32, &member_c);
+    // Admin leaves — leave_pool has no admin restriction
+    client.leave_pool(&admin);
 
     assert_eq!(client.members().len(), 2);
 }
 
 #[test]
-#[should_panic(expected = "insufficient approvals")]
-fn test_single_admin_cannot_execute() {
+#[should_panic(expected = "pool paused")]
+fn test_leave_pool_panics_when_paused() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, FlexiblePool);
-    let client = FlexiblePoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-
-    let treasury = Address::generate(&env);
-    let admin1 = Address::generate(&env);
-    let admin2 = Address::generate(&env);
-    let admin3 = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin1,
-        &members,
-        &10i128,
-        &0u32,
-        &false,
-        &treasury,
-        &0u32,
-    );
-
-    let mut quorum = Vec::new(&env);
-    quorum.push_back(admin1.clone());
-    quorum.push_back(admin2.clone());
-    quorum.push_back(admin3.clone());
-    client.set_admin_quorum(&admin1, &quorum);
-
-    let hash = make_action_hash(&env, 400);
-    client.approve_action(&admin1, &hash);
-    let dummy = Address::generate(&env);
-    client.execute_approved(&admin1, &hash, &1u32, &dummy);
+    let (client, _token, admin, _treasury, _member_a, member_b) = setup_pool(&env, false);
+    client.pause(&admin);
+    client.leave_pool(&member_b);
 }
 
 #[test]
-#[should_panic(expected = "action expired")]
-fn test_action_expires() {
+#[should_panic(expected = "need >=1 members")]
+fn test_leave_pool_panics_when_only_one_member() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, member_a, member_b) = setup_pool(&env, false);
+
+    // admin removes member_b, leaving only member_a
+    client.remove_member(&admin, &member_b);
+
+    // member_a is the last member — leave would drop to 0
+    client.leave_pool(&member_a);
+}
+
+#[test]
+fn test_bump_state() {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -731,9 +534,8 @@ fn test_action_expires() {
     let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
     let token_address = token_contract.address();
 
+    let admin = Address::generate(&env);
     let treasury = Address::generate(&env);
-    let admin1 = Address::generate(&env);
-    let admin2 = Address::generate(&env);
     let member_a = Address::generate(&env);
     let member_b = Address::generate(&env);
 
@@ -743,7 +545,7 @@ fn test_action_expires() {
 
     client.initialize(
         &token_address,
-        &admin1,
+        &admin,
         &members,
         &10i128,
         &0u32,
@@ -752,18 +554,158 @@ fn test_action_expires() {
         &0u32,
     );
 
-    let mut quorum = Vec::new(&env);
-    quorum.push_back(admin1.clone());
-    quorum.push_back(admin2.clone());
-    client.set_admin_quorum(&admin1, &quorum);
+    // Extend the contract instance TTL to prevent archiving when we advance sequence number
+    env.as_contract(&contract_id, || {
+        env.storage().instance().extend_ttl(3000000, 3000000);
+    });
 
-    let hash = make_action_hash(&env, 500);
-    client.approve_action(&admin1, &hash);
-    client.approve_action(&admin2, &hash);
+    // Advance sequence number to decrease TTL below LEDGER_THRESHOLD
+    env.ledger().set_sequence_number(2_100_000);
 
-    let now = env.ledger().timestamp();
-    env.ledger().set_timestamp(now + 48 * 3600 + 1);
+    // Verify initial TTL is below threshold
+    env.as_contract(&contract_id, || {
+        let admin_ttl = env.storage().persistent().get_ttl(&super::DataKey::Admin);
+        let members_ttl = env.storage().persistent().get_ttl(&super::DataKey::Members);
+        assert!(admin_ttl < 518400);
+        assert!(members_ttl < 518400);
+    });
 
-    let dummy = Address::generate(&env);
-    client.execute_approved(&admin1, &hash, &1u32, &dummy);
+    // Call bump_state
+    client.bump_state();
+
+    // Verify Admin and Members keys TTL were extended back to LEDGER_BUMP
+    env.as_contract(&contract_id, || {
+        let admin_ttl = env.storage().persistent().get_ttl(&super::DataKey::Admin);
+        let members_ttl = env.storage().persistent().get_ttl(&super::DataKey::Members);
+        assert!(admin_ttl >= 2592000);
+        assert!(members_ttl >= 2592000);
+    });
 }
+
+#[test]
+fn test_migrate_succeeds_to_next_version() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _token, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
+
+    assert_eq!(client.get_version(), 1);
+    client.migrate(&admin, &2);
+}
+
+#[test]
+fn test_migrate_idempotent_at_current_version() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _token, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
+
+    client.migrate(&admin, &1);
+    assert_eq!(client.get_version(), 1);
+}
+
+#[test]
+#[should_panic(expected = "version must be incremented by exactly 1")]
+fn test_migrate_rejects_version_skip() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _token, admin, _treasury, _member_a, _member_b) = setup_pool(&env, false);
+
+    client.migrate(&admin, &3);
+}
+
+// ── Supported-token allowlist (USDC bridge deposits, issue #209) ──────────────
+
+#[test]
+fn test_supported_tokens_empty_by_default() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, _admin, _treasury, _a, _b) = setup_pool(&env, false);
+    assert_eq!(client.get_supported_tokens().len(), 0);
+}
+
+#[test]
+fn test_set_supported_tokens_by_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token, admin, _treasury, _a, _b) = setup_pool(&env, false);
+
+    let usdc = Address::generate(&env);
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(token.clone());
+    tokens.push_back(usdc.clone());
+
+    client.set_supported_tokens(&admin, &tokens);
+
+    let stored = client.get_supported_tokens();
+    assert_eq!(stored.len(), 2);
+    assert_eq!(stored.get(0).unwrap(), token);
+    assert_eq!(stored.get(1).unwrap(), usdc);
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn test_set_supported_tokens_rejects_non_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token, _admin, _treasury, member_a, _b) = setup_pool(&env, false);
+
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(token);
+    client.set_supported_tokens(&member_a, &tokens);
+}
+
+#[test]
+fn test_deposit_succeeds_when_pool_token_is_in_allowlist() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, token, admin, _treasury, member_a, _b) = setup_pool(&env, false);
+
+    let usdc = Address::generate(&env);
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(token.clone());
+    tokens.push_back(usdc);
+    client.set_supported_tokens(&admin, &tokens);
+
+    let token_client = token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&member_a, &100i128);
+
+    client.deposit(&member_a, &20i128);
+    assert_eq!(client.balance_of(&member_a), 20i128);
+}
+
+#[test]
+#[should_panic(expected = "token not supported")]
+fn test_deposit_fails_when_pool_token_not_in_allowlist() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, member_a, _b) = setup_pool(&env, false);
+
+    // Allowlist that deliberately excludes this pool's own token — simulates
+    // an admin restricting the pool to a different SEP-41 token (e.g. USDC)
+    // after initialization.
+    let usdc = Address::generate(&env);
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(usdc);
+    client.set_supported_tokens(&admin, &tokens);
+
+    client.deposit(&member_a, &20i128);
+}
+
+mod mock_strategy {
+    use soroban_sdk::{contract, contractimpl, Env};
+
+    #[contract]
+    pub struct MockStrategy;
+
+    #[contractimpl]
+    impl MockStrategy {
+        pub fn deploy(_env: Env, _amount: i128) {}
+        pub fn harvest(_env: Env) -> i128 {
+            50
+        }
+    }
+}
+
+pub use mock_strategy::MockStrategy;

@@ -1,19 +1,12 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, token, Address, Env, Vec, Symbol, BytesN, symbol_short,
+    contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, Symbol, Vec,
 };
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
-const PENDING_ACTION_EXPIRY: u64 = 48 * 3600; // 48 hours in seconds
-
-#[contracttype]
-#[derive(Clone)]
-pub struct PendingAction {
-    pub approvers: Vec<Address>,
-    pub created_at: u64,
-}
+const VERSION: u32 = 1;
 
 #[contracttype]
 pub enum DataKey {
@@ -30,11 +23,16 @@ pub enum DataKey {
     Active,
     Paused,
     HasDeposited(Address),
-    AdminQuorum,
-    PendingAction(BytesN<32>),
+    ReputationTracker,
+    TokenDecimals,
+    MigratedFrom,
+    SupportedTokens,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
+
+const LEDGER_THRESHOLD: u32 = 518400;
+const LEDGER_BUMP: u32 = 2592000;
 
 #[contract]
 pub struct RotationalPool;
@@ -54,11 +52,20 @@ impl RotationalPool {
         treasury: Address,
     ) {
         assert!(members.len() >= 2, "need >=2 members");
+        assert!(
+            !Self::has_duplicate_members(&members),
+            "duplicate member address"
+        );
         assert!(deposit_amount > 0, "deposit must be > 0");
         assert!(round_duration > 0, "round_duration must be > 0");
 
+        // Validate the token is a real SEP-41 contract by reading its decimals
+        // (this call traps for a non-token address) and remember it for display.
+        let decimals = token::Client::new(&env, &token).decimals();
+
         let storage = env.storage().persistent();
         storage.set(&DataKey::Token, &token);
+        storage.set(&DataKey::TokenDecimals, &decimals);
         storage.set(&DataKey::Admin, &admin);
         storage.set(&DataKey::Treasury, &treasury);
         storage.set(&DataKey::Members, &members);
@@ -73,6 +80,7 @@ impl RotationalPool {
         );
         storage.set(&DataKey::Active, &true);
         storage.set(&DataKey::Paused, &false);
+        Self::bump_config_state_internal(&env);
     }
 
     /// Member deposits their fixed contribution for the current round.
@@ -96,14 +104,21 @@ impl RotationalPool {
 
         let deposit_amount: i128 = storage.get(&DataKey::DepositAmount).unwrap();
         let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+        Self::assert_token_supported(&env, &token_addr);
         let token_client = token::Client::new(&env, &token_addr);
         token_client.transfer(&member, &env.current_contract_address(), &deposit_amount);
 
         storage.set(&DataKey::HasDeposited(member.clone()), &true);
-        env.events().publish(
-            (symbol_short!("deposit"), member),
-            deposit_amount,
+        storage.extend_ttl(
+            &DataKey::HasDeposited(member.clone()),
+            LEDGER_THRESHOLD,
+            LEDGER_BUMP,
         );
+        env.events()
+            .publish((symbol_short!("deposit"), member.clone()), deposit_amount);
+
+        Self::report_deposit(&env, &member, deposit_amount);
+        Self::bump_config_state_internal(&env);
     }
 
     /// Trigger payout for the current round. Caller receives the relayer fee.
@@ -118,10 +133,7 @@ impl RotationalPool {
         assert!(!paused, "pool paused");
 
         let next_payout_time: u64 = storage.get(&DataKey::NextPayoutTime).unwrap();
-        assert!(
-            env.ledger().timestamp() >= next_payout_time,
-            "too early"
-        );
+        assert!(env.ledger().timestamp() >= next_payout_time, "too early");
 
         let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
         let deposit_amount: i128 = storage.get(&DataKey::DepositAmount).unwrap();
@@ -134,14 +146,17 @@ impl RotationalPool {
 
         let token_client = token::Client::new(&env, &token_addr);
 
-        // Count deposits
+        // Count deposits and track members who missed this round
         let mut deposit_count: i128 = 0;
+        let mut missed_members: Vec<Address> = Vec::new(&env);
         for m in members.iter() {
             if storage
                 .get::<DataKey, bool>(&DataKey::HasDeposited(m.clone()))
                 .unwrap_or(false)
             {
                 deposit_count += 1;
+            } else {
+                missed_members.push_back(m.clone());
             }
         }
         assert!(deposit_count > 0, "no deposits this round");
@@ -159,12 +174,34 @@ impl RotationalPool {
         if relayer_cut > 0 {
             token_client.transfer(&env.current_contract_address(), &relayer, &relayer_cut);
         }
-        token_client.transfer(&env.current_contract_address(), &beneficiary, &payout_amount);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &beneficiary,
+            &payout_amount,
+        );
 
         env.events().publish(
             (symbol_short!("payout"), beneficiary.clone()),
             payout_amount,
         );
+
+        let is_final_round = current_round + 1 >= members.len();
+
+        Self::report_payout(&env, &beneficiary);
+        for m in missed_members.iter() {
+            Self::report_missed_round(&env, &m);
+        }
+
+        // If this is the last round, call update_score with pool_completed=true
+        // for every member who deposited in this round.
+        if is_final_round {
+            for m in members.iter() {
+                let did_deposit = storage
+                    .get::<DataKey, bool>(&DataKey::HasDeposited(m.clone()))
+                    .unwrap_or(false);
+                Self::report_update_score(&env, &m, did_deposit, true);
+            }
+        }
 
         // Reset deposits for next round
         for m in members.iter() {
@@ -172,7 +209,7 @@ impl RotationalPool {
         }
 
         let next_round = current_round + 1;
-        if next_round >= members.len() {
+        if is_final_round {
             storage.set(&DataKey::Active, &false);
             env.events()
                 .publish((symbol_short!("complete"),), Symbol::new(&env, "pool_done"));
@@ -183,6 +220,124 @@ impl RotationalPool {
                 &(env.ledger().timestamp() + round_duration),
             );
         }
+        Self::bump_config_state_internal(&env);
+    }
+
+
+    pub fn add_member(env: Env, admin: Address, new_member: Address) {
+        admin.require_auth();
+
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let current_round: u32 = storage.get(&DataKey::CurrentRound).unwrap_or(0);
+        assert!(current_round == 0, "round already started");
+
+        let mut members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(!Self::is_member(&members, &new_member), "already a member");
+
+        for member in members.iter() {
+            let has_deposited: bool = storage
+                .get(&DataKey::HasDeposited(member.clone()))
+                .unwrap_or(false);
+            assert!(!has_deposited, "round already started");
+        }
+
+        members.push_back(new_member.clone());
+        storage.set(&DataKey::Members, &members);
+        env.events()
+            .publish((symbol_short!("add_mem"), new_member), ());
+        Self::bump_config_state_internal(&env);
+    }
+
+    pub fn remove_member(env: Env, admin: Address, member: Address) {
+        admin.require_auth();
+
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let has_deposited: bool = storage
+            .get(&DataKey::HasDeposited(member.clone()))
+            .unwrap_or(false);
+        assert!(!has_deposited, "member deposited this round");
+
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        Self::member_index(&members, &member).expect("not a member");
+        assert!(members.len() > 1, "need >=1 members");
+
+        Self::remove_member_internal(&env, &member);
+    }
+
+    pub fn leave_pool(env: Env, member: Address) {
+        member.require_auth();
+
+        let storage = env.storage().persistent();
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(Self::is_member(&members, &member), "not a member");
+
+        let has_deposited: bool = storage
+            .get(&DataKey::HasDeposited(member.clone()))
+            .unwrap_or(false);
+        assert!(!has_deposited, "member deposited this round");
+
+        assert!(members.len() > 1, "need >=1 members");
+
+        let current_round: u32 = storage.get(&DataKey::CurrentRound).unwrap_or(0);
+        let beneficiary = members.get(current_round).unwrap();
+        assert!(
+            member != beneficiary,
+            "current beneficiary cannot leave mid-round"
+        );
+
+        Self::remove_member_internal(&env, &member);
+    }
+
+    fn remove_member_internal(env: &Env, member: &Address) {
+        let storage = env.storage().persistent();
+
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        let removed_index = Self::member_index(&members, member).expect("not a member");
+
+        let mut updated_members: Vec<Address> = Vec::new(env);
+        for existing in members.iter() {
+            if existing != *member {
+                updated_members.push_back(existing);
+            }
+        }
+
+        let current_round: u32 = storage.get(&DataKey::CurrentRound).unwrap_or(0);
+        let mut pool_completed = false;
+        let updated_round = if removed_index < current_round {
+            current_round - 1
+        } else if removed_index == current_round && current_round >= updated_members.len() {
+            pool_completed = true;
+            0
+        } else {
+            current_round
+        };
+
+        storage.set(&DataKey::Members, &updated_members);
+        storage.set(&DataKey::CurrentRound, &updated_round);
+        if pool_completed {
+            storage.set(&DataKey::Active, &false);
+            env.events()
+                .publish((symbol_short!("complete"),), Symbol::new(env, "pool_done"));
+        }
+        storage.remove(&DataKey::HasDeposited(member.clone()));
+        env.events()
+            .publish((symbol_short!("rem_mem"), member.clone()), ());
+        Self::bump_config_state_internal(env);
     }
 
     // ── Emergency controls ─────────────────────────────────────────────────
@@ -199,6 +354,7 @@ impl RotationalPool {
         assert!(quorum.len() == 0, "multi-sig enabled; use approve_action + execute_approved");
         storage.set(&DataKey::Paused, &true);
         env.events().publish((symbol_short!("paused"),), ());
+        Self::bump_config_state_internal(&env);
     }
 
     pub fn unpause(env: Env, admin: Address) {
@@ -212,6 +368,28 @@ impl RotationalPool {
         assert!(quorum.len() == 0, "multi-sig enabled; use approve_action + execute_approved");
         storage.set(&DataKey::Paused, &false);
         env.events().publish((symbol_short!("unpaused"),), ());
+        Self::bump_config_state_internal(&env);
+    }
+
+    // ── Token allowlist ───────────────────────────────────────────────────
+
+    /// Set the tokens this pool is allowed to accept deposits in (e.g. the
+    /// native XLM SAC and USDC's SAC on Stellar). Admin-only. An empty list
+    /// (the default) leaves the pool unrestricted — it only ever holds the
+    /// single token chosen at `initialize()`.
+    pub fn set_supported_tokens(env: Env, admin: Address, tokens: Vec<Address>) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        storage.set(&DataKey::SupportedTokens, &tokens);
+        storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
+
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("sup_tok"), admin), tokens.len() as u32);
     }
 
     pub fn emergency_withdraw(env: Env, admin: Address, recipient: Address) {
@@ -232,11 +410,88 @@ impl RotationalPool {
         let contract_balance = token_client.balance(&env.current_contract_address());
 
         if contract_balance > 0 {
-            token_client.transfer(&env.current_contract_address(), &recipient, &contract_balance);
+            token_client.transfer(
+                &env.current_contract_address(),
+                &recipient,
+                &contract_balance,
+            );
         }
 
         env.events()
             .publish((symbol_short!("emrg_wd"),), contract_balance);
+        Self::bump_config_state_internal(&env);
+    }
+
+    /// Migrate this contract to a new version. Admin-only.
+    /// Version must be incremented by exactly 1. Running migrate() with
+    /// `to_version` equal to the current version is a safe no-op (idempotent).
+    pub fn migrate(env: Env, admin: Address, to_version: u32) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let current = VERSION;
+        if to_version == current {
+            return;
+        }
+        assert!(
+            to_version == current + 1,
+            "version must be incremented by exactly 1"
+        );
+
+        // Future migration logic goes here
+        env.events()
+            .publish((symbol_short!("migrated"), admin), to_version);
+    }
+
+    /// Point this pool at a deployed ReputationTracker contract so deposits,
+    /// payouts, and missed rounds are reported for the on-chain reputation
+    /// system. Restricted to pool members; safe to call more than once.
+    pub fn set_reputation_tracker(env: Env, caller: Address, tracker: Address) {
+        caller.require_auth();
+        let storage = env.storage().persistent();
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(Self::is_member(&members, &caller), "not a member");
+        storage.set(&DataKey::ReputationTracker, &tracker);
+        Self::bump_config_state_internal(&env);
+    }
+
+    pub fn bump_state(env: Env) {
+        Self::bump_config_state_internal(&env);
+        let storage = env.storage().persistent();
+        if storage.has(&DataKey::Members) {
+            let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+            for member in members.iter() {
+                let key = DataKey::HasDeposited(member.clone());
+                if storage.has(&key) {
+                    storage.extend_ttl(&key, LEDGER_THRESHOLD, LEDGER_BUMP);
+                }
+            }
+        }
+    }
+
+    fn bump_config_state_internal(env: &Env) {
+        let storage = env.storage().persistent();
+        storage.extend_ttl(&DataKey::Token, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::Admin, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::Treasury, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::Members, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::DepositAmount, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::RoundDuration, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::TreasuryFeeBps, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::RelayerFeeBps, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::CurrentRound, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::NextPayoutTime, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::Active, LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(&DataKey::Paused, LEDGER_THRESHOLD, LEDGER_BUMP);
+
+        if storage.has(&DataKey::ReputationTracker) {
+            storage.extend_ttl(&DataKey::ReputationTracker, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::SupportedTokens) {
+            storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
     }
 
     /// Remove a member from the pool (single-sig fallback; rejected if quorum is configured).
@@ -446,11 +701,32 @@ impl RotationalPool {
 
     // ── Views ──────────────────────────────────────────────────────────────
 
+    pub fn get_version(_env: Env) -> u32 {
+        VERSION
+    }
+
+    pub fn migrated_from(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::MigratedFrom)
+    }
+
+    pub fn reputation_tracker(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::ReputationTracker)
+    }
+
     pub fn is_active(env: Env) -> bool {
         env.storage()
             .persistent()
             .get(&DataKey::Active)
             .unwrap_or(false)
+    }
+
+    /// Decimals of the pool's token, recorded at initialize time. Defaults to 7
+    /// (native XLM) for pools created before multi-token support.
+    pub fn token_decimals(env: Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::TokenDecimals)
+            .unwrap_or(7)
     }
 
     pub fn is_paused(env: Env) -> bool {
@@ -492,37 +768,13 @@ impl RotationalPool {
             .unwrap_or(0)
     }
 
-    // ── Quorum views ──────────────────────────────────────────────────────
-
-    pub fn get_admin_quorum(env: Env) -> Vec<Address> {
+    /// Tokens this pool is allowed to accept deposits in. Empty until an
+    /// admin calls `set_supported_tokens`.
+    pub fn get_supported_tokens(env: Env) -> Vec<Address> {
         env.storage()
             .persistent()
-            .get(&DataKey::AdminQuorum)
+            .get(&DataKey::SupportedTokens)
             .unwrap_or(Vec::new(&env))
-    }
-
-    pub fn get_approvals(env: Env, action_hash: BytesN<32>) -> Vec<Address> {
-        env.storage()
-            .persistent()
-            .get(&DataKey::PendingAction(action_hash))
-            .map(|p: PendingAction| p.approvers)
-            .unwrap_or(Vec::new(&env))
-    }
-
-    pub fn get_approval_count(env: Env, action_hash: BytesN<32>) -> u32 {
-        env.storage()
-            .persistent()
-            .get(&DataKey::PendingAction(action_hash))
-            .map(|p: PendingAction| p.approvers.len() as u32)
-            .unwrap_or(0)
-    }
-
-    pub fn get_action_time(env: Env, action_hash: BytesN<32>) -> u64 {
-        env.storage()
-            .persistent()
-            .get(&DataKey::PendingAction(action_hash))
-            .map(|p: PendingAction| p.created_at)
-            .unwrap_or(0)
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
@@ -536,15 +788,125 @@ impl RotationalPool {
         false
     }
 
-    fn is_quorum_member(quorum: &Vec<Address>, who: &Address) -> bool {
-        for m in quorum.iter() {
-            if m == *who {
-                return true;
+    /// If a supported-token allowlist has been configured, require `token` to
+    /// be on it. No-op while the allowlist is empty (default/back-compat).
+    fn assert_token_supported(env: &Env, token: &Address) {
+        let supported: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::SupportedTokens)
+            .unwrap_or(Vec::new(env));
+        if supported.len() > 0 {
+            let mut found = false;
+            for t in supported.iter() {
+                if t == *token {
+                    found = true;
+                    break;
+                }
+            }
+            assert!(found, "token not supported");
+        }
+    }
+
+    /// O(n^2) pairwise scan — member lists are small (capped well below
+    /// the resource limits that would make this costly), so this is cheaper
+    /// than maintaining a separate index just to dedupe at init time.
+    fn has_duplicate_members(members: &Vec<Address>) -> bool {
+        for i in 0..members.len() {
+            let a = members.get(i).unwrap();
+            for j in (i + 1)..members.len() {
+                if a == members.get(j).unwrap() {
+                    return true;
+                }
             }
         }
         false
     }
+
+    fn member_index(members: &Vec<Address>, who: &Address) -> Option<u32> {
+        let mut index = 0u32;
+        for m in members.iter() {
+            if m == *who {
+                return Some(index);
+            }
+            index += 1;
+        }
+        None
+    }
+
+    /// Best-effort report to the configured ReputationTracker. Reputation
+    /// tracking is supplementary, so a missing/misconfigured tracker must
+    /// never block the pool's core deposit/payout flow.
+    fn reputation_tracker_addr(env: &Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::ReputationTracker)
+    }
+
+    fn report_deposit(env: &Env, member: &Address, amount: i128) {
+        if let Some(tracker) = Self::reputation_tracker_addr(env) {
+            let pool = env.current_contract_address();
+            env.invoke_contract::<()>(
+                &tracker,
+                &Symbol::new(env, "record_deposit"),
+                soroban_sdk::vec![
+                    env,
+                    pool.into_val(env),
+                    member.into_val(env),
+                    amount.into_val(env)
+                ],
+            );
+        }
+    }
+
+    fn report_payout(env: &Env, member: &Address) {
+        if let Some(tracker) = Self::reputation_tracker_addr(env) {
+            let pool = env.current_contract_address();
+            env.invoke_contract::<()>(
+                &tracker,
+                &Symbol::new(env, "record_payout_received"),
+                soroban_sdk::vec![env, pool.into_val(env), member.into_val(env)],
+            );
+        }
+    }
+
+    fn report_missed_round(env: &Env, member: &Address) {
+        if let Some(tracker) = Self::reputation_tracker_addr(env) {
+            let pool = env.current_contract_address();
+            env.invoke_contract::<()>(
+                &tracker,
+                &Symbol::new(env, "record_missed_round"),
+                soroban_sdk::vec![env, pool.into_val(env), member.into_val(env)],
+            );
+        }
+    }
+
+    /// Call `update_score` on the reputation tracker — used for pool-completion
+    /// events where we also need to set `pool_completed = true`.
+    fn report_update_score(
+        env: &Env,
+        member: &Address,
+        deposit_success: bool,
+        pool_completed: bool,
+    ) {
+        if let Some(tracker) = Self::reputation_tracker_addr(env) {
+            let pool = env.current_contract_address();
+            env.invoke_contract::<()>(
+                &tracker,
+                &Symbol::new(env, "update_score"),
+                soroban_sdk::vec![
+                    env,
+                    pool.into_val(env),
+                    member.into_val(env),
+                    deposit_success.into_val(env),
+                    pool_completed.into_val(env)
+                ],
+            );
+        }
+    }
 }
 
+#[cfg(test)]
+mod fuzz_tests;
+#[cfg(test)]
+mod test;
 #[cfg(test)]
 mod tests;

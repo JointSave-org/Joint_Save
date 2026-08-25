@@ -1,0 +1,49 @@
+const requiredEnvVars = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "NEXT_PUBLIC_STELLAR_RPC_URL",
+  "NEXT_PUBLIC_STELLAR_HORIZON_URL",
+  "NEXT_PUBLIC_FACTORY_CONTRACT_ID",
+  "NEXT_PUBLIC_TOKEN_CONTRACT_ID",
+  "NEXT_PUBLIC_ROTATIONAL_WASM_HASH",
+  "NEXT_PUBLIC_TARGET_WASM_HASH",
+  "NEXT_PUBLIC_FLEXIBLE_WASM_HASH",
+] as const
+
+type RequiredEnvVar = (typeof requiredEnvVars)[number]
+
+function readRequiredEnv(key: RequiredEnvVar): string {
+  const value = process.env[key]?.trim()
+  if (!value) {
+    if (typeof window !== "undefined") {
+      console.warn(
+        `[env] Missing required env var: ${key}. Copy frontend/.env.example to frontend/.env.local and fill in this value.`
+      )
+    }
+    // Safe build-time fallbacks for URLs to prevent Supabase or URL constructor crashes during static page compilation
+    if (key.includes("URL")) {
+      return "https://placeholder.jointsave.invalid"
+    }
+    return ""
+  }
+  return value
+}
+
+export const env = {
+  NEXT_PUBLIC_SUPABASE_URL: readRequiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: readRequiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+  NEXT_PUBLIC_STELLAR_RPC_URL: readRequiredEnv("NEXT_PUBLIC_STELLAR_RPC_URL"),
+  NEXT_PUBLIC_STELLAR_HORIZON_URL: readRequiredEnv("NEXT_PUBLIC_STELLAR_HORIZON_URL"),
+  NEXT_PUBLIC_FACTORY_CONTRACT_ID: readRequiredEnv("NEXT_PUBLIC_FACTORY_CONTRACT_ID"),
+  NEXT_PUBLIC_TOKEN_CONTRACT_ID: readRequiredEnv("NEXT_PUBLIC_TOKEN_CONTRACT_ID"),
+  NEXT_PUBLIC_REPUTATION_CONTRACT_ID: process.env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID?.trim() ?? "",
+  // Optional — falls back to Circle's testnet USDC SAC (see lib/token-utils.ts)
+  // when unset, so this doesn't need to be configured for local dev.
+  NEXT_PUBLIC_USDC_CONTRACT_ID: process.env.NEXT_PUBLIC_USDC_CONTRACT_ID?.trim() ?? "",
+  NEXT_PUBLIC_ROTATIONAL_WASM_HASH: readRequiredEnv("NEXT_PUBLIC_ROTATIONAL_WASM_HASH"),
+  NEXT_PUBLIC_TARGET_WASM_HASH: readRequiredEnv("NEXT_PUBLIC_TARGET_WASM_HASH"),
+  NEXT_PUBLIC_FLEXIBLE_WASM_HASH: readRequiredEnv("NEXT_PUBLIC_FLEXIBLE_WASM_HASH"),
+  NEXT_PUBLIC_DEBUG_DATA_LAYER: process.env.NEXT_PUBLIC_DEBUG_DATA_LAYER?.trim() ?? "false",
+} as const
+
+export { requiredEnvVars }
