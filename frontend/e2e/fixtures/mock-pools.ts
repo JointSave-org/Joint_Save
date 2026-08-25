@@ -95,12 +95,16 @@ export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<P
     // /api/pools/:id/index-events — must be handled before the sub-path
     // fall-through below because the **/api/pools** glob captures them too.
     const nested = url.pathname.match(
-      /\/api\/pools\/([^/]+)\/(activity\/export|activity|index-events)$/
+      /\/api\/pools\/([^/]+)\/(activity\/export|activity|index-events|members)$/
     )
     if (nested) {
       const [, poolId, endpoint] = nested
       const pool = pools.find((p) => p.id === poolId || p.contract_address === poolId)
       if (!pool) return json(route, { error: "Pool not found" }, 404)
+
+      if (endpoint === "members" && method === "GET") {
+        return json(route, pool.pool_members ?? [])
+      }
 
       if (endpoint === "index-events" && method === "POST") {
         return json(route, {

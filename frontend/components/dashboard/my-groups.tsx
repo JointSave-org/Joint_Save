@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/dashboard/empty-state"
 import { FirstPoolTooltip } from "@/components/dashboard/first-pool-tooltip"
 import { PoolCard, PoolCardSkeleton, type Pool } from "@/components/dashboard/pool-card"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { PoolHealthWidget } from "@/components/dashboard/pool-health-widget"
 
 const PAGE_SIZE = 6
 
@@ -125,6 +126,8 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
           <h2 className="text-3xl font-bold">{t("title")}</h2>
           <Skeleton className="h-4 w-40 mt-2" />
         </div>
+        {/* Show widget skeleton while pools load */}
+        <PoolHealthWidget pools={[]} loading={true} />
         <div
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           aria-label={t("loadingLabel")}
@@ -163,6 +166,9 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
           <p className="text-muted-foreground mt-1">{t("activeGroupsCount", { count: total })}</p>
         </div>
       </motion.div>
+
+      {/* Pool health score widget — hidden when no pools are loaded */}
+      {pools.length > 0 && <PoolHealthWidget pools={pools} loading={false} />}
 
       {/* Search input */}
       <div className="relative">
