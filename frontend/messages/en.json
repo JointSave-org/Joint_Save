@@ -267,7 +267,28 @@
       "noSearchResultsTitle": "No pools match your search",
       "noSearchResultsHint": "Try adjusting your search term or <clear>clear the search</clear>.",
       "showingRange": "Showing {from}–{to} of {total} pools",
-      "fetchError": "Failed to fetch pools"
+      "fetchError": "Failed to fetch pools",
+      "viewToggle": {
+        "label": "View",
+        "grid": "Grid",
+        "calendar": "Calendar"
+      }
+    },
+    "depositCalendar": {
+      "title": "Deposit Calendar",
+      "subtitle": "Upcoming deposit deadlines across your rotational pools",
+      "exportAll": "Export All",
+      "exportEvent": "Export to Calendar",
+      "loadingLabel": "Loading deposit calendar",
+      "deposited": "Deposited",
+      "listHeading": "Upcoming deposits",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "moreEvents": "+{count} more",
+      "empty": {
+        "heading": "No rotational pools yet",
+        "subheading": "You don't have any rotational pools yet. Create or join one to see your deposit schedule here."
+      }
     },
     "poolCard": {
       "members": "Members",
