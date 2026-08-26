@@ -110,22 +110,25 @@ export function useDepositCalendar() {
     })
   }, [contractAddresses, fetchPool, getCache])
 
-  const events: DepositCalendarEvent[] = useMemo(() => {
-    return records.map((record) => {
-      const contractAddress = record.contract_address as string
-      const onchain = getCache(contractAddress)?.onchain as RotationalPoolState | null | undefined
-      return {
-        poolId: record.id,
-        poolName: record.name,
-        contractAddress,
-        amount: record.contribution_amount ?? 0,
-        tokenSymbol: record.token_symbol || "XLM",
-        round: onchain?.currentRound ?? 0,
-        deadlineMs: onchain && onchain.nextPayoutTime > 0 ? onchain.nextPayoutTime * 1000 : null,
-        hasDeposited: onchain?.hasDeposited ?? false,
-      }
-    })
-  }, [records, getCache])
+  // Not memoized: `getCache` is a stable function reference from
+  // PoolDataProvider, so a `useMemo` keyed on it would never notice that the
+  // cache *contents* changed when an on-chain fetch resolves — the `events`
+  // array would stay stuck at its initial (unloaded) value forever. This map
+  // is cheap enough to just recompute on every render.
+  const events: DepositCalendarEvent[] = records.map((record) => {
+    const contractAddress = record.contract_address as string
+    const onchain = getCache(contractAddress)?.onchain as RotationalPoolState | null | undefined
+    return {
+      poolId: record.id,
+      poolName: record.name,
+      contractAddress,
+      amount: record.contribution_amount ?? 0,
+      tokenSymbol: record.token_symbol || "XLM",
+      round: onchain?.currentRound ?? 0,
+      deadlineMs: onchain && onchain.nextPayoutTime > 0 ? onchain.nextPayoutTime * 1000 : null,
+      hasDeposited: onchain?.hasDeposited ?? false,
+    }
+  })
 
   const isLoading =
     isLoadingRecords ||
