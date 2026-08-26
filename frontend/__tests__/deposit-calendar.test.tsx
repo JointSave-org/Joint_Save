@@ -126,9 +126,12 @@ describe("DepositCalendar", () => {
     // deadline is never clipped by which calendar month happens to be showing.
     vi.mocked(useIsMobile).mockReturnValue(true)
     const nowSec = Math.floor(Date.now() / 1000)
+    // Explicit contract_address overrides — poolRow()'s default of
+    // CONTRACTS[index % CONTRACTS.length] would put pool-1 on CONTRACTS[1]
+    // and pool-2 on CONTRACTS[0], the opposite of what's intended below.
     memberPools = [
-      poolRow(1, { name: "Weekly Circle" }),
-      poolRow(2, { name: "Monthly Circle" }),
+      poolRow(1, { name: "Weekly Circle", contract_address: CONTRACTS[0] }),
+      poolRow(2, { name: "Monthly Circle", contract_address: CONTRACTS[1] }),
     ]
     vi.mocked(fetchRotationalState).mockImplementation(async (contractId: string) =>
       contractId === CONTRACTS[1]
@@ -138,13 +141,20 @@ describe("DepositCalendar", () => {
 
     render(<DepositCalendar />)
 
-    const weekly = await screen.findByTestId("deposit-calendar-event-pool-1")
+    // Wait for the checkmark itself, not just the row — the row renders
+    // immediately (before the on-chain fetch resolves), so a synchronous
+    // assertion right after `findByTestId` can race ahead of the real data.
+    await waitFor(() =>
+      expect(screen.getByTestId("deposit-calendar-deposited-pool-1")).toBeInTheDocument()
+    )
+    const weekly = screen.getByTestId("deposit-calendar-event-pool-1")
     expect(within(weekly).getByText("Weekly Circle")).toBeInTheDocument()
-    expect(screen.getByTestId("deposit-calendar-deposited-pool-1")).toBeInTheDocument()
 
     const monthly = screen.getByTestId("deposit-calendar-event-pool-2")
+    await waitFor(() =>
+      expect(within(monthly).getByText(/due in \d+d/i)).toBeInTheDocument()
+    )
     expect(within(monthly).getByText("Monthly Circle")).toBeInTheDocument()
-    expect(within(monthly).getByText(/due in \d+d/i)).toBeInTheDocument()
     expect(screen.queryByTestId("deposit-calendar-deposited-pool-2")).not.toBeInTheDocument()
   })
 
@@ -157,22 +167,36 @@ describe("DepositCalendar", () => {
   })
 
   it("exports every upcoming deposit when Export All is clicked", async () => {
+    // Mobile's list view surfaces the deadline as visible text, so the test
+    // can wait for the on-chain fetch to actually resolve before exporting —
+    // the row itself renders (with "No deadline") before that fetch settles.
+    vi.mocked(useIsMobile).mockReturnValue(true)
     const user = userEvent.setup()
     memberPools = [poolRow(1), poolRow(2)]
 
     render(<DepositCalendar />)
-    await screen.findByTestId("deposit-calendar-event-pool-1")
+    // Rows render immediately (before the on-chain fetch resolves) showing
+    // "No deadline" — an empty queryAllByText check would pass vacuously
+    // before the rows even exist, so assert both the rows and the data.
+    await waitFor(() => {
+      expect(screen.getAllByTestId(/^deposit-calendar-event-/)).toHaveLength(2)
+      expect(screen.queryByText(/no deadline/i)).not.toBeInTheDocument()
+    })
 
     await user.click(screen.getByTestId("deposit-calendar-export-all"))
     expect(URL.createObjectURL).toHaveBeenCalled()
   })
 
   it("exports a single pool's deposit from its own export button", async () => {
+    vi.mocked(useIsMobile).mockReturnValue(true)
     const user = userEvent.setup()
     memberPools = [poolRow(1, { name: "Weekly Circle" })]
 
     render(<DepositCalendar />)
-    await screen.findByTestId("deposit-calendar-event-pool-1")
+    await waitFor(() => {
+      expect(screen.getByTestId("deposit-calendar-event-pool-1")).toBeInTheDocument()
+      expect(screen.queryByText(/no deadline/i)).not.toBeInTheDocument()
+    })
 
     await user.click(screen.getByTestId("deposit-calendar-export-pool-1"))
     expect(URL.createObjectURL).toHaveBeenCalled()
