@@ -110,18 +110,26 @@ async function logActivity(
  * Record a deposit in Supabase only after the transaction hash is verified
  * as successful on Horizon (see app/api/pools/deposit/route.ts). Verification
  * is retried briefly since Horizon may lag a freshly confirmed ledger.
+ *
+ * `tokenSymbol`/`tokenAmount` are optional and, when present, let the activity
+ * row be broken out by settlement currency (multi-token / SEP-41 deposits —
+ * see lib/deposit-token.ts).
  */
 async function verifyAndLogDeposit(
   poolId: string,
   userAddress: string,
   txHash: string,
-  amount: string | null
+  amount: string | null,
+  tokenSymbol?: string,
+  tokenAmount?: string | null
 ) {
   const payload = {
     poolId,
     userAddress,
     txHash,
     amount: amount ? parseFloat(amount) : null,
+    tokenSymbol,
+    tokenAmount: tokenAmount ?? amount ?? null,
   }
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -419,7 +427,7 @@ export function GroupActions({
 
         if (txHash) {
           updateTxHash(txHash)
-          await verifyAndLogDeposit(groupId, address, txHash, depositAmount || null)
+          await verifyAndLogDeposit(groupId, address, txHash, depositAmount || null, tokenSymbol)
           void triggerPushNotification(
             groupId,
             "event_deposit",
