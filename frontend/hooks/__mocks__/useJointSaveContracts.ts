@@ -22,10 +22,47 @@ export const NATIVE_TOKEN_METADATA = {
 
 export const resolveTokenAddress = (tokenId: string) => tokenId || NATIVE_SAC_ID
 
+/** A real, checksum-valid account id so the SDK's TransactionBuilder accepts it. */
+const MOCK_SOURCE_ACCOUNT = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7"
+
 export const getRpc = vi.fn().mockReturnValue({
   getLatestLedger: vi.fn().mockResolvedValue({ sequence: 1000 }),
   getTransaction: vi.fn().mockResolvedValue({ status: "SUCCESS" }),
+  // Returned as a plain object rather than an SDK `Account` so this mock stays
+  // free of a stellar-sdk import; it satisfies the interface TransactionBuilder
+  // reads (accountId + sequence handling).
+  getAccount: vi.fn(async (accountId: string = MOCK_SOURCE_ACCOUNT) => {
+    let seq = 1n
+    return {
+      accountId: () => accountId,
+      sequenceNumber: () => seq.toString(),
+      incrementSequenceNumber: () => {
+        seq += 1n
+      },
+    }
+  }),
 })
+
+/**
+ * Stands in for the real simulate → sign → send → poll pipeline. Walks the
+ * caller through every phase so status-tracking logic is exercised end to end,
+ * then resolves with a canned hash. Mirrors the real signature: the caller
+ * hands over a builder, not a prepared transaction.
+ */
+export const submitTx = vi.fn(
+  async (
+    _address: string,
+    _buildTx: unknown,
+    _pendingTx?: unknown,
+    onPhase?: (phase: "signing" | "submitted" | "confirmed", hash?: string) => void
+  ) => {
+    const hash = "tx_hash_mock"
+    onPhase?.("signing")
+    onPhase?.("submitted", hash)
+    onPhase?.("confirmed", hash)
+    return hash
+  }
+)
 
 export const formatTokenAmount = (amount: bigint, decimals = 7): number =>
   Number(amount) / Math.pow(10, decimals)

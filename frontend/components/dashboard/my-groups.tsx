@@ -3,6 +3,7 @@
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   Pagination,
   PaginationContent,
@@ -10,7 +11,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Search } from "lucide-react"
+import { LayoutGrid, Search, CalendarDays } from "lucide-react"
 import { motion } from "framer-motion"
 import { useTranslations } from "next-intl"
 import { useState, useEffect, useCallback } from "react"
@@ -20,6 +21,8 @@ import { useStellar } from "@/components/web3-provider"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { FirstPoolTooltip } from "@/components/dashboard/first-pool-tooltip"
 import { PoolCard, PoolCardSkeleton, type Pool } from "@/components/dashboard/pool-card"
+import { BatchDepositPanel } from "@/components/dashboard/batch-deposit-panel"
+import { DepositCalendar } from "@/components/dashboard/deposit-calendar/DepositCalendar"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 
 const PAGE_SIZE = 6
@@ -44,6 +47,7 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [view, setView] = useState<"grid" | "calendar">("grid")
 
   const page = Math.max(0, parseInt(searchParams.get("page") || "0", 10))
   const searchTerm = searchParams.get("search") || ""
@@ -156,89 +160,120 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex items-center justify-between"
+        className="flex flex-wrap items-center justify-between gap-3"
       >
         <div>
           <h2 className="text-3xl font-bold">{t("title")}</h2>
           <p className="text-muted-foreground mt-1">{t("activeGroupsCount", { count: total })}</p>
         </div>
+
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          value={view}
+          onValueChange={(next) => next && setView(next as "grid" | "calendar")}
+          aria-label={t("viewToggle.label")}
+        >
+          <ToggleGroupItem value="grid" aria-label={t("viewToggle.grid")} data-testid="my-groups-view-grid">
+            <LayoutGrid className="size-4" aria-hidden="true" />
+            <span className="hidden sm:inline">{t("viewToggle.grid")}</span>
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="calendar"
+            aria-label={t("viewToggle.calendar")}
+            data-testid="my-groups-view-calendar"
+          >
+            <CalendarDays className="size-4" aria-hidden="true" />
+            <span className="hidden sm:inline">{t("viewToggle.calendar")}</span>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </motion.div>
 
-      {/* Search input */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder={t("searchPlaceholder")}
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+      {/* Deposits owed across every pool the wallet belongs to. Renders
+          nothing when there is nothing outstanding. */}
+      <BatchDepositPanel onDepositsComplete={() => loadPools(page)} />
 
-      {pools.length === 0 ? (
-        <EmptyState onCreateClick={onCreateClick} />
-      ) : filteredPools.length === 0 ? (
-        <Card className="p-12 flex flex-col items-center text-center gap-3">
-          <div className="rounded-full bg-muted p-3">
-            <Search className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <p className="font-medium">{t("noSearchResultsTitle")}</p>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            {t.rich("noSearchResultsHint", {
-              clear: (chunks) => (
-                <button onClick={() => setSearchInput("")} className="text-primary hover:underline">
-                  {chunks}
-                </button>
-              ),
-            })}
-          </p>
-        </Card>
+      {view === "calendar" ? (
+        <DepositCalendar />
       ) : (
         <>
-          <FirstPoolTooltip poolCount={pools.length} />
+          {/* Search input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder={t("searchPlaceholder")}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-9"
+            />
+          </div>
 
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {filteredPools.map((pool) => (
-              <PoolCard key={pool.id} pool={pool} />
-            ))}
-          </motion.div>
-
-          {totalPages > 1 && (
-            <div className="flex flex-col items-center gap-3 mt-4">
-              <p className="text-sm text-muted-foreground">
-                {t("showingRange", {
-                  from: page * PAGE_SIZE + 1,
-                  to: Math.min((page + 1) * PAGE_SIZE, total),
-                  total,
+          {pools.length === 0 ? (
+            <EmptyState onCreateClick={onCreateClick} />
+          ) : filteredPools.length === 0 ? (
+            <Card className="p-12 flex flex-col items-center text-center gap-3">
+              <div className="rounded-full bg-muted p-3">
+                <Search className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="font-medium">{t("noSearchResultsTitle")}</p>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                {t.rich("noSearchResultsHint", {
+                  clear: (chunks) => (
+                    <button onClick={() => setSearchInput("")} className="text-primary hover:underline">
+                      {chunks}
+                    </button>
+                  ),
                 })}
               </p>
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setPage(page - 1)}
-                      aria-disabled={page === 0}
-                      className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() => setPage(page + 1)}
-                      aria-disabled={page >= totalPages - 1}
-                      className={
-                        page >= totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
+            </Card>
+          ) : (
+            <>
+              <FirstPoolTooltip poolCount={pools.length} />
+
+              <motion.div
+                variants={container}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
+                {filteredPools.map((pool) => (
+                  <PoolCard key={pool.id} pool={pool} />
+                ))}
+              </motion.div>
+
+              {totalPages > 1 && (
+                <div className="flex flex-col items-center gap-3 mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    {t("showingRange", {
+                      from: page * PAGE_SIZE + 1,
+                      to: Math.min((page + 1) * PAGE_SIZE, total),
+                      total,
+                    })}
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setPage(page - 1)}
+                          aria-disabled={page === 0}
+                          className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setPage(page + 1)}
+                          aria-disabled={page >= totalPages - 1}
+                          className={
+                            page >= totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
+                          }
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

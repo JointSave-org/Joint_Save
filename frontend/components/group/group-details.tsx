@@ -38,6 +38,8 @@ import { isContractVersionUnknown } from "@/lib/contract-version"
 import { useToast } from "@/hooks/use-toast"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import { GroupMuteNotificationsToggle } from "@/components/group/GroupMuteNotificationsToggle"
+import { ScheduleManager } from "@/components/group/schedule-manager"
+import { DeadlineCountdown } from "@/components/group/deadline-countdown"
 
 const FREQUENCY_KEYS = ["daily", "weekly", "biweekly", "monthly"] as const
 
@@ -503,17 +505,19 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
           <div>
             <h1 className="text-3xl font-bold mb-2">{group.name}</h1>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">{tPool(`type.${group.type}`)}</Badge>
-              <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
+              <Badge variant="secondary" aria-label={"Pool type: " + tPool(`type.${group.type}`)}>
+                {tPool(`type.${group.type}`)}
+              </Badge>
+              <Badge className="bg-primary/10 text-primary hover:bg-primary/20" aria-label={"Pool status: " + tPool(`status.${group.status}`)}>
                 {tPool(`status.${group.status}`)}
               </Badge>
               {onchainState && (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs" aria-label="Status: Live onchain">
                   {t("liveOnchain")}
                 </Badge>
               )}
               {hasAutoTrigger && (
-                <Badge variant="outline" className="text-xs text-blue-600 border-blue-400">
+                <Badge variant="outline" className="text-xs text-blue-600 border-blue-400" aria-label="Status: Auto-trigger enabled">
                   {t("autoTriggerEnabled")}
                 </Badge>
               )}
@@ -523,12 +527,13 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
                   className={`text-xs ${
                     ttlDays < 7 ? "text-destructive border-destructive/40 bg-destructive/10" : ""
                   }`}
+                  aria-label={`State expires in ${ttlDays} days`}
                 >
                   {t("stateExpiresIn", { days: ttlDays })}
                 </Badge>
               )}
               {isStale && !isLoading && (
-                <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/40">
+                <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/40" aria-label="Status: Stale data">
                   {t("stale")}
                 </Badge>
               )}
@@ -536,6 +541,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
                 <Badge
                   variant="outline"
                   className="text-xs text-yellow-600 border-yellow-600/40 bg-yellow-500/10"
+                  aria-label="Status: Transaction pending"
                 >
                   {t("pendingEllipsis")}
                 </Badge>
@@ -659,6 +665,32 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
           {/* pool_id in DB is the same as groupId route param */}
           <GroupMuteNotificationsToggle poolId={groupId} />
         </div>
+
+        {/* Deadline Countdown display */}
+        {group.next_payout || (onchainState as RotationalPoolState)?.nextPayoutTime ? (
+          <div className="mb-6">
+            <DeadlineCountdown
+              targetTimestamp={
+                (onchainState as RotationalPoolState)?.nextPayoutTime ||
+                (group.next_payout ? new Date(group.next_payout).getTime() / 1000 : 0)
+              }
+            />
+          </div>
+        ) : null}
+
+        {/* Schedule Manager for rotational pools */}
+        {group.type === "rotational" && (
+          <div className="mb-6">
+            <ScheduleManager
+              poolId={group.id}
+              contractAddress={group.contract_address}
+              isAdmin={isAdmin || isCreator}
+              currentRoundDuration={604800}
+              currentRound={(onchainState as RotationalPoolState)?.currentRound || 0}
+              onScheduleUpdated={() => refetch()}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {stats.map((stat, i) => (

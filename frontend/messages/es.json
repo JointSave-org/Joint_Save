@@ -267,7 +267,28 @@
       "noSearchResultsTitle": "Ninguna tanda coincide con tu búsqueda",
       "noSearchResultsHint": "Intenta ajustar tu término de búsqueda o <clear>borra la búsqueda</clear>.",
       "showingRange": "Mostrando {from}–{to} de {total} tandas",
-      "fetchError": "Error al obtener las tandas"
+      "fetchError": "Error al obtener las tandas",
+      "viewToggle": {
+        "label": "Vista",
+        "grid": "Cuadrícula",
+        "calendar": "Calendario"
+      }
+    },
+    "depositCalendar": {
+      "title": "Calendario de Depósitos",
+      "subtitle": "Próximas fechas límite de depósito en tus tandas rotativas",
+      "exportAll": "Exportar Todo",
+      "exportEvent": "Exportar al Calendario",
+      "loadingLabel": "Cargando calendario de depósitos",
+      "deposited": "Depositado",
+      "listHeading": "Próximos depósitos",
+      "prevMonth": "Mes anterior",
+      "nextMonth": "Mes siguiente",
+      "moreEvents": "+{count} más",
+      "empty": {
+        "heading": "Aún no tienes tandas rotativas",
+        "subheading": "Aún no tienes tandas rotativas. Crea o únete a una para ver aquí tu calendario de depósitos."
+      }
     },
     "poolCard": {
       "members": "Miembros",

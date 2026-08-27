@@ -33,6 +33,10 @@ jobs:
         working-directory: frontend
         run: pnpm lint
 
+      - name: Format files automatically
+        working-directory: frontend
+        run: pnpm format --write
+
       - name: Run Prettier format check
         working-directory: frontend
         run: pnpm format:check

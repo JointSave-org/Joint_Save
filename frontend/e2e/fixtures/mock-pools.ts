@@ -167,6 +167,7 @@ export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<P
       const id = url.searchParams.get("id")
       const contract = url.searchParams.get("contract")
       const creator = url.searchParams.get("creator")
+      const member = url.searchParams.get("member")
 
       if (id) {
         const pool = pools.find((p) => p.id === id)
@@ -175,6 +176,17 @@ export async function mockPoolsApi(page: Page, seed: MockPool[] = []): Promise<P
       if (contract) {
         const pool = pools.find((p) => p.contract_address === contract)
         return pool ? json(route, pool) : json(route, { error: "Pool not found" }, 404)
+      }
+      if (member) {
+        // Mirrors the `member=` branch of the real route: every pool the wallet
+        // belongs to, whether it created the pool or joined it.
+        const lower = member.toLowerCase()
+        const mine = pools.filter(
+          (p) =>
+            p.creator_address === lower ||
+            p.pool_members.some((m: any) => m.member_address?.toLowerCase() === lower)
+        )
+        return json(route, { data: mine, total: mine.length })
       }
       if (creator) {
         const mine = pools.filter((p) => p.creator_address === creator.toLowerCase())
