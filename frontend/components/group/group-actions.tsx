@@ -18,6 +18,7 @@ import {
   UserPlus,
   Trash2,
   LogOut,
+  Coins,
 } from "lucide-react"
 import { useStellar } from "@/components/web3-provider"
 import {
@@ -60,6 +61,8 @@ import {
   pendingTransactionLabel,
   type PendingTransactionType,
 } from "@/lib/pending-transactions"
+import { SupportedTokensSettings } from "@/components/group/supported-tokens-settings"
+import { DepositTokenPicker } from "@/components/group/deposit-token-picker"
 
 interface GroupActionsProps {
   groupId: string
@@ -115,13 +118,17 @@ async function verifyAndLogDeposit(
   poolId: string,
   userAddress: string,
   txHash: string,
-  amount: string | null
+  amount: string | null,
+  token?: { symbol?: string; decimals?: number; amount?: string | null }
 ) {
   const payload = {
     poolId,
     userAddress,
     txHash,
     amount: amount ? parseFloat(amount) : null,
+    tokenSymbol: token?.symbol,
+    tokenDecimals: token?.decimals,
+    tokenAmount: token?.amount != null ? token.amount : amount,
   }
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -228,6 +235,7 @@ export function GroupActions({
   const isAdmin = !!address && !!poolAdmin && address.toUpperCase() === poolAdmin.toUpperCase()
   const [depositAmount, setDepositAmount] = useState("")
   const [withdrawAmount, setWithdrawAmount] = useState("")
+  const [tokensOpen, setTokensOpen] = useState(false)
 
   // Pool metadata from Supabase
   const [poolData, setPoolData] = useState<Record<string, unknown> | null>(null)
@@ -241,7 +249,17 @@ export function GroupActions({
   // Token display metadata (persisted on the pool row; defaults to native XLM)
   const tokenSymbol: string = (poolData?.token_symbol as string) ?? "XLM"
   const tokenDecimals: number = (poolData?.token_decimals as number) ?? 7
+  const supportedTokens: string[] = Array.isArray(poolData?.supported_tokens)
+    ? (poolData.supported_tokens as string[])
+    : []
   const toBaseUnits = (amount: number) => BigInt(Math.round(amount * 10 ** tokenDecimals))
+
+  // Deposit token picker selection (per supported-token decimals/balance).
+  const [depositToken, setDepositToken] = useState<{
+    symbol: string
+    decimals: number
+    id: string
+  } | null>(null)
 
   // Wallet balance in the pool's deposit currency (for the deposit form) —
   // resolved via the token registry so both native XLM and USDC work.
@@ -419,7 +437,11 @@ export function GroupActions({
 
         if (txHash) {
           updateTxHash(txHash)
-          await verifyAndLogDeposit(groupId, address, txHash, depositAmount || null)
+          await verifyAndLogDeposit(groupId, address, txHash, depositAmount || null, {
+            symbol: depositToken?.symbol ?? tokenSymbol,
+            decimals: depositToken?.decimals ?? tokenDecimals,
+            amount: depositAmount || null,
+          })
           void triggerPushNotification(
             groupId,
             "event_deposit",
@@ -856,6 +878,14 @@ export function GroupActions({
                   {t("firstDepositHint")}
                 </div>
               )}
+              <DepositTokenPicker
+                supportedTokens={supportedTokens}
+                poolTokenAddress={_tokenAddress || "native"}
+                symbol="XLM"
+                decimals={7}
+                walletAddress={address}
+                onTokenChange={setDepositToken}
+              />
               <div className="flex items-center justify-between">
                 <Label htmlFor="deposit">
                   {isRotational
@@ -1091,6 +1121,18 @@ export function GroupActions({
                     )}
                   </Tooltip>
                 </div>
+
+                {isAdmin && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2 w-full gap-2"
+                    onClick={() => setTokensOpen(true)}
+                  >
+                    <Coins className="h-4 w-4" />
+                    {t("manageTokens")}
+                  </Button>
+                )}
               </div>
             )}
 
@@ -1365,6 +1407,26 @@ export function GroupActions({
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={tokensOpen}
+        onOpenChange={(open) => {
+          if (!open) setTokensOpen(false)
+        }}
+      >
+        <DialogContent className="sm:max-w-[480px] bg-background border border-border">
+          <DialogHeader>
+            <DialogTitle>{t("manageTokens")}</DialogTitle>
+            <DialogDescription>{t("manageTokensDescription")}</DialogDescription>
+          </DialogHeader>
+          <SupportedTokensSettings
+            poolId={groupId}
+            contractAddress={poolAddress}
+            isAdmin={isAdmin}
+            poolTokenAddress={_tokenAddress || "native"}
+          />
         </DialogContent>
       </Dialog>
 

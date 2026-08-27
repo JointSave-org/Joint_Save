@@ -31,6 +31,7 @@ export type Database = {
           token_address: string
           token_symbol: string
           token_decimals: number
+          supported_tokens: string[]
           total_saved: number
           target_amount: number | null
           progress: number
@@ -57,6 +58,7 @@ export type Database = {
           token_address: string
           token_symbol?: string
           token_decimals?: number
+          supported_tokens?: string[]
           total_saved?: number
           target_amount?: number | null
           progress?: number
@@ -81,6 +83,7 @@ export type Database = {
           token_address?: string
           token_symbol?: string
           token_decimals?: number
+          supported_tokens?: string[]
           total_saved?: number
           target_amount?: number | null
           progress?: number

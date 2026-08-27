@@ -41,7 +41,14 @@ import {
 // ── Pending transaction tracker types ────────────────────────────────────────
 
 export type PendingTxType =
-  "deposit" | "withdraw" | "payout" | "emergency_withdraw" | "pause" | "join" | "create"
+  | "deposit"
+  | "withdraw"
+  | "payout"
+  | "emergency_withdraw"
+  | "pause"
+  | "join"
+  | "create"
+  | "set_supported_tokens"
 
 export interface PendingTransaction {
   hash: string
@@ -616,5 +623,6 @@ export async function submitWithRetry(options: TxRetryOptions): Promise<TxResult
 /** Map a legacy pending type to the tracker's canonical type names. */
 export function toTrackedTxType(type: LegacyPendingTransactionType): PendingTxType {
   if (type === "trigger_payout") return "payout"
+  if (type === "set_supported_tokens") return "set_supported_tokens"
   return type
 }

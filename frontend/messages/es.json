@@ -785,6 +785,8 @@
       "unpausePool": "Reanudar Tanda",
       "connectWalletToManage": "Conecta tu billetera para gestionar esta tanda",
       "notPoolAdmin": "Tu billetera no es el administrador de la tanda",
+      "manageTokens": "Gestionar Tokens",
+      "manageTokensDescription": "Elige qué activos SEP-41 acepta esta tanda como depósitos. Esto escribe la lista permitida en cadena y la guarda para la interfaz de depósito.",
       "manageMembers": "Gestionar Miembros",
       "addStellarAddress": "Agregar Dirección de Stellar",
       "addMemberAria": "Agregar miembro",

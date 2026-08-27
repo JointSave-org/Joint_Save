@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
 import { writeLimiter } from "@/lib/rate-limit"
+import { humanToBaseUnits } from "@/lib/deposit-token"
 
 const HORIZON_URL =
   process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL || "https://horizon-testnet.stellar.org"
@@ -10,11 +11,13 @@ const HORIZON_URL =
  * complete in Supabase. Prevents off-chain activity rows for deposits that
  * never landed on-chain (e.g. lost confirmations, dropped transactions).
  *
- * POST { poolId, userAddress, txHash, amount? }
+ * POST { poolId, userAddress, txHash, amount?, tokenSymbol?, tokenDecimals?,
+ *        tokenAmount?, treasuryFeeBps?, relayerFeeBps? }
  *  - 200 { verified: true } — tx confirmed on-chain (and logged, unless the
  *    hash was already recorded).
  *  - 200 { verified: true, alreadyLogged: true } — previously recorded.
- *  - 422 { verified: false } — tx not found on Horizon or failed on-chain.
+ *  - 422 { verified: false } — tx not found on Horizon, failed on-chain, or
+ *    the token amount exceeds the asset's supported precision.
  *  - 502 — Horizon unreachable (caller should not mark the deposit complete).
  */
 export async function POST(req: NextRequest) {
@@ -23,7 +26,17 @@ export async function POST(req: NextRequest) {
     if (limited) return limited
 
     const body = await req.json()
-    const { poolId, userAddress, txHash, amount } = body
+    const {
+      poolId,
+      userAddress,
+      txHash,
+      amount,
+      tokenSymbol,
+      tokenDecimals,
+      tokenAmount,
+      treasuryFeeBps,
+      relayerFeeBps,
+    } = body
 
     if (!poolId || !userAddress || !txHash) {
       return NextResponse.json(
@@ -66,6 +79,24 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // 1b. When a token-denominated amount is supplied, validate it against
+    // the asset's supported precision before persisting it.
+    let tokenAmountBase: bigint | null = null
+    if (tokenAmount != null && tokenSymbol) {
+      const decimals = typeof tokenDecimals === "number" ? tokenDecimals : 7
+      try {
+        tokenAmountBase = humanToBaseUnits(String(tokenAmount), decimals)
+      } catch {
+        return NextResponse.json(
+          {
+            verified: false,
+            error: `Amount exceeds the ${decimals}-decimal precision for ${tokenSymbol}`,
+          },
+          { status: 422 }
+        )
+      }
+    }
+
     // 2. Idempotency: never record the same tx hash twice.
     const { data: existing } = await supabase
       .from("pool_activity")
@@ -77,15 +108,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ verified: true, alreadyLogged: true })
     }
 
-    // 3. Mark the deposit complete in Supabase.
+    // 3. Mark the deposit complete in Supabase. `amount` always carries the
+    // numeric value (settlement workspace), while `token_amount` keeps the
+    // token-denominated amount so history can be broken out by currency.
+    const feeBps =
+      (typeof treasuryFeeBps === "number" ? treasuryFeeBps : 0) +
+      (typeof relayerFeeBps === "number" ? relayerFeeBps : 0)
+
+    // Fee (if any) computed in the token's own unit, in base units (stroops).
+    let feeBase: bigint | null = null
+    let tokenAmountValue: number | null = null
+    if (tokenAmountBase != null) {
+      tokenAmountValue = Number(tokenAmountBase)
+      if (feeBps > 0) {
+        feeBase = (tokenAmountBase * BigInt(feeBps) + 5000n) / 10000n
+      }
+    }
+
     const { error } = await supabase.from("pool_activity").insert([
       {
         pool_id: poolId,
         activity_type: "deposit",
         user_address: userAddress.toLowerCase(),
         amount: typeof amount === "number" ? amount : null,
+        token_amount: tokenAmountValue,
         tx_hash: txHash,
-        description: "Deposit transaction",
+        fee_charged: feeBase != null ? Number(feeBase) : null,
+        description:
+          tokenSymbol && tokenSymbol !== "XLM"
+            ? `Deposit transaction (${tokenSymbol})`
+            : "Deposit transaction",
       },
     ])
 

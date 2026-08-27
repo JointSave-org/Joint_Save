@@ -4,6 +4,7 @@ import {
   addPendingTransactionRecord,
   reconcilePendingTransactions,
   findRecentPendingTransaction,
+  pendingTransactionLabel,
   pendingTransactionStorageKey,
   readPendingTransactionRecords,
   removePendingTransactionRecord,
@@ -154,4 +155,21 @@ test("reconcilePendingTransactions keeps recent not-found records but removes st
 
   assert.deepEqual(outcomes, [{ record: stale, outcome: "dropped" }])
   assert.deepEqual(readPendingTransactionRecords(address, storage), [recent])
+})
+
+test("set_supported_tokens is a recognized pending transaction type", () => {
+  const storage = createStorage()
+  const address = "gabcdef"
+  addPendingTransactionRecord(
+    address,
+    {
+      hash: "hash-tokens",
+      type: "set_supported_tokens",
+      poolId: "pool-1",
+      submittedAt: Date.now(),
+    },
+    storage
+  )
+  assert.strictEqual(pendingTransactionLabel("set_supported_tokens"), "token settings update")
+  assert.strictEqual(readPendingTransactionRecords(address, storage).length, 1)
 })

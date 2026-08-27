@@ -2,7 +2,8 @@
 
 import { RECENT_DUPLICATE_WINDOW_MS, DROPPED_TX_WINDOW_MS } from "@/lib/constants"
 
-export type PendingTransactionType = "deposit" | "withdraw" | "trigger_payout"
+export type PendingTransactionType =
+  "deposit" | "withdraw" | "trigger_payout" | "set_supported_tokens"
 
 export interface PendingTransactionRecord {
   hash: string
@@ -46,7 +47,12 @@ function normalizeKeyPart(value: string): string {
 }
 
 function isPendingTransactionType(value: string): value is PendingTransactionType {
-  return value === "deposit" || value === "withdraw" || value === "trigger_payout"
+  return (
+    value === "deposit" ||
+    value === "withdraw" ||
+    value === "trigger_payout" ||
+    value === "set_supported_tokens"
+  )
 }
 
 export function pendingTransactionStorageKey(address: string): string {
@@ -152,6 +158,8 @@ export function pendingTransactionLabel(type: PendingTransactionType): string {
       return "withdrawal"
     case "trigger_payout":
       return "payout trigger"
+    case "set_supported_tokens":
+      return "token settings update"
   }
 }
 
@@ -163,6 +171,8 @@ export function pendingTransactionSuccessMessage(type: PendingTransactionType): 
       return "Your withdrawal from earlier completed successfully."
     case "trigger_payout":
       return "Your payout trigger from earlier completed successfully."
+    case "set_supported_tokens":
+      return "Your token settings update from earlier completed successfully."
   }
 }
 
