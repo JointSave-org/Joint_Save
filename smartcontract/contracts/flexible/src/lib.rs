@@ -28,6 +28,10 @@ pub enum DataKey {
     ReputationTracker,
     /// Optional allowlist of accepted token addresses (empty = unrestricted).
     SupportedTokens,
+    /// Optional address of the attached DAO governance contract.
+    GovernanceContract,
+    /// Late/missed-deposit penalty percentage governable by the DAO (0-100).
+    PenaltyPercentage,
 }
 
 const LEDGER_THRESHOLD: u32 = 518400;
@@ -519,6 +523,12 @@ impl FlexiblePool {
         if storage.has(&DataKey::SupportedTokens) {
             storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
+        if storage.has(&DataKey::GovernanceContract) {
+            storage.extend_ttl(&DataKey::GovernanceContract, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::PenaltyPercentage) {
+            storage.extend_ttl(&DataKey::PenaltyPercentage, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
     }
 
     /// Point this pool at a deployed ReputationTracker contract so deposits
@@ -531,6 +541,66 @@ impl FlexiblePool {
         assert!(Self::is_member(&members, &caller), "not a member");
         storage.set(&DataKey::ReputationTracker, &tracker);
         Self::bump_config_state_internal(&env);
+    }
+
+    // ── DAO governance ────────────────────────────────────────────────────
+
+    /// Register the DAO governance contract allowed to apply proposals.
+    pub fn set_governance_contract(env: Env, admin: Address, governance: Address) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        storage.set(&DataKey::GovernanceContract, &governance);
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("gov_set"), admin), governance);
+    }
+
+    /// Apply a governance-approved parameter change. Callable by the pool
+    /// admin directly or by the registered governance contract via CPI.
+    ///
+    /// Proposal types (symbols):
+    ///   - "change_deposit_amount" -> minimum deposit in stroops (> 0)
+    ///   - "add_penalty"           -> penalty percentage 0-100
+    ///   - "remove_penalty"        -> clears penalty percentage
+    pub fn apply_governance_proposal(
+        env: Env,
+        caller: Address,
+        proposal_type: Symbol,
+        new_value: i128,
+    ) {
+        caller.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        let gov: Option<Address> = storage.get(&DataKey::GovernanceContract);
+        assert!(
+            caller == stored_admin || gov.map_or(false, |g| g == caller),
+            "not authorized"
+        );
+
+        let change_deposit = Symbol::new(&env, "change_deposit_amount");
+        let add_penalty = Symbol::new(&env, "add_penalty");
+        let remove_penalty = Symbol::new(&env, "remove_penalty");
+
+        if proposal_type == change_deposit {
+            assert!(new_value > 0, "minimum must be > 0");
+            storage.set(&DataKey::MinimumDeposit, &new_value);
+        } else if proposal_type == add_penalty {
+            assert!(new_value >= 0 && new_value <= 100, "penalty must be 0-100");
+            storage.set(&DataKey::PenaltyPercentage, &(new_value as u32));
+        } else if proposal_type == remove_penalty {
+            storage.set(&DataKey::PenaltyPercentage, &0u32);
+        } else {
+            panic!("unsupported proposal type");
+        }
+
+        Self::bump_config_state_internal(&env);
+
+        env.events()
+            .publish((symbol_short!("gov_appl"), proposal_type), new_value);
     }
 
     // ── Views ─────────────────────────────────────────────────────────────
@@ -611,6 +681,27 @@ impl FlexiblePool {
             .persistent()
             .get(&DataKey::SupportedTokens)
             .unwrap_or(Vec::new(&env))
+    }
+
+    /// Address of the attached DAO governance contract, if any.
+    pub fn governance_contract(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::GovernanceContract)
+    }
+
+    /// Current minimum deposit in stroops.
+    pub fn minimum_deposit(env: Env) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::MinimumDeposit)
+            .unwrap_or(0)
+    }
+
+    /// Penalty percentage applied to missed deposits (0 by default).
+    pub fn penalty_percentage(env: Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::PenaltyPercentage)
+            .unwrap_or(0)
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

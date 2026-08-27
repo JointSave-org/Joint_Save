@@ -690,6 +690,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "jointsave-governance"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "jointsave-microloan"
 version = "0.1.0"
 dependencies = [
