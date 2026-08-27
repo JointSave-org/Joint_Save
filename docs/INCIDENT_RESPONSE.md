@@ -130,6 +130,118 @@ This document outlines procedures for responding to security alerts detected by 
 >
 > Please investigate immediately and update the alert status.
 
+## Automated response (circuit breaker)
+
+The procedures above are what a human does. This section covers what the system
+does on its own, before anyone reads the alert.
+
+When a security scan (`/api/cron/security-scan` or `/api/admin/security/scan`)
+raises enough CRITICAL alerts against a single pool, the circuit breaker pauses
+that pool so no further money moves until an admin has looked at it. Every
+decision it takes, including the ones it decides against, is recorded in the
+`incidents` table and surfaced in the admin audit log.
+
+### What "auto-pause" means, and what it cannot do
+
+The pause has two halves, and only the first can be automatic.
+
+| Half | Automatic? | Effect |
+|------|-----------|--------|
+| Platform pause | Yes | `pools.status` becomes `paused` with a reason and timestamp. The app stops offering deposits and payouts immediately. Reversible from the admin endpoint. |
+| On-chain pause | No | `rotational::pause` is called by the pool admin, signed with their own wallet. |
+
+The contract asserts `admin.require_auth()` and that the caller equals the pool's
+stored admin, which is the creator's wallet. The platform holds no key that
+satisfies it: `SPONSOR_SECRET_KEY` only pays network fees, and a fee bump
+authorises nothing. So an executed incident is recorded with
+`onchain_status = 'pending'` and the admin signs the contract call from the
+review screen, after which the hash is recorded against the incident.
+
+Making the on-chain half automatic would mean adding a platform guardian role to
+a deployed, funds-holding contract, redeploying, and migrating existing pools. It
+is a real option, but it is a security decision for the maintainers rather than
+something this layer should assume.
+
+### emergency_withdraw is never automatic
+
+Nothing in the automated path can move funds. The breaker's action type has
+exactly two values, `pause` and `none`, and a unit test asserts that set has not
+grown. `emergency_withdraw` stays a manual, admin-only contract call.
+
+### Thresholds and cooldown
+
+| Setting | Default | What it does |
+|---------|---------|--------------|
+| `INCIDENT_AUTO_PAUSE_ENABLED` | unset (dry-run) | Arms the breaker. Only the exact string `true` arms it. |
+| `INCIDENT_CRITICAL_THRESHOLD` | 2 | Critical alerts against one pool needed to trip it. |
+| `INCIDENT_THRESHOLD_WINDOW_MS` | 3600000 (1h) | How far back alerts count towards the threshold. |
+| `INCIDENT_MAX_PAUSES_PER_WINDOW` | 1 | Auto-pauses allowed per pool inside the cooldown window. |
+| `INCIDENT_COOLDOWN_WINDOW_MS` | 86400000 (24h) | The cooldown window. |
+
+The cooldown is what prevents pause-flap. With the defaults, a pool is
+auto-paused at most once a day; if it trips again it stays paused and waits for
+an admin instead of oscillating. The gate is checked before the action, so a
+pool in cooldown is never paused and then reverted. Only pauses that actually
+happened count towards it, so a dry-run period does not silently consume a
+pool's allowance.
+
+### Rolling it out with dry-run
+
+Dry-run is the default and is the intended rollout mechanism, not a switch to
+skip past. In dry-run the breaker still decides, still writes the incident and
+still notifies the admin. It just does not pause anything.
+
+Both scan endpoints report `incidentResponse`, which always answers whether an
+action *would* have fired, independently of dry-run:
+
+```jsonc
+{
+  "incidentResponse": {
+    "dryRun": true,
+    "wouldFire": 2,        // pools that met the thresholds
+    "paused": 0,           // pools actually paused
+    "cooldownBlocked": 1,  // held back by the cooldown
+    "decisions": [ /* one per pool, with the reason */ ],
+    "incidentIds": ["..."]
+  }
+}
+```
+
+Run it that way for a while, read the incidents it would have created, and only
+then set `INCIDENT_AUTO_PAUSE_ENABLED=true`.
+
+### Admin review and recovery
+
+```
+GET  /api/admin/incidents?poolId=<id>&callerAddress=<address>
+POST /api/admin/incidents/<incidentId>
+```
+
+The POST body takes `admin_address` and an `action`:
+
+| Action | What it does |
+|--------|--------------|
+| `resolve` | Closes the incident with a required note. The pool stays paused. |
+| `resume` | Closes it and returns the pool to `active`. |
+| `record_onchain` | Attaches the hash of the `pause` or `unpause` transaction the admin signed. |
+
+Both endpoints verify the caller against the pool's `creator_address`
+server-side, the same check `/api/admin/audit-log` uses.
+
+`resume` lifts the platform pause only. If the admin had already signed an
+on-chain pause, the response returns `onchainUnpauseRequired: true` and the
+contract stays paused until they sign `unpause` themselves.
+
+### Where to look
+
+| Piece | File |
+|-------|------|
+| Decision logic (pure, unit tested) | `frontend/lib/incident-response.ts` |
+| Tests | `frontend/lib/incident-response.test.ts` |
+| Execution against Supabase | `frontend/lib/server/incident-actions.ts` |
+| Admin review and recovery | `frontend/app/api/admin/incidents/` |
+| Schema | `supabase/migrations/20260827120000_incident_response.sql` |
+
 ## Review and Post-Incident
 
 After resolving any CRITICAL or WARNING alert:
