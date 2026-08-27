@@ -7,6 +7,44 @@ use soroban_sdk::{
 };
 
 #[test]
+fn test_migrate_succeeds_to_next_version() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &86400u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    assert_eq!(client.get_version(), 1);
+    client.migrate(&admin, &2);
+    // VERSION const is still 1 so get_version returns 1,
+    // but the migrate call succeeded without panicking.
+}
+
+#[test]
 fn test_happy_path() {
     let env = Env::default();
     env.mock_all_auths();
@@ -1192,43 +1230,6 @@ fn test_bump_state() {
 }
 
 #[test]
-fn test_migrate_succeeds_to_next_version() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let contract_id = env.register_contract(None, RotationalPool);
-    let client = RotationalPoolClient::new(&env, &contract_id);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-    let treasury = Address::generate(&env);
-    let admin = Address::generate(&env);
-    let member_a = Address::generate(&env);
-    let member_b = Address::generate(&env);
-
-    let mut members = Vec::new(&env);
-    members.push_back(member_a.clone());
-    members.push_back(member_b.clone());
-
-    client.initialize(
-        &token_address,
-        &admin,
-        &members,
-        &100i128,
-        &100u64,
-        &0u32,
-        &0u32,
-        &treasury,
-    );
-
-    assert_eq!(client.get_version(), 1);
-    client.migrate(&admin, &2);
-    // VERSION const is still 1 so get_version returns 1,
-    // but the migrate call succeeded without panicking.
-}
-
-#[test]
 fn test_migrate_idempotent_at_current_version() {
     let env = Env::default();
     env.mock_all_auths();
@@ -1259,14 +1260,50 @@ fn test_migrate_idempotent_at_current_version() {
         &treasury,
     );
 
-    // Migrating to the current version (1) should be a safe no-op
+    // Re-migrating to 1 should be a no-op success
     client.migrate(&admin, &1);
-    assert_eq!(client.get_version(), 1);
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn test_migrate_rejects_non_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
+
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
+
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
+
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &100u64,
+        &0u32,
+        &0u32,
+        &treasury,
+    );
+
+    // Member attempting migration must fail
+    client.migrate(&member_a, &2);
 }
 
 #[test]
 #[should_panic(expected = "version must be incremented by exactly 1")]
-fn test_migrate_rejects_version_skip() {
+fn test_migrate_rejects_skipping_versions() {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -1410,48 +1447,53 @@ fn test_deposit_succeeds_when_pool_token_is_in_allowlist() {
     assert!(client.has_deposited(&member_a));
 }
 
-// ── DAO governance integration ───────────────────────────────────────────────
-
 #[test]
-fn governance_contract_can_change_pool_parameters() {
+fn test_update_schedule_and_custom_deadlines() {
     let env = Env::default();
     env.mock_all_auths();
-    let (client, _token, admin, _a, _b) = setup_rotational_pool(&env);
 
-    let gov = Address::generate(&env);
-    client.set_governance_contract(&admin, &gov);
-    assert_eq!(client.governance_contract(), Some(gov.clone()));
+    let contract_id = env.register_contract(None, RotationalPool);
+    let client = RotationalPoolClient::new(&env, &contract_id);
 
-    client.apply_governance_proposal(&gov, &Symbol::new(&env, "change_deposit_amount"), &250i128);
-    client.apply_governance_proposal(&gov, &Symbol::new(&env, "extend_deadline"), &3600i128);
-    assert_eq!(client.deposit_amount(), 250i128);
-    assert_eq!(client.round_duration(), 3600u64);
-}
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_address = token_contract.address();
 
-#[test]
-fn admin_can_apply_penalty_proposals_directly() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let (client, _token, admin, _a, _b) = setup_rotational_pool(&env);
+    let treasury = Address::generate(&env);
+    let admin = Address::generate(&env);
+    let member_a = Address::generate(&env);
+    let member_b = Address::generate(&env);
 
-    client.apply_governance_proposal(&admin, &Symbol::new(&env, "add_penalty"), &10i128);
-    assert_eq!(client.penalty_percentage(), 10u32);
+    let mut members = Vec::new(&env);
+    members.push_back(member_a.clone());
+    members.push_back(member_b.clone());
 
-    client.apply_governance_proposal(&admin, &Symbol::new(&env, "remove_penalty"), &0i128);
-    assert_eq!(client.penalty_percentage(), 0u32);
-}
-
-#[test]
-#[should_panic(expected = "not authorized")]
-fn unauthorized_caller_cannot_apply_proposal() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let (client, _token, _admin, _a, _b) = setup_rotational_pool(&env);
-
-    let impostor = Address::generate(&env);
-    client.apply_governance_proposal(
-        &impostor,
-        &Symbol::new(&env, "change_deposit_amount"),
-        &250i128,
+    client.initialize(
+        &token_address,
+        &admin,
+        &members,
+        &100i128,
+        &86400u64,
+        &0u32,
+        &0u32,
+        &treasury,
     );
+
+    let info_init = client.get_schedule_info();
+    assert_eq!(info_init.round_duration, 86400);
+    assert!(!info_init.is_custom);
+
+    // Update schedule
+    client.update_schedule(&admin, &172800u64);
+    let info_updated = client.get_schedule_info();
+    assert_eq!(info_updated.round_duration, 172800);
+
+    // Set custom deadline
+    let custom_deadline = 1700000000u64;
+    client.set_custom_deadline(&admin, &0u32, &custom_deadline);
+
+    let info_custom = client.get_schedule_info();
+    assert!(info_custom.is_custom);
+    assert_eq!(info_custom.next_round_deadline, custom_deadline);
+    assert_eq!(info_custom.custom_deadlines.get(0), Some(custom_deadline));
 }

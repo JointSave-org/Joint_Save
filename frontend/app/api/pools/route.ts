@@ -103,6 +103,7 @@ export async function GET(req: NextRequest) {
     const poolId = req.nextUrl.searchParams.get("id")
     const creatorAddress = req.nextUrl.searchParams.get("creator")
     const contractAddress = req.nextUrl.searchParams.get("contract")
+    const memberAddress = req.nextUrl.searchParams.get("member")
 
     if (poolId) {
       // Fetch single pool by ID
@@ -168,6 +169,28 @@ export async function GET(req: NextRequest) {
       }
 
       return jsonPublic(data)
+    } else if (memberAddress) {
+      // Every pool the wallet belongs to (created *or* joined), unpaginated —
+      // the batch-deposit panel has to consider all of them to decide which
+      // still owe a deposit this round. Membership lives in `pool_members`,
+      // which the creator is also inserted into at pool-creation time.
+      const { data, error } = await supabase
+        .from("pool_members")
+        .select("pools(*)")
+        .eq("member_address", memberAddress.toLowerCase())
+
+      if (error) {
+        throw error
+      }
+
+      // Supabase types the embedded relation loosely; each row carries the
+      // joined pool (or null if it was deleted).
+      const pools = (data || [])
+        .map((row: { pools: unknown }) => row.pools)
+        .filter((pool): pool is Record<string, unknown> => !!pool)
+
+      // Wallet-scoped, like the `creator=` branch — never shared-cached.
+      return jsonPrivate({ data: pools, total: pools.length })
     } else if (creatorAddress) {
       const PAGE_SIZE = 6
       const page = Math.max(0, parseInt(req.nextUrl.searchParams.get("page") || "0", 10))
