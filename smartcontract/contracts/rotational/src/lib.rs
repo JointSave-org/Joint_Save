@@ -38,6 +38,10 @@ pub enum DataKey {
     SupportedTokens,
     IsCustom,
     CustomDeadlines,
+    /// Optional address of the attached DAO governance contract.
+    GovernanceContract,
+    /// Late/missed-deposit penalty percentage governable by the DAO (0-100).
+    PenaltyPercentage,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -566,6 +570,12 @@ impl RotationalPool {
         }
         if storage.has(&DataKey::CustomDeadlines) {
             storage.extend_ttl(&DataKey::CustomDeadlines, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::GovernanceContract) {
+            storage.extend_ttl(&DataKey::GovernanceContract, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::PenaltyPercentage) {
+            storage.extend_ttl(&DataKey::PenaltyPercentage, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
     }
 
