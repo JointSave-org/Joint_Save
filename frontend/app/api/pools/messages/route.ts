@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { readLimiter } from "@/lib/rate-limit"
 import { CHAT_MESSAGE_MAX_LENGTH, CHAT_RATE_LIMIT_MS } from "@/lib/constants"
 import { jsonPublic } from "@/lib/cache-headers"
+import { blockIfArchived } from "@/lib/server/archival-guard"
 
 const PAGE_SIZE = 50
 
@@ -122,6 +123,11 @@ export async function POST(req: NextRequest) {
       { status: 422 }
     )
   }
+
+  // The chat closes with the pool: an archived pool's history stays readable
+  // (GET is untouched) but takes no new messages.
+  const archived = await blockIfArchived(pool_id)
+  if (archived) return archived
 
   // DB-backed per-sender rate limit — safe across all serverless instances
   const waitMs = await getRateLimitWaitMs(pool_id, wallet)

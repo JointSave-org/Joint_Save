@@ -295,8 +295,5 @@ test("archival — unparseable activity timestamps are skipped", () => {
 
 test("archival — isArchived keys off archived_at", () => {
   assert.strictEqual(isArchived({ archived_at: null, archive_reason: null }), false)
-  assert.strictEqual(
-    isArchived({ archived_at: daysAgo(1), archive_reason: "completed" }),
-    true
-  )
+  assert.strictEqual(isArchived({ archived_at: daysAgo(1), archive_reason: "completed" }), true)
 })
