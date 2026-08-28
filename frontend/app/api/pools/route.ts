@@ -2,6 +2,7 @@ import { supabase, savePoolToDatabase } from "@/lib/supabase"
 import { NextRequest, NextResponse } from "next/server"
 import { readLimiter, writeLimiter } from "@/lib/rate-limit"
 import { jsonPublic, jsonPrivate } from "@/lib/cache-headers"
+import { blockIfArchived } from "@/lib/server/archival-guard"
 
 export async function POST(req: NextRequest) {
   try {
@@ -104,6 +105,13 @@ export async function GET(req: NextRequest) {
     const creatorAddress = req.nextUrl.searchParams.get("creator")
     const contractAddress = req.nextUrl.searchParams.get("contract")
     const memberAddress = req.nextUrl.searchParams.get("member")
+    // Archived pools are excluded from every list view unless asked for.
+    // `archived=true` includes them alongside active ones; `archived=only`
+    // returns just the archived set, which is what the My Groups "Archived"
+    // tab and the Explore toggle use.
+    const archivedParam = req.nextUrl.searchParams.get("archived")
+    const includeArchived = archivedParam === "true" || archivedParam === "only"
+    const archivedOnly = archivedParam === "only"
 
     if (poolId) {
       // Fetch single pool by ID
@@ -188,6 +196,14 @@ export async function GET(req: NextRequest) {
       const pools = (data || [])
         .map((row: { pools: unknown }) => row.pools)
         .filter((pool): pool is Record<string, unknown> => !!pool)
+        // Filtered here rather than in the query: `pools` is an embedded
+        // relation, so PostgREST cannot filter it without dropping the
+        // membership rows the caller is paginating over.
+        .filter((pool) => {
+          const isArchived = !!pool.archived_at
+          if (archivedOnly) return isArchived
+          return includeArchived || !isArchived
+        })
 
       // Wallet-scoped, like the `creator=` branch — never shared-cached.
       return jsonPrivate({ data: pools, total: pools.length })
@@ -197,10 +213,15 @@ export async function GET(req: NextRequest) {
       const from = page * PAGE_SIZE
       const to = from + PAGE_SIZE - 1
 
-      const { data, error, count } = await supabase
+      let query = supabase
         .from("pools")
         .select("*", { count: "exact" })
         .eq("creator_address", creatorAddress.toLowerCase())
+
+      if (archivedOnly) query = query.not("archived_at", "is", null)
+      else if (!includeArchived) query = query.is("archived_at", null)
+
+      const { data, error, count } = await query
         .order("created_at", { ascending: false })
         .range(from, to)
 
@@ -216,9 +237,12 @@ export async function GET(req: NextRequest) {
       const from = page * PAGE_SIZE
       const to = from + PAGE_SIZE - 1
 
-      const { data, error, count } = await supabase
-        .from("pools")
-        .select("*", { count: "exact" })
+      let query = supabase.from("pools").select("*", { count: "exact" })
+
+      if (archivedOnly) query = query.not("archived_at", "is", null)
+      else if (!includeArchived) query = query.is("archived_at", null)
+
+      const { data, error, count } = await query
         .order("created_at", { ascending: false })
         .range(from, to)
 
@@ -229,11 +253,12 @@ export async function GET(req: NextRequest) {
       return jsonPublic({ data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE })
     } else {
       // Fetch all pools
-      const { data, error } = await supabase
-        .from("pools")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(50)
+      let query = supabase.from("pools").select("*")
+
+      if (archivedOnly) query = query.not("archived_at", "is", null)
+      else if (!includeArchived) query = query.is("archived_at", null)
+
+      const { data, error } = await query.order("created_at", { ascending: false }).limit(50)
 
       if (error) {
         throw error
@@ -260,6 +285,12 @@ export async function PATCH(req: NextRequest) {
     if (!poolId) {
       return NextResponse.json({ error: "Pool ID required" }, { status: 400 })
     }
+
+    // Archived pools are read-only. Enforced here and not only in the UI, so a
+    // stale tab or a direct request cannot write to a pool that has left
+    // discovery. Un-archiving goes through PUT /api/pools/[id]/unarchive.
+    const archived = await blockIfArchived(poolId)
+    if (archived) return archived
 
     // If body contains an `activity` object, log it to pool_activity
     if (body.activity) {

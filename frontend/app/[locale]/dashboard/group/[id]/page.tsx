@@ -7,6 +7,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { GroupDetails } from "@/components/group/group-details"
 import { GroupMembers } from "@/components/group/group-members"
 import { GroupActions } from "@/components/group/group-actions"
+import { ArchivedPoolBanner, ArchivePoolButton } from "@/components/group/archived-pool-banner"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, LayoutDashboard, HandCoins } from "lucide-react"
@@ -15,6 +16,7 @@ import { fetchIsPaused, fetchPoolAdmin } from "@/hooks/useJointSaveContracts"
 import { useStellar } from "@/components/web3-provider"
 import { useRecentPools } from "@/hooks/useRecentPools"
 import { ErrorBoundary, SectionErrorBoundary } from "@/components/error-boundary"
+import type { ArchiveReason } from "@/lib/archival"
 import {
   GroupActivitySkeleton,
   YieldDashboardSkeleton,
@@ -73,6 +75,8 @@ interface Pool {
   creator_address: string
   /** Pool member list returned by /api/pools — used for lending eligibility checks */
   pool_members?: { member_address: string }[]
+  archived_at?: string | null
+  archive_reason?: ArchiveReason | null
 }
 
 const isPendingAddress = (addr: string) => !addr || addr === "pending_deployment"
@@ -83,6 +87,7 @@ export default function GroupPage({
   params: Promise<{ id: string }> | { id: string }
 }) {
   const t = useTranslations("group.page")
+  const tArchived = useTranslations("group.archived")
   // Support both async params (Next 15+) and plain object params
   const resolvedParams = params instanceof Promise ? use(params) : (params as { id: string })
   const id = resolvedParams.id
@@ -94,7 +99,7 @@ export default function GroupPage({
   const [poolAdmin, setPoolAdmin] = useState<string | null>(null)
   const trackedRef = useRef(false)
 
-  useEffect(() => {
+  const loadPool = useCallback(() => {
     fetch(`/api/pools?id=${id}`)
       .then((res) => res.json())
       .then((data) => {
@@ -103,6 +108,10 @@ export default function GroupPage({
       })
       .catch(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    loadPool()
+  }, [loadPool])
 
   // Track visit when pool data loads
   useEffect(() => {
@@ -156,6 +165,12 @@ export default function GroupPage({
     (poolAdmin?.toLowerCase() === address.toLowerCase() ||
       pool.creator_address?.toLowerCase() === address.toLowerCase())
 
+  // An archived pool is read-only: the whole actions column and the lending
+  // marketplace come off, rather than each button being disabled individually.
+  // The API refuses these writes too (lib/server/archival-guard.ts) — hiding
+  // the controls alone would not be enforcement.
+  const archived = !!pool.archived_at
+
   return (
     <ErrorBoundary sectionName={t("sectionGroupDetail")} walletAddress={address}>
       <div className="min-h-screen bg-background">
@@ -168,6 +183,17 @@ export default function GroupPage({
             </Link>
           </Button>
 
+          {archived && (
+            <ArchivedPoolBanner
+              groupId={id}
+              archivedAt={pool.archived_at!}
+              archiveReason={pool.archive_reason ?? null}
+              isAdmin={isAdmin}
+              adminAddress={address}
+              onRestored={loadPool}
+            />
+          )}
+
           {/* Top-level Overview / Lending tabs */}
           <Tabs defaultValue="overview" className="space-y-6">
             <TabsList>
@@ -175,10 +201,12 @@ export default function GroupPage({
                 <LayoutDashboard className="h-3.5 w-3.5" />
                 {t("overview")}
               </TabsTrigger>
-              <TabsTrigger value="lending" className="gap-1.5">
-                <HandCoins className="h-3.5 w-3.5" />
-                {t("lending")}
-              </TabsTrigger>
+              {!archived && (
+                <TabsTrigger value="lending" className="gap-1.5">
+                  <HandCoins className="h-3.5 w-3.5" />
+                  {t("lending")}
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* ── Overview tab — existing pool content ────────────────── */}
@@ -195,6 +223,11 @@ export default function GroupPage({
                     sectionName={t("sectionActivityFeed")}
                     walletAddress={address}
                   >
+                    {archived && (
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {tArchived("historicalActivity")}
+                      </p>
+                    )}
                     <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
                   </SectionErrorBoundary>
                   {/* Admin audit log with CSV export — only shown to the pool creator */}
@@ -211,22 +244,33 @@ export default function GroupPage({
                 </div>
 
                 <div className="space-y-6">
-                  <SectionErrorBoundary
-                    sectionName={t("sectionGroupActions")}
-                    walletAddress={address}
-                  >
-                    <GroupActions
-                      groupId={id}
-                      poolAddress={pool.contract_address}
-                      poolType={pool.type}
-                      tokenAddress={pool.token_address}
-                      creatorAddress={pool.creator_address}
-                      isPaused={isPaused}
-                      poolAdmin={poolAdmin}
-                      onPauseChange={refreshPoolState}
-                    />
-                  </SectionErrorBoundary>
-                  {pool.type === "flexible" && (
+                  {!archived && (
+                    <SectionErrorBoundary
+                      sectionName={t("sectionGroupActions")}
+                      walletAddress={address}
+                    >
+                      <GroupActions
+                        groupId={id}
+                        poolAddress={pool.contract_address}
+                        poolType={pool.type}
+                        tokenAddress={pool.token_address}
+                        creatorAddress={pool.creator_address}
+                        isPaused={isPaused}
+                        poolAdmin={poolAdmin}
+                        onPauseChange={refreshPoolState}
+                      />
+                      {isAdmin && (
+                        <div className="mt-4">
+                          <ArchivePoolButton
+                            groupId={id}
+                            adminAddress={address}
+                            onArchived={loadPool}
+                          />
+                        </div>
+                      )}
+                    </SectionErrorBoundary>
+                  )}
+                  {pool.type === "flexible" && !archived && (
                     <SectionErrorBoundary
                       sectionName={t("sectionYieldDashboard")}
                       walletAddress={address}
@@ -245,18 +289,22 @@ export default function GroupPage({
             </TabsContent>
 
             {/* ── Lending tab — P2P microloan marketplace ──────────────── */}
-            <TabsContent value="lending">
-              <SectionErrorBoundary sectionName={t("lending")} walletAddress={address}>
-                <LendingTab
-                  poolId={cacheKey}
-                  tokenAddress={pool.token_address}
-                  poolMembers={poolMemberAddresses}
-                  isMember={isMember}
-                  isAdmin={isAdmin}
-                  walletAddress={address}
-                />
-              </SectionErrorBoundary>
-            </TabsContent>
+            {/* Archived pools take no new loans, so the tab comes off entirely
+                rather than rendering a marketplace whose actions would 409. */}
+            {!archived && (
+              <TabsContent value="lending">
+                <SectionErrorBoundary sectionName={t("lending")} walletAddress={address}>
+                  <LendingTab
+                    poolId={cacheKey}
+                    tokenAddress={pool.token_address}
+                    poolMembers={poolMemberAddresses}
+                    isMember={isMember}
+                    isAdmin={isAdmin}
+                    walletAddress={address}
+                  />
+                </SectionErrorBoundary>
+              </TabsContent>
+            )}
           </Tabs>
         </main>
       </div>

@@ -372,6 +372,30 @@
         "payout": "Pago",
         "refund": "Reembolso"
       }
+    },
+    "archived": {
+      "title": "Grupos archivados",
+      "badge": "Archivado",
+      "tabActive": "Activos",
+      "tabArchived": "Archivados",
+      "count": "{count, plural, =0 {Aún no hay grupos archivados} one {# grupo archivado} other {# grupos archivados}}",
+      "empty": "Aún no hay nada archivado",
+      "emptyHint": "Los grupos aparecen aquí cuando terminan, o tras 90 días sin actividad y sin fondos de miembros. No se elimina nada: el historial completo sigue disponible.",
+      "fetchError": "No se pudieron cargar los grupos archivados",
+      "loadingLabel": "Cargando grupos archivados",
+      "showingRange": "Mostrando {from}–{to} de {total} grupos archivados",
+      "completedOn": "Completado",
+      "archivedOn": "Archivado",
+      "finalTvl": "TVL final",
+      "memberCount": "{count, plural, one {# miembro} other {# miembros}}",
+      "viewHistory": "Ver historial",
+      "cardAria": "Grupo archivado {name}. {reason}",
+      "reason": {
+        "completed": "Este grupo terminó y se archivó tras su periodo de revisión.",
+        "inactive_90d": "Archivado tras 90 días sin actividad y sin fondos de miembros.",
+        "admin_archived": "Archivado por el administrador del grupo.",
+        "emergency_withdrawn": "Archivado tras un retiro de emergencia."
+      }
     }
   },
   "pool": {
@@ -383,7 +407,8 @@
     "status": {
       "active": "Activa",
       "completed": "Completada",
-      "paused": "Pausada"
+      "paused": "Pausada",
+      "emergency_withdrawn": "Retiro de emergencia"
     },
     "create": {
       "intro": {
@@ -1013,6 +1038,29 @@
         "resolved_dismissed": "Rechazada",
         "expired": "Expirada"
       }
+    },
+    "archived": {
+      "title": "Este grupo ha sido archivado",
+      "body": "Ya no está activo y se muestra en modo solo lectura. Los depósitos, retiros y acciones de administrador están deshabilitados. Todo el historial siguiente se conserva.",
+      "historicalActivity": "Actividad histórica: este grupo está archivado y no recibe eventos nuevos.",
+      "archivedOn": "Archivado el {date}",
+      "unarchive": "Restaurar grupo",
+      "unarchiving": "Restaurando…",
+      "unarchiveSuccess": "Grupo restaurado: vuelve a estar activo y visible.",
+      "unarchiveError": "No se pudo restaurar este grupo. Inténtalo de nuevo.",
+      "archive": "Archivar grupo",
+      "archiving": "Archivando…",
+      "archiveSuccess": "Grupo archivado. Su historial sigue disponible en la pestaña Archivados.",
+      "archiveError": "No se pudo archivar este grupo. Inténtalo de nuevo.",
+      "archiveConfirmTitle": "¿Archivar este grupo?",
+      "archiveConfirmBody": "Se ocultará de Explorar y de la pestaña de grupos activos, y pasará a solo lectura. No se elimina nada: se conservan miembros, actividad e historial, y puedes restaurarlo cuando quieras.",
+      "cancel": "Cancelar",
+      "reason": {
+        "completed": "Este grupo terminó y se archivó tras su periodo de revisión.",
+        "inactive_90d": "Archivado tras 90 días sin actividad y sin fondos de miembros.",
+        "admin_archived": "Archivado por el administrador del grupo.",
+        "emergency_withdrawn": "Archivado tras un retiro de emergencia."
+      }
     }
   },
   "explore": {
@@ -1025,7 +1073,10 @@
       "poolCount": "{count, plural, =0 {Todavía no hay tandas para explorar} one {Explora # tanda — la insignia de salud muestra qué tan constantes han sido los depósitos de los miembros} other {Explora # tandas — la insignia de salud muestra qué tan constantes han sido los depósitos de los miembros}}",
       "nothingToExplore": "Todavía no hay nada que explorar",
       "nothingToExploreHint": "Cuando la gente empiece a crear tandas de ahorro, aparecerán aquí para que las explores.",
-      "showingRange": "Mostrando {from}–{to} de {total} tandas"
+      "showingRange": "Mostrando {from}–{to} de {total} tandas",
+      "showArchived": "Mostrar archivados",
+      "showArchivedHint": "Incluir grupos que han terminado o quedado inactivos",
+      "archivedBadge": "Archivado"
     },
     "timeAgo": {
       "justNow": "justo ahora",

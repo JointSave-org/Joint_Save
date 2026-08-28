@@ -372,6 +372,30 @@
         "payout": "Payout",
         "refund": "Refund"
       }
+    },
+    "archived": {
+      "title": "Archived Groups",
+      "badge": "Archived",
+      "tabActive": "Active",
+      "tabArchived": "Archived",
+      "count": "{count, plural, =0 {No archived groups yet} one {# archived group} other {# archived groups}}",
+      "empty": "Nothing archived yet",
+      "emptyHint": "Pools show up here once they finish, or after 90 days with no activity and no member funds. Nothing is deleted — the full history stays available.",
+      "fetchError": "Failed to fetch archived pools",
+      "loadingLabel": "Loading archived groups",
+      "showingRange": "Showing {from}–{to} of {total} archived pools",
+      "completedOn": "Completed",
+      "archivedOn": "Archived",
+      "finalTvl": "Final TVL",
+      "memberCount": "{count, plural, one {# member} other {# members}}",
+      "viewHistory": "View History",
+      "cardAria": "Archived pool {name}. {reason}",
+      "reason": {
+        "completed": "This pool finished and was archived after its review window.",
+        "inactive_90d": "Archived after 90 days with no activity and no member funds held.",
+        "admin_archived": "Archived by the pool admin.",
+        "emergency_withdrawn": "Archived after an emergency withdrawal."
+      }
     }
   },
   "pool": {
@@ -383,7 +407,8 @@
     "status": {
       "active": "Active",
       "completed": "Completed",
-      "paused": "Paused"
+      "paused": "Paused",
+      "emergency_withdrawn": "Emergency Withdrawn"
     },
     "create": {
       "intro": {
@@ -1005,6 +1030,29 @@
         "resolved_dismissed": "Dismissed",
         "expired": "Expired"
       }
+    },
+    "archived": {
+      "title": "This pool has been archived",
+      "body": "It is no longer active and is shown here read-only. Deposits, withdrawals, and admin actions are disabled. All history below is preserved.",
+      "historicalActivity": "Historical activity — this pool is archived and receives no new events.",
+      "archivedOn": "Archived on {date}",
+      "unarchive": "Restore pool",
+      "unarchiving": "Restoring…",
+      "unarchiveSuccess": "Pool restored — it is active and visible again.",
+      "unarchiveError": "Could not restore this pool. Please try again.",
+      "archive": "Archive pool",
+      "archiving": "Archiving…",
+      "archiveSuccess": "Pool archived. Its history stays available under the Archived tab.",
+      "archiveError": "Could not archive this pool. Please try again.",
+      "archiveConfirmTitle": "Archive this pool?",
+      "archiveConfirmBody": "It will be hidden from Explore and the active groups tab, and become read-only. Nothing is deleted — all members, activity, and history are preserved, and you can restore it at any time.",
+      "cancel": "Cancel",
+      "reason": {
+        "completed": "This pool finished and was archived after its review window.",
+        "inactive_90d": "Archived after 90 days with no activity and no member funds held.",
+        "admin_archived": "Archived by the pool admin.",
+        "emergency_withdrawn": "Archived after an emergency withdrawal."
+      }
     }
   },
   "explore": {
@@ -1017,7 +1065,10 @@
       "poolCount": "{count, plural, =0 {No pools to explore yet} one {Browse # pool — the health badge shows how reliably members have been depositing} other {Browse # pools — the health badge shows how reliably members have been depositing}}",
       "nothingToExplore": "Nothing to explore just yet",
       "nothingToExploreHint": "Once people start creating savings pools, they'll show up here for you to browse.",
-      "showingRange": "Showing {from}–{to} of {total} pools"
+      "showingRange": "Showing {from}–{to} of {total} pools",
+      "showArchived": "Show archived",
+      "showArchivedHint": "Include pools that have finished or gone inactive",
+      "archivedBadge": "Archived"
     },
     "timeAgo": {
       "justNow": "just now",

@@ -10,12 +10,18 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Compass } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { motion } from "framer-motion"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { PoolCard, PoolCardSkeleton, type Pool } from "@/components/dashboard/pool-card"
+import { ArchivedPoolCard, type ArchivedPool } from "@/components/shared/archived-pool-card"
 
 const PAGE_SIZE = 6
+
+/** Explore rows carry the archival columns so a card can render either way. */
+type ExplorePool = Pool & Partial<Omit<ArchivedPool, "id" | "name" | "type">>
 
 const container = {
   hidden: { opacity: 0 },
@@ -27,13 +33,15 @@ export function Explore() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [pools, setPools] = useState<Pool[]>([])
+  const [pools, setPools] = useState<ExplorePool[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   // Use a dedicated query param so it doesn't collide with My Groups pagination.
   const page = Math.max(0, parseInt(searchParams.get("explorePage") || "0", 10))
+  // Off by default — archived pools are excluded from discovery unless asked for.
+  const showArchived = searchParams.get("showArchived") === "true"
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const setPage = useCallback(
@@ -45,18 +53,32 @@ export function Explore() {
     [router, searchParams]
   )
 
+  const toggleArchived = useCallback(
+    (next: boolean) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (next) params.set("showArchived", "true")
+      else params.delete("showArchived")
+      // The archived set changes the result count, so paging restarts.
+      params.set("explorePage", "0")
+      router.push(`?${params.toString()}`, { scroll: false })
+    },
+    [router, searchParams]
+  )
+
   useEffect(() => {
     loadPools(page)
-  }, [page])
+  }, [page, showArchived])
 
   const loadPools = async (currentPage: number) => {
     try {
       setLoading(true)
       setError("")
-      const res = await fetch(`/api/pools?explore=true&page=${currentPage}`)
+      const res = await fetch(
+        `/api/pools?explore=true&page=${currentPage}${showArchived ? "&archived=true" : ""}`
+      )
       if (!res.ok) throw new Error(t("fetchError"))
       const json = await res.json()
-      const data: Pool[] = Array.isArray(json) ? json : (json.data ?? [])
+      const data: ExplorePool[] = Array.isArray(json) ? json : (json.data ?? [])
       setPools(data)
       setTotal(json.total ?? data.length)
     } catch (err) {
@@ -105,9 +127,27 @@ export function Explore() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        className="flex flex-wrap items-start justify-between gap-3"
       >
-        <h2 className="text-3xl font-bold">{t("title")}</h2>
-        <p className="text-muted-foreground mt-1">{t("poolCount", { count: total })}</p>
+        <div>
+          <h2 className="text-3xl font-bold">{t("title")}</h2>
+          <p className="text-muted-foreground mt-1">{t("poolCount", { count: total })}</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Switch
+            id="explore-show-archived"
+            checked={showArchived}
+            onCheckedChange={toggleArchived}
+            data-testid="explore-show-archived"
+          />
+          <Label htmlFor="explore-show-archived" className="cursor-pointer">
+            <span>{t("showArchived")}</span>
+            <span className="block text-xs font-normal text-muted-foreground">
+              {t("showArchivedHint")}
+            </span>
+          </Label>
+        </div>
       </motion.div>
 
       {pools.length === 0 ? (
@@ -126,9 +166,21 @@ export function Explore() {
             animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {pools.map((pool) => (
-              <PoolCard key={pool.id} pool={pool} />
-            ))}
+            {pools.map((pool) =>
+              pool.archived_at ? (
+                <ArchivedPoolCard
+                  key={pool.id}
+                  pool={{
+                    ...pool,
+                    archived_at: pool.archived_at,
+                    archive_reason: pool.archive_reason ?? null,
+                    completed_at: pool.completed_at ?? null,
+                  }}
+                />
+              ) : (
+                <PoolCard key={pool.id} pool={pool} />
+              )
+            )}
           </motion.div>
 
           {totalPages > 1 && (
