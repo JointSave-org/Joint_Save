@@ -16,6 +16,7 @@ All notable changes to **JointSave** will be documented in this file.
 - **Pool notifications** for user-facing updates related to pool activity.
 - **Explore page** so users can discover available pools.
 - **User-facing transparency features** including transaction/pool visibility aligned with on-chain state.
+- **Automated pool archival** — a daily job that moves completed, emergency-withdrawn, and genuinely dead pools out of Explore and My Groups into a read-only Archived view, with admin archive/unarchive controls and a full audit log. Nothing is deleted: archived pools keep all history and remain viewable and exportable, and on-chain data is untouched. See [docs/pool-archival.md](docs/pool-archival.md).
 
 ### Changed
 
