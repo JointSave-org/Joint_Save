@@ -152,15 +152,32 @@ The pause has two halves, and only the first can be automatic.
 
 The contract asserts `admin.require_auth()` and that the caller equals the pool's
 stored admin, which is the creator's wallet. The platform holds no key that
-satisfies it: `SPONSOR_SECRET_KEY` only pays network fees, and a fee bump
-authorises nothing. So an executed incident is recorded with
-`onchain_status = 'pending'` and the admin signs the contract call from the
+satisfies it today: `SPONSOR_SECRET_KEY` only pays network fees, and a fee bump
+authorises nothing inside the transaction. So an executed incident is recorded
+with `onchain_status = 'pending'` and the admin signs the contract call from the
 review screen, after which the hash is recorded against the incident.
 
-Making the on-chain half automatic would mean adding a platform guardian role to
-a deployed, funds-holding contract, redeploying, and migrating existing pools. It
-is a real option, but it is a security decision for the maintainers rather than
-something this layer should assume.
+That is a key-custody gap rather than a contract limitation, and there are two
+documented ways to close it with no contract change:
+
+1. **Pre-signed authorization entries.** A `SorobanAuthorizationEntry` is signed
+   independently of the transaction envelope, so the authorizer and the submitter
+   can be different parties. An admin pre-signs an entry covering `pause(admin)`
+   from their own wallet, and the backend submits it when the breaker trips.
+   `@stellar/stellar-sdk` exports `authorizeEntry` and the wallet modules in
+   `@creit.tech/stellar-wallets-kit` implement `signAuthEntry`, so both halves are
+   already available here. Entries carry a nonce and a `signatureExpirationLedger`,
+   so they are single-use and expire and have to be re-issued periodically.
+2. **Account multisig.** `require_auth` for a classic `G` address uses Stellar
+   multisig at the medium threshold, not only the master key, so an admin who adds
+   a platform signer with enough weight lets the backend authorise `pause`
+   directly. Operationally simpler, but a much wider grant, since that weight
+   applies to the account in general.
+
+The first is the safer default, because it limits the platform to exactly the
+call the admin signed. Neither is implemented yet: each needs a signing flow,
+storage and expiry handling, and a submission path, which belong in their own
+change.
 
 ### emergency_withdraw is never automatic
 

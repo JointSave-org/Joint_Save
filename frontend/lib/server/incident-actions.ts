@@ -22,10 +22,14 @@
  *    So the incident is marked `onchain_status = 'pending'` and the admin signs
  *    the real contract call from the review screen.
  *
- * Automating the on-chain half would mean adding a platform guardian role to a
- * deployed, funds-holding contract. That is a security decision for the
- * maintainers, not something to slip into this layer; see
- * `docs/INCIDENT_RESPONSE.md`.
+ * The contract call can be automated later without changing the contract: a
+ * `SorobanAuthorizationEntry` is signed independently of the transaction
+ * envelope, so an admin can pre-sign one covering `pause(admin)` and the backend
+ * can submit it when the breaker trips (`authorizeEntry` in
+ * `@stellar/stellar-sdk`, `signAuthEntry` in the wallet kit). That needs a
+ * signing flow and an entry lifecycle of its own, since entries are single-use
+ * and expire, so it is a follow-up. `onchain_status` is the hook it plugs into.
+ * See `docs/INCIDENT_RESPONSE.md`.
  *
  * `emergency_withdraw` is not touched here, by anything, ever.
  */
