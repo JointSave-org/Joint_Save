@@ -690,6 +690,52 @@ export type Database = {
         }
         Relationships: []
       }
+      bridge_transactions: {
+        Row: {
+          id: string
+          user_address: string
+          source_chain: string
+          destination: string
+          amount_base_units: string | null
+          status: "pending" | "attested" | "received" | "deposited" | "failed"
+          source_tx_hash: string | null
+          message_hash: string | null
+          redemption_tx_hash: string | null
+          pool_id: string | null
+          error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          user_address: string
+          source_chain: string
+          destination?: string
+          amount_base_units?: string | null
+          status?: "pending" | "attested" | "received" | "deposited" | "failed"
+          source_tx_hash?: string | null
+          message_hash?: string | null
+          redemption_tx_hash?: string | null
+          pool_id?: string | null
+          error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_address?: string
+          source_chain?: string
+          destination?: string
+          amount_base_units?: string | null
+          status?: "pending" | "attested" | "received" | "deposited" | "failed"
+          source_tx_hash?: string | null
+          message_hash?: string | null
+          redemption_tx_hash?: string | null
+          pool_id?: string | null
+          error?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     // supabase-js v2 requires these keys on the schema type; without them the
     // client can't match GenericSchema and every table degrades to `never`.
