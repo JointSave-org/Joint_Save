@@ -194,7 +194,7 @@ general rather than to one call.
 ```
 GET  /api/admin/pause-authorizations?poolId=<id>&callerAddress=<address>
 POST /api/admin/pause-authorizations   { admin_address, pool_id, entry_xdr }
-POST /api/admin/pause-authorizations   { admin_address, action: "revoke", id }
+POST /api/admin/pause-authorizations   { action: "revoke", id, signature, signed_at }
 ```
 
 `lib/pause-authorization.ts` builds and signs the entry in the browser through
@@ -207,6 +207,22 @@ refused if it expires too soon to be useful.
 The entry XDR is never returned by `GET`, and the table has no read policy for
 anyone but the service role. It is a bearer credential: whoever holds it can
 pause the pool, which would be a griefing vector against the pool's own members.
+
+### Revoking needs a signature, not an address
+
+Registering an authorization is self-validating: an entry that was not signed by
+the pool real admin is refused by the inspector no matter who posted it, and the
+contract would reject it anyway. Revoking is different, because revoking disarms
+the automatic pause. An attacker preparing to drain a pool could otherwise switch
+off the defence using only public data, since a pool id and its creator address
+are both readable.
+
+So revocation asks the wallet to sign a short, timestamped message naming the
+exact authorization, and the server verifies it under SEP-53 against the pool
+admin as recorded, not against any address in the request. A captured proof stops
+working within minutes and does not transfer to another authorization.
+`lib/pause-authorization.ts` has the client side, `lib/server/wallet-proof.ts`
+the verification.
 
 ### What happens when there is no authorization
 

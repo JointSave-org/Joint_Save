@@ -4,7 +4,7 @@
  * ```
  * GET  /api/admin/pause-authorizations?poolId=<id>&callerAddress=<address>
  * POST /api/admin/pause-authorizations   { admin_address, pool_id, entry_xdr }
- * POST /api/admin/pause-authorizations   { admin_address, action: "revoke", id }
+ * POST /api/admin/pause-authorizations   { action: "revoke", id, signature, signed_at }
  * ```
  *
  * The pool admin signs a `SorobanAuthorizationEntry` covering exactly
@@ -19,6 +19,13 @@
  * The entry XDR is never returned by GET. It is a bearer credential: anyone
  * holding it could pause the pool, which would be a griefing vector against the
  * pool's own members.
+ *
+ * Registering is self-validating: an entry not signed by the pool's real admin
+ * is refused by the inspector no matter who posted it, and the contract would
+ * reject it anyway. Revoking is not, and revoking disarms the automatic on-chain
+ * pause. An attacker preparing to drain a pool could otherwise switch off the
+ * defence using only public data, so revocation asks for a wallet signature
+ * rather than an address in a request body.
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -26,6 +33,8 @@ import { getAdminClient } from "@/lib/supabase-admin"
 import { readLimiter, writeLimiter } from "@/lib/rate-limit"
 import { jsonPrivate } from "@/lib/cache-headers"
 import { currentLedger, inspectPauseAuthorization } from "@/lib/server/pause-onchain"
+import { checkWalletProof } from "@/lib/server/wallet-proof"
+import { revokePauseAuthorizationMessage } from "@/lib/wallet-proof"
 
 /**
  * An entry has to be good for a while to be worth storing. Below this the admin
@@ -99,6 +108,8 @@ export async function POST(req: NextRequest) {
     entry_xdr?: string
     action?: string
     id?: string
+    signature?: string
+    signed_at?: number
   }
   try {
     body = await req.json()
@@ -107,10 +118,6 @@ export async function POST(req: NextRequest) {
   }
 
   const adminAddress = typeof body.admin_address === "string" ? body.admin_address.trim() : ""
-  if (!adminAddress) {
-    return NextResponse.json({ error: "admin_address is required" }, { status: 400 })
-  }
-
   const admin = getAdminClient()
 
   // ── Revoke ────────────────────────────────────────────────────────────────
@@ -133,8 +140,21 @@ export async function POST(req: NextRequest) {
       .select("creator_address")
       .eq("id", existing.pool_id)
       .maybeSingle()
-    if (!pool || pool.creator_address?.toLowerCase() !== adminAddress.toLowerCase()) {
+    if (!pool?.creator_address) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    // The signature is checked against the pool's admin as the contract knows
+    // it, not against the address the caller sent, so a spoofed admin_address
+    // buys nothing.
+    const proof = checkWalletProof({
+      address: pool.creator_address,
+      message: revokePauseAuthorizationMessage(body.id, Number(body.signed_at)),
+      signature: body.signature,
+      signedAt: body.signed_at,
+    })
+    if (!proof.ok) {
+      return NextResponse.json({ error: proof.reason }, { status: 403 })
     }
 
     const { error } = await admin
@@ -144,10 +164,22 @@ export async function POST(req: NextRequest) {
       .is("revoked_at", null)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    await admin.from("pool_activity").insert({
+      pool_id: existing.pool_id,
+      activity_type: "security_pause_authorization_revoked",
+      user_address: pool.creator_address,
+      description: `Admin revoked pause authorization ${body.id}`,
+    })
+
     return NextResponse.json({ revoked: true })
   }
 
   // ── Register ──────────────────────────────────────────────────────────────
+  if (!adminAddress) {
+    return NextResponse.json({ error: "admin_address is required" }, { status: 400 })
+  }
+
   const poolId = typeof body.pool_id === "string" ? body.pool_id : ""
   const entryXdr = typeof body.entry_xdr === "string" ? body.entry_xdr.trim() : ""
   if (!poolId || !entryXdr) {

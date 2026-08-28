@@ -23,6 +23,7 @@ import {
   type xdr as XdrNamespace,
 } from "@stellar/stellar-sdk"
 import type { StellarWalletsKit } from "@creit.tech/stellar-wallets-kit"
+import { revokePauseAuthorizationMessage } from "@/lib/wallet-proof"
 
 /**
  * How long a signature stays good for, in ledgers. About 30 days at six seconds
@@ -89,4 +90,32 @@ export async function signPauseAuthorization(params: {
   )
 
   return { entryXdr: entry.toXDR("base64"), expirationLedger }
+}
+
+// ── Revoking ────────────────────────────────────────────────────────────────
+
+/**
+ * Signs the proof needed to revoke an authorization.
+ *
+ * Revoking disarms the automatic on-chain pause, so the endpoint will not take
+ * an address in a request body as evidence of anything: an attacker preparing to
+ * drain a pool could otherwise switch off its defence using only public data.
+ * The wallet signs a short, timestamped message naming the exact authorization,
+ * and the server checks it against the pool's admin as recorded.
+ */
+export async function signRevokeProof(params: {
+  kit: StellarWalletsKit
+  networkPassphrase: string
+  adminAddress: string
+  authorizationId: string
+}): Promise<{ signature: string; signedAt: number }> {
+  const signedAt = Date.now()
+  const message = revokePauseAuthorizationMessage(params.authorizationId, signedAt)
+
+  const { signedMessage } = await params.kit.signMessage(message, {
+    address: params.adminAddress,
+    networkPassphrase: params.networkPassphrase,
+  })
+
+  return { signature: signedMessage, signedAt }
 }
