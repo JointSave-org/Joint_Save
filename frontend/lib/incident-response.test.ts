@@ -6,16 +6,19 @@
 import { test } from "node:test"
 import assert from "node:assert"
 import {
+  AUTH_LEDGER_SAFETY_MARGIN,
   DEFAULT_INCIDENT_CONFIG,
   decideAutoPause,
   decideIncidentResponse,
   groupCriticalAlertsByPool,
   loadIncidentConfig,
+  selectPauseAuthorization,
   summarizeDecisions,
   type IncidentAction,
   type IncidentConfig,
   type PoolAlertGroup,
   type PoolState,
+  type StoredPauseAuthorization,
 } from "./incident-response"
 import type { RuleId, SecurityAlert } from "./security-rules"
 
@@ -319,4 +322,143 @@ test("boundary: pausing is the only action the breaker can ever return", () => {
   for (const action of actions) {
     assert.ok(allowed.includes(action as IncidentAction), `unexpected automatic action: ${action}`)
   }
+})
+
+// ── On-chain authorization selection ────────────────────────────────────────
+//
+// These entries are bearer credentials the admin signed ahead of time. Spending
+// the wrong one, or one that belongs to another pool, is the failure that would
+// matter, so the rejection reasons are asserted individually.
+
+const CONTRACT = "CCONTRACT1"
+const ADMIN = "GADMIN1"
+const LEDGER = 1000
+
+function auth(overrides: Partial<StoredPauseAuthorization> = {}): StoredPauseAuthorization {
+  return {
+    id: "auth-1",
+    contractAddress: CONTRACT,
+    adminAddress: ADMIN,
+    expirationLedger: LEDGER + 5000,
+    usedAt: null,
+    revokedAt: null,
+    ...overrides,
+  }
+}
+
+const EXPECTED = { contractAddress: CONTRACT, adminAddress: ADMIN }
+
+test("authorization: picks a valid entry", () => {
+  const choice = selectPauseAuthorization([auth()], LEDGER, EXPECTED)
+  assert.strictEqual(choice.authorization?.id, "auth-1")
+  assert.deepStrictEqual(choice.rejected, [])
+})
+
+test("authorization: none available yields null rather than throwing", () => {
+  const choice = selectPauseAuthorization([], LEDGER, EXPECTED)
+  assert.strictEqual(choice.authorization, null)
+})
+
+test("authorization: an already spent entry is never reused", () => {
+  const choice = selectPauseAuthorization(
+    [auth({ usedAt: "2026-08-27T00:00:00.000Z" })],
+    LEDGER,
+    EXPECTED
+  )
+  assert.strictEqual(choice.authorization, null)
+  assert.deepStrictEqual(choice.rejected, [{ id: "auth-1", reason: "used" }])
+})
+
+test("authorization: a revoked entry is refused", () => {
+  const choice = selectPauseAuthorization(
+    [auth({ revokedAt: "2026-08-27T00:00:00.000Z" })],
+    LEDGER,
+    EXPECTED
+  )
+  assert.strictEqual(choice.rejected[0].reason, "revoked")
+})
+
+test("authorization: an expired entry is refused", () => {
+  const choice = selectPauseAuthorization(
+    [auth({ expirationLedger: LEDGER - 1 })],
+    LEDGER,
+    EXPECTED
+  )
+  assert.strictEqual(choice.rejected[0].reason, "expired")
+})
+
+test("authorization: one expiring inside the safety margin is not spent", () => {
+  // It would very likely be stale by the time the transaction lands, burning
+  // its nonce for nothing.
+  const choice = selectPauseAuthorization(
+    [auth({ expirationLedger: LEDGER + AUTH_LEDGER_SAFETY_MARGIN - 1 })],
+    LEDGER,
+    EXPECTED
+  )
+  assert.strictEqual(choice.rejected[0].reason, "expiring_too_soon")
+})
+
+test("authorization: exactly at the safety margin is usable", () => {
+  const choice = selectPauseAuthorization(
+    [auth({ expirationLedger: LEDGER + AUTH_LEDGER_SAFETY_MARGIN })],
+    LEDGER,
+    EXPECTED
+  )
+  assert.strictEqual(choice.authorization?.id, "auth-1")
+})
+
+test("authorization: an entry for another contract is refused", () => {
+  const choice = selectPauseAuthorization(
+    [auth({ contractAddress: "CSOMEOTHER" })],
+    LEDGER,
+    EXPECTED
+  )
+  assert.strictEqual(choice.authorization, null)
+  assert.strictEqual(choice.rejected[0].reason, "wrong_contract")
+})
+
+test("authorization: an entry signed by a since-rotated admin is refused", () => {
+  const choice = selectPauseAuthorization([auth({ adminAddress: "GOTHER" })], LEDGER, EXPECTED)
+  assert.strictEqual(choice.rejected[0].reason, "wrong_admin")
+})
+
+test("authorization: admin comparison is case-insensitive, like the rest of the app", () => {
+  const choice = selectPauseAuthorization(
+    [auth({ adminAddress: ADMIN.toLowerCase() })],
+    LEDGER,
+    EXPECTED
+  )
+  assert.strictEqual(choice.authorization?.id, "auth-1")
+})
+
+test("authorization: spends the entry expiring soonest", () => {
+  const choice = selectPauseAuthorization(
+    [
+      auth({ id: "far", expirationLedger: LEDGER + 9000 }),
+      auth({ id: "near", expirationLedger: LEDGER + 1000 }),
+      auth({ id: "mid", expirationLedger: LEDGER + 5000 }),
+    ],
+    LEDGER,
+    EXPECTED
+  )
+  assert.strictEqual(choice.authorization?.id, "near")
+})
+
+test("authorization: ties break deterministically by id", () => {
+  const choice = selectPauseAuthorization([auth({ id: "b" }), auth({ id: "a" })], LEDGER, EXPECTED)
+  assert.strictEqual(choice.authorization?.id, "a")
+})
+
+test("authorization: every rejection is reported, not silently dropped", () => {
+  const choice = selectPauseAuthorization(
+    [
+      auth({ id: "used", usedAt: "2026-08-27T00:00:00.000Z" }),
+      auth({ id: "old", expirationLedger: LEDGER - 1 }),
+      auth({ id: "good" }),
+    ],
+    LEDGER,
+    EXPECTED
+  )
+  assert.strictEqual(choice.authorization?.id, "good")
+  assert.deepStrictEqual(choice.rejected.map((r) => r.reason).sort(), ["expired", "used"])
 })

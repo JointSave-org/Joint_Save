@@ -148,7 +148,7 @@ The pause has two halves, and only the first can be automatic.
 | Half | Automatic? | Effect |
 |------|-----------|--------|
 | Platform pause | Yes | `pools.status` becomes `paused` with a reason and timestamp. The app stops offering deposits and payouts immediately. Reversible from the admin endpoint. |
-| On-chain pause | No | `rotational::pause` is called by the pool admin, signed with their own wallet. |
+| On-chain pause | Yes, when pre-authorised | Submitted by the platform using an authorization the admin signed in advance. Without one, the admin signs `rotational::pause` themselves. |
 
 The contract asserts `admin.require_auth()` and that the caller equals the pool's
 stored admin, which is the creator's wallet. The platform holds no key that
@@ -157,27 +157,67 @@ authorises nothing inside the transaction. So an executed incident is recorded
 with `onchain_status = 'pending'` and the admin signs the contract call from the
 review screen, after which the hash is recorded against the incident.
 
-That is a key-custody gap rather than a contract limitation, and there are two
-documented ways to close it with no contract change:
+That is a key-custody gap rather than a contract limitation, and it is closed
+with **pre-signed authorization entries**, with no contract change.
 
-1. **Pre-signed authorization entries.** A `SorobanAuthorizationEntry` is signed
-   independently of the transaction envelope, so the authorizer and the submitter
-   can be different parties. An admin pre-signs an entry covering `pause(admin)`
-   from their own wallet, and the backend submits it when the breaker trips.
-   `@stellar/stellar-sdk` exports `authorizeEntry` and the wallet modules in
-   `@creit.tech/stellar-wallets-kit` implement `signAuthEntry`, so both halves are
-   already available here. Entries carry a nonce and a `signatureExpirationLedger`,
-   so they are single-use and expire and have to be re-issued periodically.
-2. **Account multisig.** `require_auth` for a classic `G` address uses Stellar
-   multisig at the medium threshold, not only the master key, so an admin who adds
-   a platform signer with enough weight lets the backend authorise `pause`
-   directly. Operationally simpler, but a much wider grant, since that weight
-   applies to the account in general.
+### How the automatic on-chain pause works
 
-The first is the safer default, because it limits the platform to exactly the
-call the admin signed. Neither is implemented yet: each needs a signing flow,
-storage and expiry handling, and a submission path, which belong in their own
-change.
+A `SorobanAuthorizationEntry` is signed independently of the transaction
+envelope, so the party who authorises a call and the party who submits it can be
+different. The admin signs one entry covering exactly `pause(admin)` on exactly
+their pool's contract. The platform stores it and, when the breaker trips, wraps
+it in a transaction it pays for and signs the envelope of.
+
+Two signatures, two jobs: the admin authorises the call, the platform authorises
+the fee. The platform never holds the admin's key, and the credential it does
+hold can do one thing.
+
+```
+admin's wallet                     platform
+     |                                |
+     |  signs pause(admin) entry      |
+     |------------------------------->|  stored, single use, expires
+     |                                |
+                                      |  breaker trips
+                                      |  wraps entry in a tx, pays the fee
+                                      |------------------> Soroban
+```
+
+An alternative exists and was deliberately not taken: `require_auth` for a
+classic `G` address uses Stellar multisig at the medium threshold, so an admin
+could add a platform signer with enough weight instead. That is simpler to
+operate but a far wider grant, since the weight applies to the account in
+general rather than to one call.
+
+### Authorising it
+
+```
+GET  /api/admin/pause-authorizations?poolId=<id>&callerAddress=<address>
+POST /api/admin/pause-authorizations   { admin_address, pool_id, entry_xdr }
+POST /api/admin/pause-authorizations   { admin_address, action: "revoke", id }
+```
+
+`lib/pause-authorization.ts` builds and signs the entry in the browser through
+the wallet kit. The server validates what actually arrived rather than trusting
+the client: the entry must be address-credentialed, invoke `pause`, take the
+signer as its only argument, and carry no sub-invocations, so it cannot smuggle a
+second call. It is also matched against the pool's contract and admin, and
+refused if it expires too soon to be useful.
+
+The entry XDR is never returned by `GET`, and the table has no read policy for
+anyone but the service role. It is a bearer credential: whoever holds it can
+pause the pool, which would be a griefing vector against the pool's own members.
+
+### What happens when there is no authorization
+
+The platform pause still happens, immediately. The incident is recorded with
+`onchain_status = 'pending'`, the admin is told why in their notification, and
+they sign the contract call themselves from the review screen. The pool is
+protected either way; pre-authorising only removes the wait.
+
+Entries are single-use and expire, so an admin who wants the automatic pause to
+keep working re-signs one occasionally. `GET` reports `armed: true` while a
+usable one exists.
 
 ### emergency_withdraw is never automatic
 
@@ -257,7 +297,11 @@ contract stays paused until they sign `unpause` themselves.
 | Tests | `frontend/lib/incident-response.test.ts` |
 | Execution against Supabase | `frontend/lib/server/incident-actions.ts` |
 | Admin review and recovery | `frontend/app/api/admin/incidents/` |
+| On-chain pause submission | `frontend/lib/server/pause-onchain.ts` |
+| Signing an authorization (browser) | `frontend/lib/pause-authorization.ts` |
+| Authorization endpoints | `frontend/app/api/admin/pause-authorizations/` |
 | Schema | `supabase/migrations/20260827120000_incident_response.sql` |
+| Authorization schema | `supabase/migrations/20260827130000_pause_authorizations.sql` |
 
 ## Review and Post-Incident
 

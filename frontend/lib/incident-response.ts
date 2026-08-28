@@ -341,3 +341,94 @@ export function summarizeDecisions(
     decisions: [...decisions],
   }
 }
+
+// ── On-chain authorization ───────────────────────────────────────────────────
+
+/**
+ * An admin-signed authorization for `pause` on one pool, as stored.
+ *
+ * The contract asserts `admin.require_auth()`, and a
+ * `SorobanAuthorizationEntry` is signed independently of the transaction
+ * envelope, so the admin can sign one ahead of time and the platform can submit
+ * it later without ever holding the admin's key. The entry commits to the exact
+ * invocation, so it can authorise nothing except the pause the admin agreed to.
+ */
+export interface StoredPauseAuthorization {
+  id: string
+  contractAddress: string
+  adminAddress: string
+  /** Ledger the signature stops being valid at. */
+  expirationLedger: number
+  usedAt: string | null
+  revokedAt: string | null
+}
+
+export type AuthorizationRejection =
+  "used" | "revoked" | "expired" | "expiring_too_soon" | "wrong_contract" | "wrong_admin"
+
+export interface AuthorizationChoice {
+  authorization: StoredPauseAuthorization | null
+  /** Every candidate that was passed over, and why. */
+  rejected: Array<{ id: string; reason: AuthorizationRejection }>
+}
+
+/**
+ * Ledgers of headroom required before an entry is considered usable.
+ *
+ * Building, simulating and submitting takes a few seconds, and ledgers close
+ * about every six. An entry expiring inside this window would very likely be
+ * rejected by the time it lands, wasting its nonce for nothing.
+ */
+export const AUTH_LEDGER_SAFETY_MARGIN = 20
+
+/**
+ * Picks the authorization to spend on this pause, if any.
+ *
+ * Candidates are rejected for stated reasons rather than silently filtered, so
+ * an admin whose pool did not auto-pause can be told why: their authorization
+ * expired, or was already spent, or was signed for an admin address that has
+ * since changed.
+ *
+ * Among usable entries it takes the one expiring soonest. They are perishable
+ * and single-use, so spending the most perishable first wastes the least.
+ */
+export function selectPauseAuthorization(
+  candidates: readonly StoredPauseAuthorization[],
+  currentLedger: number,
+  expected: { contractAddress: string; adminAddress: string },
+  safetyMargin: number = AUTH_LEDGER_SAFETY_MARGIN
+): AuthorizationChoice {
+  const rejected: AuthorizationChoice["rejected"] = []
+  const usable: StoredPauseAuthorization[] = []
+
+  for (const candidate of candidates) {
+    const reason = rejectionFor(candidate, currentLedger, expected, safetyMargin)
+    if (reason) rejected.push({ id: candidate.id, reason })
+    else usable.push(candidate)
+  }
+
+  usable.sort(
+    (a, b) => a.expirationLedger - b.expirationLedger || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  )
+
+  return { authorization: usable[0] ?? null, rejected }
+}
+
+function rejectionFor(
+  candidate: StoredPauseAuthorization,
+  currentLedger: number,
+  expected: { contractAddress: string; adminAddress: string },
+  safetyMargin: number
+): AuthorizationRejection | null {
+  if (candidate.usedAt !== null) return "used"
+  if (candidate.revokedAt !== null) return "revoked"
+  // Checked before expiry so a mismatch is never reported as a stale entry:
+  // an authorization for another pool is a different problem entirely.
+  if (candidate.contractAddress !== expected.contractAddress) return "wrong_contract"
+  if (candidate.adminAddress.toLowerCase() !== expected.adminAddress.toLowerCase()) {
+    return "wrong_admin"
+  }
+  if (candidate.expirationLedger <= currentLedger) return "expired"
+  if (candidate.expirationLedger - currentLedger < safetyMargin) return "expiring_too_soon"
+  return null
+}

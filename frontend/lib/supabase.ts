@@ -655,6 +655,38 @@ export type Database = {
         }
         Relationships: []
       }
+      pause_authorizations: {
+        Row: {
+          id: string
+          pool_id: string
+          contract_address: string
+          admin_address: string
+          entry_xdr: string
+          expiration_ledger: number
+          used_at: string | null
+          used_by_incident: string | null
+          revoked_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          contract_address: string
+          admin_address: string
+          entry_xdr: string
+          expiration_ledger: number
+          used_at?: string | null
+          used_by_incident?: string | null
+          revoked_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          used_at?: string | null
+          used_by_incident?: string | null
+          revoked_at?: string | null
+        }
+        Relationships: []
+      }
       incidents: {
         Row: {
           id: string

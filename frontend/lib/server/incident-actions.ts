@@ -15,21 +15,19 @@
  *  - **Platform pause (automatic).** The pool's `status` flips to `paused` with
  *    a reason. The app reads that status, so deposits and payouts stop being
  *    offered immediately. It is reversible from the admin endpoint.
- *  - **On-chain pause (never automatic).** `rotational::pause` asserts
- *    `admin.require_auth()` and that the caller equals the pool's stored admin,
- *    which is the creator's own wallet. The platform holds no key that satisfies
- *    that (`SPONSOR_SECRET_KEY` only pays fees; a fee bump authorises nothing).
- *    So the incident is marked `onchain_status = 'pending'` and the admin signs
- *    the real contract call from the review screen.
+ *  - **On-chain pause (automatic when the admin has pre-authorised it).**
+ *    `rotational::pause` asserts `admin.require_auth()` and that the caller is the
+ *    pool's stored admin, so the platform cannot call it on its own keys. But a
+ *    `SorobanAuthorizationEntry` is signed independently of the transaction
+ *    envelope: the admin signs one covering exactly `pause(admin)`, and the
+ *    platform submits it when the breaker trips. See
+ *    `lib/server/pause-onchain.ts`.
  *
- * The contract call can be automated later without changing the contract: a
- * `SorobanAuthorizationEntry` is signed independently of the transaction
- * envelope, so an admin can pre-sign one covering `pause(admin)` and the backend
- * can submit it when the breaker trips (`authorizeEntry` in
- * `@stellar/stellar-sdk`, `signAuthEntry` in the wallet kit). That needs a
- * signing flow and an entry lifecycle of its own, since entries are single-use
- * and expire, so it is a follow-up. `onchain_status` is the hook it plugs into.
- * See `docs/INCIDENT_RESPONSE.md`.
+ * When no usable authorization exists the incident stays at
+ * `onchain_status = 'pending'` and the admin signs the call themselves from the
+ * review screen. The platform pause has already happened either way, so the pool
+ * is protected whether or not the contract call goes through.
+
  *
  * `emergency_withdraw` is not touched here, by anything, ever.
  */
@@ -38,6 +36,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/supabase"
 import type { SecurityAlert } from "@/lib/security-rules"
 import {
+  selectPauseAuthorization,
   decideIncidentResponse,
   groupCriticalAlertsByPool,
   loadIncidentConfig,
@@ -46,7 +45,9 @@ import {
   type IncidentDecision,
   type IncidentSummary,
   type PoolState,
+  type StoredPauseAuthorization,
 } from "@/lib/incident-response"
+import { currentLedger, submitOnChainPause } from "@/lib/server/pause-onchain"
 
 type AdminClient = SupabaseClient<Database>
 
@@ -200,6 +201,92 @@ async function markIncidentExecuted(admin: AdminClient, incidentId: string): Pro
   if (error) console.error("Failed to mark incident executed:", error)
 }
 
+/**
+ * Tries to carry the pause through to the contract.
+ *
+ * Everything here is best-effort by design. The pool is already paused at the
+ * platform level before this runs, so every failure path downgrades to "an admin
+ * needs to sign it" rather than undoing anything.
+ *
+ * The authorization is marked spent BEFORE submission. Its nonce may reach the
+ * network even if the response never reaches us, and a consumed nonce can never
+ * succeed again, so burning it on an uncertain outcome is the honest accounting.
+ */
+async function attemptOnChainPause(
+  admin: AdminClient,
+  poolId: string,
+  incidentId: string
+): Promise<{ status: "confirmed" | "failed" | "pending"; hash?: string; note: string }> {
+  const [{ data: pool }, { data: candidates }] = await Promise.all([
+    admin.from("pools").select("contract_address, creator_address").eq("id", poolId).maybeSingle(),
+    admin
+      .from("pause_authorizations")
+      .select("id, contract_address, admin_address, expiration_ledger, used_at, revoked_at")
+      .eq("pool_id", poolId)
+      .is("used_at", null)
+      .is("revoked_at", null),
+  ])
+
+  if (!pool?.contract_address) {
+    return { status: "pending", note: "the pool has no contract address on record" }
+  }
+
+  const ledger = await currentLedger()
+  if (ledger === null) {
+    return { status: "pending", note: "the Stellar RPC could not be reached" }
+  }
+
+  const stored: StoredPauseAuthorization[] = (candidates ?? []).map((row) => ({
+    id: row.id,
+    contractAddress: row.contract_address,
+    adminAddress: row.admin_address,
+    expirationLedger: row.expiration_ledger,
+    usedAt: row.used_at,
+    revokedAt: row.revoked_at,
+  }))
+
+  const choice = selectPauseAuthorization(stored, ledger, {
+    contractAddress: pool.contract_address,
+    adminAddress: pool.creator_address,
+  })
+
+  if (!choice.authorization) {
+    const why = choice.rejected.length
+      ? "the stored authorizations were unusable (" +
+        choice.rejected.map((r) => r.reason).join(", ") +
+        ")"
+      : "no pause authorization has been signed for this pool"
+    return { status: "pending", note: why }
+  }
+
+  const { data: claimed } = await admin
+    .from("pause_authorizations")
+    .update({ used_at: new Date().toISOString(), used_by_incident: incidentId })
+    .eq("id", choice.authorization.id)
+    // Two scans racing must never both spend the same entry.
+    .is("used_at", null)
+    .select("entry_xdr")
+
+  const entry = (claimed ?? [])[0]
+  if (!entry) {
+    return { status: "pending", note: "the authorization was claimed by another run" }
+  }
+
+  const result = await submitOnChainPause({
+    contractAddress: pool.contract_address,
+    adminAddress: pool.creator_address,
+    entryXdr: entry.entry_xdr,
+  })
+
+  if (result.status === "submitted") {
+    return { status: "confirmed", hash: result.hash, note: "paused on-chain" }
+  }
+  if (result.status === "unavailable") {
+    return { status: "pending", note: result.reason }
+  }
+  return { status: "failed", hash: result.hash, note: result.reason }
+}
+
 /** Records the action where the existing admin audit log will show it. */
 async function writeAuditTrail(
   admin: AdminClient,
@@ -225,7 +312,8 @@ async function notifyPoolAdmin(
   admin: AdminClient,
   poolId: string,
   decision: IncidentDecision,
-  config: IncidentConfig
+  config: IncidentConfig,
+  onchainNote?: string
 ): Promise<void> {
   const { data: pool, error } = await admin
     .from("pools")
@@ -242,7 +330,10 @@ async function notifyPoolAdmin(
     wallet_address: pool.creator_address,
     pool_id: poolId,
     activity_type: "security_auto_pause",
-    message: `${prefix} "${pool.name}" ${action}. ${decision.reason} Review it in the admin panel.`,
+    message:
+      `${prefix} "${pool.name}" ${action}. ${decision.reason}` +
+      (onchainNote ? ` On-chain: ${onchainNote}.` : "") +
+      " Review it in the admin panel.",
     read: false,
   })
 
@@ -282,6 +373,8 @@ export async function runIncidentResponse(
 
   const decisions = decideIncidentResponse(groups, pools, recentPauses, config)
   const incidentIds: string[] = []
+  /** What happened to the contract call, per pool, for the admin notification. */
+  const onchainNotes = new Map<string, string>()
 
   for (const decision of decisions) {
     if (!decision.wouldFire) continue
@@ -305,7 +398,37 @@ export async function runIncidentResponse(
 
     if (incidentId) await markIncidentExecuted(admin, incidentId)
     await writeAuditTrail(admin, decision, incidentId)
-    await notifyPoolAdmin(admin, decision.poolId, decision, config)
+
+    // Carry it through to the contract when the admin has pre-authorised it.
+    if (incidentId) {
+      const onchain = await attemptOnChainPause(admin, decision.poolId, incidentId).catch(
+        (error) => {
+          console.error("On-chain pause failed:", error)
+          return {
+            status: "pending" as const,
+            hash: undefined,
+            note: "the on-chain attempt errored",
+          }
+        }
+      )
+      await admin
+        .from("incidents")
+        .update({
+          onchain_status: onchain.status,
+          onchain_tx_hash: onchain.hash ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", incidentId)
+      onchainNotes.set(decision.poolId, onchain.note)
+    }
+
+    await notifyPoolAdmin(
+      admin,
+      decision.poolId,
+      decision,
+      config,
+      onchainNotes.get(decision.poolId)
+    )
   }
 
   return { ...summarizeDecisions(decisions, config), incidentIds }
