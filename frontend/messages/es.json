@@ -1061,6 +1061,13 @@
         "admin_archived": "Archivado por el administrador del grupo.",
         "emergency_withdrawn": "Archivado tras un retiro de emergencia."
       }
+    },
+    "paused": {
+      "title": "Esta tanda está pausada",
+      "defaultReason": "Esta tanda ha sido pausada por un administrador o el disyuntor de seguridad.",
+      "body": "Todos los depósitos, retiros y transacciones están temporalmente deshabilitados. Los miembros aún pueden ver la información de la tanda.",
+      "pausedOn": "Pausada el {date}",
+      "reviewIncident": "Revisar Incidente"
     }
   },
   "explore": {
@@ -1502,7 +1509,135 @@
       "falsePositiveBtn": "Falso Positivo",
       "noAlertsTitle": "No se detectaron alertas de seguridad",
       "noAlertsBody": "Todas las reglas de monitoreo están limpias. Ejecuta un escaneo para buscar nuevas alertas."
-    }
+    },
+    "incidents": {
+      "title": "Revisión de Incidentes",
+      "subtitle": "Revisar y actuar sobre incidentes de seguridad para {poolName}",
+      "backToSecurity": "Volver a Seguridad",
+      "connectWalletTitle": "Conecta tu Billetera",
+      "connectWalletBody": "Conecta tu billetera para revisar incidentes.",
+      "incidentsList": "Línea de Tiempo de Incidentes",
+      "noIncidents": "No se han registrado incidentes para esta tanda.",
+      "poolPausedTitle": "Tanda Pausada",
+      "poolPausedReason": "Esta tanda fue pausada automáticamente por el disyuntor de seguridad.",
+      "pausedAt": "Pausada el {date}",
+      "stats": {
+        "total": "Incidentes Totales",
+        "open": "Abiertos",
+        "executed": "Ejecutados",
+        "dryRun": "Simulación",
+        "awaitingOnchain": "Esperando On-chain"
+      },
+      "executed": "Ejecutado",
+      "dryRun": "Simulación",
+      "skipped": "Omitido",
+      "onchainStatus": {
+        "not_required": "No Requerido",
+        "pending": "Pendiente",
+        "confirmed": "Confirmado",
+        "failed": "Fallido"
+      },
+      "details": {
+        "severity": "Severidad",
+        "alertCount": "Número de Alertas",
+        "triggerRules": "Reglas de Activación",
+        "action": "Acción",
+        "platformStatus": "Estado de Plataforma",
+        "onchainStatus": "Estado On-chain",
+        "createdAt": "Creado El",
+        "resolvedAt": "Resuelto El"
+      },
+      "platformStatus": {
+        "paused": "Pausada",
+        "active": "Activa"
+      },
+      "status": {
+        "open": "Abierto",
+        "resolved": "Resuelto"
+      },
+      "action": {
+        "resolve": "Resolver",
+        "resume": "Reanudar Tanda",
+        "recordOnchain": "Registrar TX On-chain",
+        "resolveSuccess": "Incidente resuelto",
+        "resumeSuccess": "Tanda reanudada",
+        "recordOnchainSuccess": "Transacción registrada",
+        "resolveDescription": "El incidente ha sido marcado como resuelto.",
+        "resumeDescription": "La tanda ha sido reanudada y ahora está activa.",
+        "onchainUnpauseRequired": "Nota: El contrato aún está pausado on-chain. Firma una transacción de reanudación para reanudar completamente.",
+        "error": "Acción fallida"
+      },
+      "dialogs": {
+        "resolveTitle": "Resolver Incidente",
+        "resolveDescription": "Cierra este incidente con una nota. La tanda permanecerá pausada.",
+        "resumeTitle": "Reanudar Tanda",
+        "resumeDescription": "Cierra este incidente y reanuda la tanda. Se levantará la pausa de plataforma.",
+        "recordTitle": "Registrar Transacción On-chain",
+        "recordDescription": "Registra el hash de la transacción de pausa/reanudación que firmaste.",
+        "notesLabel": "Notas de Resolución",
+        "notesPlaceholder": "Describe cómo se resolvió este incidente...",
+        "txHashLabel": "Hash de Transacción",
+        "txHashPlaceholder": "Hash hexadecimal de 64 caracteres",
+        "cancel": "Cancelar",
+        "confirm": "Confirmar",
+        "processing": "Procesando..."
+      },
+      "error": {
+        "forbidden": "No estás autorizado para ver los incidentes de esta tanda.",
+        "fetchFailed": "Error al obtener incidentes.",
+        "missingPoolId": "ID de Tanda Faltante",
+        "missingPoolIdDesc": "No se proporcionó ID de tanda en la URL."
+      }
+    },
+    "pauseAuth": {
+      "title": "Autorización de Pausa",
+      "subtitle": "Gestionar permisos de pausa automática on-chain",
+      "armed": "Armado",
+      "disarmed": "Desarmado",
+      "armedDescription": "El disyuntor puede pausar esta tanda on-chain automáticamente.",
+      "disarmedDescription": "Sin autorización activa — el disyuntor solo puede pausar a nivel de plataforma.",
+      "activeAuthorizations": "Autorizaciones Activas",
+      "noAuthorizations": "No hay autorizaciones registradas.",
+      "create": {
+        "button": "Pre-autorizar Pausa",
+        "title": "Pre-autorizar Pausa Automática",
+        "description": "Firma una autorización que permite al disyuntor de seguridad pausar tu tanda on-chain si detecta una amenaza. Mantienes control total — revócala en cualquier momento.",
+        "validity": "Válida por aproximadamente 30 días",
+        "cancel": "Cancelar",
+        "sign": "Firmar Autorización",
+        "signing": "Firmando...",
+        "success": "Autorización creada",
+        "successDesc": "El disyuntor ahora puede pausar esta tanda on-chain si es necesario.",
+        "error": "Error al crear autorización"
+      },
+      "revoke": {
+        "button": "Revocar",
+        "title": "Revocar Autorización",
+        "description": "Revoca esta autorización pre-firmada. El disyuntor ya no podrá pausar esta tanda on-chain automáticamente.",
+        "cancel": "Cancelar",
+        "confirm": "Revocar Autorización",
+        "revoking": "Revocando...",
+        "success": "Autorización revocada",
+        "successDesc": "La pausa automática on-chain ahora está desarmada.",
+        "error": "Error al revocar autorización"
+      },
+      "status": {
+        "active": "Activa",
+        "used": "Usada",
+        "expired": "Expirada",
+        "revoked": "Revocada"
+      },
+      "details": {
+        "expiresAt": "Expira en el ledger {ledger}",
+        "usedAt": "Usada el {date}",
+        "createdAt": "Creada {date}"
+      },
+      "error": {
+        "noWallet": "Sin billetera conectada",
+        "connectWallet": "Conecta tu billetera para gestionar autorizaciones."
+      }
+    },
+    "sectionIncidentReview": "Revisión de Incidentes"
   },
   "templates": {
     "page": {

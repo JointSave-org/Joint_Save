@@ -94,3 +94,17 @@ export function isTimestampValid(timestamp: number): boolean {
   const fiveMinutes = 5 * 60
   return Math.abs(now - timestamp) <= fiveMinutes
 }
+
+/**
+ * Generate the message for revoking a pause authorization
+ */
+export function revokePauseAuthorizationMessage(
+  authorizationId: string,
+  signedAt: number
+): string {
+  return [
+    `JointSave Revoke Pause Authorization`,
+    `Authorization ID: ${authorizationId}`,
+    `Signed At: ${signedAt}`,
+  ].join('\n')
+}

@@ -7,6 +7,7 @@ import { GroupMembers } from "@/components/group/group-members"
 import { GroupActivity } from "@/components/group/group-activity"
 import { GroupActions } from "@/components/group/group-actions"
 import { AdminEmergencyControls } from "@/components/group/admin-emergency-controls"
+import { PausedPoolBanner } from "@/components/group/paused-pool-banner"
 import { RotationalTimelineContainer } from "@/components/group/rotational-timeline-container"
 import { PoolChat } from "@/components/group/pool-chat"
 import { DisputesPanel } from "@/components/disputes/disputes-panel"
@@ -22,8 +23,11 @@ interface Pool {
   id: string
   name: string
   type: "rotational" | "target" | "flexible"
+  status?: string
   contract_address: string
   token_address: string
+  pause_reason?: string | null
+  paused_at?: string | null
   pool_members?: { member_address: string }[]
   governance_contract_id?: string | null
 }
@@ -116,6 +120,16 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
             Back to Dashboard
           </Link>
         </Button>
+
+        {/* Paused Pool Banner - shown to all members */}
+        {pool.status === "paused" && pool.paused_at && (
+          <PausedPoolBanner
+            groupId={id}
+            pausedAt={pool.paused_at}
+            pauseReason={pool.pause_reason || null}
+            isAdmin={isAdmin}
+          />
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* ── Left column: details + timeline + activity + chat ───────── */}
