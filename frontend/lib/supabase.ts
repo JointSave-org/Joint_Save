@@ -33,6 +33,8 @@ export type Database = {
           minimum_deposit: number | null
           withdrawal_fee: number | null
           yield_enabled: boolean
+          pause_reason: string | null
+          paused_at: string | null
         }
         Insert: {
           name: string
@@ -77,6 +79,8 @@ export type Database = {
           minimum_deposit?: number | null
           withdrawal_fee?: number | null
           yield_enabled?: boolean
+          pause_reason?: string | null
+          paused_at?: string | null
         }
       }
       pool_members: {

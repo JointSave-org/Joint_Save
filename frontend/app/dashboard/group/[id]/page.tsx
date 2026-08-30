@@ -6,24 +6,31 @@ import { GroupDetails } from "@/components/group/group-details"
 import { GroupMembers } from "@/components/group/group-members"
 import { GroupActivity } from "@/components/group/group-activity"
 import { GroupActions } from "@/components/group/group-actions"
+import { AdminEmergencyControls } from "@/components/group/admin-emergency-controls"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { useStellarWallet } from "@/components/web3-provider"
 
 interface Pool {
   id: string
   name: string
   type: 'rotational' | 'target' | 'flexible'
+  status: 'active' | 'completed' | 'paused'
   contract_address: string
   token_address: string
+  creator_address: string
+  pause_reason?: string | null
+  paused_at?: string | null
 }
 
 export default function GroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const { address } = useStellarWallet()
   const [pool, setPool] = useState<Pool | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const loadPool = () => {
     fetch(`/api/pools?id=${id}`)
       .then(res => res.json())
       .then(data => {
@@ -34,10 +41,17 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
         console.error('Failed to load pool:', err)
         setLoading(false)
       })
+  }
+
+  useEffect(() => {
+    loadPool()
   }, [id])
 
   if (loading) return <div>Loading...</div>
   if (!pool) return <div>Pool not found</div>
+
+  const isAdmin = address && pool.creator_address.toLowerCase() === address.toLowerCase()
+  const isPaused = pool.status === 'paused'
 
   return (
     <div className="min-h-screen bg-background">
@@ -52,6 +66,17 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            {isAdmin && (
+              <AdminEmergencyControls
+                poolId={id}
+                poolAddress={pool.contract_address}
+                poolType={pool.type}
+                isPaused={isPaused}
+                isAdmin={isAdmin}
+                creatorAddress={pool.creator_address}
+                onStatusChange={loadPool}
+              />
+            )}
             <GroupDetails groupId={id} />
             <GroupActivity groupId={id} />
           </div>

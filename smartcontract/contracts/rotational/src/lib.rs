@@ -19,6 +19,8 @@ pub enum DataKey {
     NextPayoutTime,
     Active,
     HasDeposited(Address),
+    Admin,
+    Paused,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────
@@ -31,6 +33,7 @@ impl RotationalPool {
     /// Initialize the rotational savings pool.
     pub fn initialize(
         env: Env,
+        admin: Address,
         token: Address,
         members: Vec<Address>,
         deposit_amount: i128,
@@ -44,6 +47,7 @@ impl RotationalPool {
         assert!(round_duration > 0, "round_duration must be > 0");
 
         let storage = env.storage().persistent();
+        storage.set(&DataKey::Admin, &admin);
         storage.set(&DataKey::Token, &token);
         storage.set(&DataKey::Treasury, &treasury);
         storage.set(&DataKey::Members, &members);
@@ -57,6 +61,7 @@ impl RotationalPool {
             &(env.ledger().timestamp() + round_duration),
         );
         storage.set(&DataKey::Active, &true);
+        storage.set(&DataKey::Paused, &false);
     }
 
     /// Member deposits their fixed contribution for the current round.
@@ -66,6 +71,9 @@ impl RotationalPool {
         let storage = env.storage().persistent();
         let active: bool = storage.get(&DataKey::Active).unwrap();
         assert!(active, "pool inactive");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
 
         let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
         assert!(Self::is_member(&members, &member), "not a member");
@@ -94,6 +102,9 @@ impl RotationalPool {
         let storage = env.storage().persistent();
         let active: bool = storage.get(&DataKey::Active).unwrap();
         assert!(active, "pool inactive");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
 
         let next_payout_time: u64 = storage.get(&DataKey::NextPayoutTime).unwrap();
         assert!(
@@ -163,6 +174,75 @@ impl RotationalPool {
         }
     }
 
+    // ── Admin Emergency Controls ───────────────────────────────────────────
+
+    /// Pause the pool. Only callable by admin. Prevents deposits and payouts.
+    pub fn pause(env: Env, admin: Address) {
+        admin.require_auth();
+
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let active: bool = storage.get(&DataKey::Active).unwrap_or(false);
+        assert!(active, "pool not active");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "already paused");
+
+        storage.set(&DataKey::Paused, &true);
+        env.events().publish(
+            (symbol_short!("pause"), admin),
+            Symbol::new(&env, "paused"),
+        );
+    }
+
+    /// Unpause the pool. Only callable by admin. Resumes normal operations.
+    pub fn unpause(env: Env, admin: Address) {
+        admin.require_auth();
+
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(paused, "not paused");
+
+        storage.set(&DataKey::Paused, &false);
+        env.events().publish(
+            (symbol_short!("unpause"), admin),
+            Symbol::new(&env, "resumed"),
+        );
+    }
+
+    /// Emergency withdraw all funds to a recipient. Only callable by admin.
+    /// THIS IS IRREVERSIBLE. Use only in case of critical contract malfunction.
+    pub fn emergency_withdraw(env: Env, admin: Address, recipient: Address) {
+        admin.require_auth();
+
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+
+        let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+
+        // Get contract balance
+        let balance = token_client.balance(&env.current_contract_address());
+        assert!(balance > 0, "no funds to withdraw");
+
+        // Transfer all funds to recipient
+        token_client.transfer(&env.current_contract_address(), &recipient, &balance);
+
+        // Mark pool as inactive
+        storage.set(&DataKey::Active, &false);
+
+        env.events().publish(
+            (symbol_short!("emerg_wd"), recipient.clone()),
+            balance,
+        );
+    }
+
     // ── Views ──────────────────────────────────────────────────────────────
 
     pub fn is_active(env: Env) -> bool {
@@ -170,6 +250,20 @@ impl RotationalPool {
             .persistent()
             .get(&DataKey::Active)
             .unwrap_or(false)
+    }
+
+    pub fn is_paused(env: Env) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Paused)
+            .unwrap_or(false)
+    }
+
+    pub fn admin(env: Env) -> Address {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Admin)
+            .unwrap()
     }
 
     pub fn current_round(env: Env) -> u32 {

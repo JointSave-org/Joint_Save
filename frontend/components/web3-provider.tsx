@@ -52,6 +52,9 @@ export function useStellar() {
   return useContext(StellarContext)
 }
 
+// Alias for backward compatibility and clarity
+export const useStellarWallet = useStellar
+
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function Web3Provider({ children }: { children: ReactNode }) {
