@@ -6,7 +6,7 @@
  */
 
 import { Keypair, StrKey } from '@stellar/stellar-sdk'
-import { createProofTimestamp, generateProofMessage, isTimestampValid, type WalletProofMessage } from '../wallet-proof'
+import { generateProofMessage, isTimestampValid, type WalletProofMessage } from '../wallet-proof'
 
 export interface VerificationResult {
   valid: boolean

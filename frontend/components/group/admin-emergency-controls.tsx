@@ -36,7 +36,7 @@ interface AdminEmergencyControlsProps {
 export function AdminEmergencyControls({
   poolId,
   poolAddress,
-  poolType,
+  poolType: _poolType,
   isPaused,
   isAdmin,
   creatorAddress,

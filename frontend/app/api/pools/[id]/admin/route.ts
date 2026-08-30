@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { checkWalletProof } from '@/lib/server/wallet-proof'
-import type { WalletProofMessage } from '@/lib/wallet-proof'
 
 // Rate limiting: track admin actions per pool
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
@@ -107,7 +106,7 @@ export async function POST(
 
     // Handle each action
     let txHash: string | null = null
-    let updateData: any = {}
+    let updateData: Record<string, string | null> = {}
     let activityDescription = ''
 
     switch (action) {
