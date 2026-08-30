@@ -780,3 +780,6 @@ impl FlexiblePool {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod fuzz_tests;

@@ -6,6 +6,9 @@ mod soroswap;
 mod stellar_amm;
 mod types;
 
+#[cfg(test)]
+mod fuzz_tests;
+
 use soroban_sdk::{contract, contractimpl, token, Address, Env};
 use types::{DataKey, StrategyConfig, StrategyType};
 

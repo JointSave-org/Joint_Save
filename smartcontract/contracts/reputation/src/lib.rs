@@ -453,7 +453,9 @@ impl ReputationTracker {
     /// deposit_reliability = (total_deposits / (total_deposits + missed_deposits)) * 1000
     /// Returns 500 when no history exists.
     fn compute_deposit_reliability(total_deposits: u32, missed_deposits: u32) -> u32 {
-        let total_rounds = total_deposits + missed_deposits;
+        // Use saturating_add to guard against u32 overflow when both counters are
+        // near u32::MAX (discovered by prop_reliability_no_overflow fuzz test).
+        let total_rounds = total_deposits.saturating_add(missed_deposits);
         if total_rounds == 0 {
             return 500;
         }
@@ -573,3 +575,6 @@ impl ReputationTracker {
 
 #[cfg(test)]
 mod test;
+
+#[cfg(test)]
+mod fuzz_tests;
