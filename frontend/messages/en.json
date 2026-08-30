@@ -372,6 +372,30 @@
         "payout": "Payout",
         "refund": "Refund"
       }
+    },
+    "archived": {
+      "title": "Archived Groups",
+      "badge": "Archived",
+      "tabActive": "Active",
+      "tabArchived": "Archived",
+      "count": "{count, plural, =0 {No archived groups yet} one {# archived group} other {# archived groups}}",
+      "empty": "Nothing archived yet",
+      "emptyHint": "Pools show up here once they finish, or after 90 days with no activity and no member funds. Nothing is deleted — the full history stays available.",
+      "fetchError": "Failed to fetch archived pools",
+      "loadingLabel": "Loading archived groups",
+      "showingRange": "Showing {from}–{to} of {total} archived pools",
+      "completedOn": "Completed",
+      "archivedOn": "Archived",
+      "finalTvl": "Final TVL",
+      "memberCount": "{count, plural, one {# member} other {# members}}",
+      "viewHistory": "View History",
+      "cardAria": "Archived pool {name}. {reason}",
+      "reason": {
+        "completed": "This pool finished and was archived after its review window.",
+        "inactive_90d": "Archived after 90 days with no activity and no member funds held.",
+        "admin_archived": "Archived by the pool admin.",
+        "emergency_withdrawn": "Archived after an emergency withdrawal."
+      }
     }
   },
   "pool": {
@@ -383,7 +407,8 @@
     "status": {
       "active": "Active",
       "completed": "Completed",
-      "paused": "Paused"
+      "paused": "Paused",
+      "emergency_withdrawn": "Emergency Withdrawn"
     },
     "create": {
       "intro": {
@@ -1007,6 +1032,29 @@
         "resolved_dismissed": "Dismissed",
         "expired": "Expired"
       }
+    },
+    "archived": {
+      "title": "This pool has been archived",
+      "body": "It is no longer active and is shown here read-only. Deposits, withdrawals, and admin actions are disabled. All history below is preserved.",
+      "historicalActivity": "Historical activity — this pool is archived and receives no new events.",
+      "archivedOn": "Archived on {date}",
+      "unarchive": "Restore pool",
+      "unarchiving": "Restoring…",
+      "unarchiveSuccess": "Pool restored — it is active and visible again.",
+      "unarchiveError": "Could not restore this pool. Please try again.",
+      "archive": "Archive pool",
+      "archiving": "Archiving…",
+      "archiveSuccess": "Pool archived. Its history stays available under the Archived tab.",
+      "archiveError": "Could not archive this pool. Please try again.",
+      "archiveConfirmTitle": "Archive this pool?",
+      "archiveConfirmBody": "It will be hidden from Explore and the active groups tab, and become read-only. Nothing is deleted — all members, activity, and history are preserved, and you can restore it at any time.",
+      "cancel": "Cancel",
+      "reason": {
+        "completed": "This pool finished and was archived after its review window.",
+        "inactive_90d": "Archived after 90 days with no activity and no member funds held.",
+        "admin_archived": "Archived by the pool admin.",
+        "emergency_withdrawn": "Archived after an emergency withdrawal."
+      }
     }
   },
   "explore": {
@@ -1019,7 +1067,10 @@
       "poolCount": "{count, plural, =0 {No pools to explore yet} one {Browse # pool — the health badge shows how reliably members have been depositing} other {Browse # pools — the health badge shows how reliably members have been depositing}}",
       "nothingToExplore": "Nothing to explore just yet",
       "nothingToExploreHint": "Once people start creating savings pools, they'll show up here for you to browse.",
-      "showingRange": "Showing {from}–{to} of {total} pools"
+      "showingRange": "Showing {from}–{to} of {total} pools",
+      "showArchived": "Show archived",
+      "showArchivedHint": "Include pools that have finished or gone inactive",
+      "archivedBadge": "Archived"
     },
     "timeAgo": {
       "justNow": "just now",
@@ -1252,43 +1303,41 @@
   },
   "bridge": {
     "metaTitle": "Bridge USDC to Stellar — JointSave",
-    "metaDescription": "Step-by-step guide to bringing USDC from Ethereum, Base, or Solana onto Stellar so you can deposit into a JointSave pool.",
-    "badge": "Bridge Guide",
+    "metaDescription": "Bring USDC from Ethereum, Optimism, Arbitrum, Base, or Polygon onto Stellar via Circle CCTP, then deposit it straight into a JointSave pool.",
+    "badge": "Cross-chain USDC",
     "title": "Bridge USDC to Stellar",
-    "description": "JointSave pools accept native USDC on Stellar as a deposit currency alongside XLM. If your USDC lives on Ethereum, Base, Solana, or another chain, here's how to bring it over before depositing.",
-    "educationalTitle": "This page is educational only",
-    "educationalBody": "JointSave does not custody funds during a bridge transfer or operate a bridge itself. Bridging happens entirely on the external services linked below — always verify URLs and double-check recipient addresses before sending funds.",
-    "cctp": {
-      "title": "Option A: Circle's Cross-Chain Transfer Protocol (CCTP)",
-      "description": "The recommended path for USDC held on Ethereum, Base, Avalanche, and other CCTP-supported chains.",
-      "step1Title": "Open a CCTP-enabled bridge",
-      "step1Body": "Circle's Cross-Chain Transfer Protocol (CCTP) burns USDC on the source chain and mints native USDC on Stellar — no wrapped assets, no extra gas token needed on the destination side. Use a CCTP-enabled interface such as Circle's own bridge, Allbridge, or Portal.",
-      "step2Title": "Connect your source-chain wallet",
-      "step2Body": "Connect the wallet holding your USDC on Ethereum, Base, Avalanche, or another CCTP-supported chain. Select Stellar as the destination network.",
-      "step3Title": "Enter your Stellar address",
-      "step3Body": "Paste the Stellar (G…) address you use with JointSave as the recipient. Double-check it — Stellar transfers to accounts without the right trustline or memo can be unrecoverable, so most bridge UIs will warn you if something looks off.",
-      "step4Title": "Confirm the burn-and-mint",
-      "step4Body": "Approve the transaction on the source chain. CCTP burns your USDC there and, once Circle's attestation confirms, mints the equivalent amount of native USDC directly into your Stellar account. This typically takes a few minutes.",
-      "step5Title": "Deposit into your pool",
-      "step5Body": "Once the USDC lands in your Stellar wallet, open your JointSave pool and deposit as usual — the deposit form shows your live USDC balance and the correct token contract is used automatically.",
-      "linkLabel": "Circle CCTP"
-    },
-    "stellarUsdc": {
-      "title": "Option B: Stellar's native USDC",
-      "description": "If you already hold USDC on a centralized exchange, you can often withdraw directly to Stellar without bridging at all.",
-      "step1Title": "Already hold USDC via a centralized exchange?",
-      "step1Body": "Many exchanges (Coinbase, Kraken, and others) support withdrawing USDC directly on the Stellar network. Choose \"Stellar\" as the withdrawal network and send to your JointSave wallet's G… address.",
-      "step2Title": "Add a USDC trustline",
-      "step2Body": "Stellar accounts must \"trust\" an asset before they can hold it. Most modern Stellar wallets (Freighter, Lobstr, xBull) prompt you to add the USDC trustline automatically the first time you receive it — if not, add it manually from your wallet's assets screen.",
-      "step3Title": "Verify on Stellar Expert",
-      "step3Body": "Use Stellar Expert to confirm the incoming USDC transaction and that your balance reflects the official Circle-issued USDC asset, not a look-alike.",
-      "linkLabel": "Stellar Expert"
-    },
-    "afterBridging": {
-      "title": "After bridging",
-      "body": "Once USDC shows up in your Stellar wallet, head back to your pool. The deposit form on any USDC-denominated pool automatically reads your live USDC balance and builds the transaction against the correct token contract — no extra configuration needed.",
-      "dashboardLink": "Go to your dashboard"
-    }
+    "description": "Deposit USDC into your pool from any CCTP-supported chain. Circle's Cross-Chain Transfer Protocol burns your USDC on the source chain and mints native USDC on Stellar — no wrapped assets, no extra gas token needed on the destination.",
+    "formTitle": "Start a transfer",
+    "formDescription": "Choose the chain holding your USDC and the amount you want to bridge to Stellar.",
+    "sourceChain": "Source chain",
+    "destinationHint": "Destination is always native USDC on Stellar.",
+    "usdcAmount": "USDC amount",
+    "converted": "{n} USDC on Stellar",
+    "stellarUsdcLabel": "USDC (Stellar)",
+    "startBridge": "Start Bridge",
+    "burning": "Burning on source chain…",
+    "burnInitiated": "Burn initiated — awaiting Circle attestation.",
+    "burnFailed": "Transfer could not be started.",
+    "connectWalletFirst": "Connect your Stellar wallet first.",
+    "connectWalletTitle": "Connect your wallet",
+    "connectWalletBody": "You need a Stellar wallet to receive the bridged USDC and deposit it into a pool.",
+    "progressTitle": "Transfer progress",
+    "statusPending": "Burn initiated",
+    "statusAttested": "Attested by Circle",
+    "statusReceived": "Received on Stellar",
+    "statusDeposited": "Deposited into pool",
+    "statusFailed": "Failed",
+    "attestedTitle": "Attestation confirmed",
+    "attestedBody": "Circle has confirmed the burn. You can now receive your USDC on Stellar.",
+    "receiveOnStellar": "Receive USDC on Stellar",
+    "receivedTitle": "USDC received on Stellar",
+    "receivedBody": "Your native USDC is on Stellar and ready to deposit into a pool.",
+    "depositIntoPool": "Continue to pool deposit",
+    "failedTitle": "Transfer failed",
+    "failedBody": "The attestation could not complete. Follow the refund flow for your burn on the source chain.",
+    "refundLink": "View refund transaction on explorer",
+    "attestationFailed": "Circle could not attest the burn.",
+    "messageHash": "Message hash"
   },
   "join": {
     "poolNotFoundTitle": "Pool Not Found",

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
 import { writeLimiter } from "@/lib/rate-limit"
-import { humanToBaseUnits } from "@/lib/deposit-token"
+import { blockIfArchived } from "@/lib/server/archival-guard"
 
 const HORIZON_URL =
   process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL || "https://horizon-testnet.stellar.org"
@@ -44,6 +44,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
+
+    // An archived pool takes no new deposits — refuse before spending a
+    // Horizon round trip on a transaction that must not be recorded anyway.
+    const archived = await blockIfArchived(poolId)
+    if (archived) return archived
 
     // 1. Verify the transaction exists and succeeded on Horizon.
     let tx: { successful?: boolean }
