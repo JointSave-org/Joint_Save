@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import type { ArchiveAction, ArchiveReason } from "@/lib/archival"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
@@ -25,7 +26,7 @@ export type Database = {
           name: string
           description: string | null
           type: "rotational" | "target" | "flexible"
-          status: "active" | "completed" | "paused"
+          status: "active" | "completed" | "paused" | "emergency_withdrawn"
           creator_address: string
           contract_address: string
           token_address: string
@@ -42,16 +43,22 @@ export type Database = {
           contribution_amount: number | null
           round_duration: number | null
           frequency: string | null
+          pause_reason: string | null
+          paused_at: string | null
           deadline: string | null
           minimum_deposit: number | null
           withdrawal_fee: number | null
           yield_enabled: boolean
+          archived_at: string | null
+          archive_reason: ArchiveReason | null
+          completed_at: string | null
+          emergency_withdrawn_at: string | null
         }
         Insert: {
           name: string
           description?: string | null
           type: "rotational" | "target" | "flexible"
-          status?: "active" | "completed" | "paused"
+          status?: "active" | "completed" | "paused" | "emergency_withdrawn"
           creator_address: string
           contract_address: string
           token_address: string
@@ -66,16 +73,22 @@ export type Database = {
           contribution_amount?: number | null
           round_duration?: number | null
           frequency?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
           deadline?: string | null
           minimum_deposit?: number | null
           withdrawal_fee?: number | null
           yield_enabled?: boolean
+          archived_at?: string | null
+          archive_reason?: ArchiveReason | null
+          completed_at?: string | null
+          emergency_withdrawn_at?: string | null
         }
         Update: {
           name?: string
           description?: string | null
           type?: "rotational" | "target" | "flexible"
-          status?: "active" | "completed" | "paused"
+          status?: "active" | "completed" | "paused" | "emergency_withdrawn"
           creator_address?: string
           contract_address?: string
           token_address?: string
@@ -90,10 +103,16 @@ export type Database = {
           contribution_amount?: number | null
           round_duration?: number | null
           frequency?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
           deadline?: string | null
           minimum_deposit?: number | null
           withdrawal_fee?: number | null
           yield_enabled?: boolean
+          archived_at?: string | null
+          archive_reason?: ArchiveReason | null
+          completed_at?: string | null
+          emergency_withdrawn_at?: string | null
         }
         Relationships: []
       }
@@ -436,6 +455,107 @@ export type Database = {
         }
         Relationships: []
       }
+      archive_log: {
+        Row: {
+          id: string
+          pool_id: string
+          action: ArchiveAction
+          reason: ArchiveReason
+          triggered_by: string
+          automated: boolean
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          pool_id: string
+          action: ArchiveAction
+          reason: ArchiveReason
+          triggered_by: string
+          automated?: boolean
+          note?: string | null
+        }
+        Update: {
+          action?: ArchiveAction
+          reason?: ArchiveReason
+          triggered_by?: string
+          automated?: boolean
+          note?: string | null
+        }
+        Relationships: []
+      }
+      disputes: {
+        Row: {
+          id: string
+          pool_id: string
+          filer_address: string
+          target_address: string | null
+          dispute_type:
+            "missed_deposit" | "unfair_penalty" | "admin_abuse" | "member_misconduct" | "other"
+          description: string
+          evidence_urls: string[]
+          status: "open" | "voting" | "resolved_upheld" | "resolved_dismissed" | "expired"
+          resolution: string | null
+          votes_for: number
+          votes_against: number
+          resolved_by: string | null
+          resolved_at: string | null
+          created_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          filer_address: string
+          target_address?: string | null
+          dispute_type:
+            "missed_deposit" | "unfair_penalty" | "admin_abuse" | "member_misconduct" | "other"
+          description: string
+          evidence_urls?: string[]
+          status?: "open" | "voting" | "resolved_upheld" | "resolved_dismissed" | "expired"
+          resolution?: string | null
+          votes_for?: number
+          votes_against?: number
+          resolved_by?: string | null
+          resolved_at?: string | null
+          created_at?: string
+          expires_at: string
+        }
+        Update: {
+          pool_id?: string
+          filer_address?: string
+          target_address?: string | null
+          dispute_type?:
+            "missed_deposit" | "unfair_penalty" | "admin_abuse" | "member_misconduct" | "other"
+          description?: string
+          evidence_urls?: string[]
+          status?: "open" | "voting" | "resolved_upheld" | "resolved_dismissed" | "expired"
+          resolution?: string | null
+          votes_for?: number
+          votes_against?: number
+          resolved_by?: string | null
+          resolved_at?: string | null
+          expires_at?: string
+        }
+        Relationships: []
+      }
+      dispute_votes: {
+        Row: {
+          dispute_id: string
+          voter_address: string
+          vote: boolean
+          created_at: string
+        }
+        Insert: {
+          dispute_id: string
+          voter_address: string
+          vote: boolean
+          created_at?: string
+        }
+        Update: {
+          vote?: boolean
+        }
+        Relationships: []
+      }
       pool_templates: {
         Row: {
           id: string
@@ -573,6 +693,156 @@ export type Database = {
           resolved_by?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
+        }
+        Relationships: []
+      }
+      pause_authorizations: {
+        Row: {
+          id: string
+          pool_id: string
+          contract_address: string
+          admin_address: string
+          entry_xdr: string
+          expiration_ledger: number
+          used_at: string | null
+          used_by_incident: string | null
+          revoked_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          contract_address: string
+          admin_address: string
+          entry_xdr: string
+          expiration_ledger: number
+          used_at?: string | null
+          used_by_incident?: string | null
+          revoked_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          used_at?: string | null
+          used_by_incident?: string | null
+          revoked_at?: string | null
+        }
+        Relationships: []
+      }
+      incidents: {
+        Row: {
+          id: string
+          pool_id: string
+          trigger_rule_ids: string[]
+          severity: "info" | "warning" | "critical"
+          alert_count: number
+          reason: string
+          created_by_scan: boolean
+          scan_source: "cron" | "admin" | "manual"
+          action: "pause" | "none"
+          executed: boolean
+          dry_run: boolean
+          skip_reason:
+            | "below_threshold"
+            | "already_paused"
+            | "pool_not_active"
+            | "cooldown"
+            | "unknown_pool"
+            | null
+          platform_paused: boolean
+          onchain_status: "not_required" | "pending" | "confirmed" | "failed"
+          onchain_tx_hash: string | null
+          status: "open" | "resolved"
+          resolved_by: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          trigger_rule_ids?: string[]
+          severity?: "info" | "warning" | "critical"
+          alert_count?: number
+          reason: string
+          created_by_scan?: boolean
+          scan_source?: "cron" | "admin" | "manual"
+          action?: "pause" | "none"
+          executed?: boolean
+          dry_run?: boolean
+          skip_reason?:
+            | "below_threshold"
+            | "already_paused"
+            | "pool_not_active"
+            | "cooldown"
+            | "unknown_pool"
+            | null
+          platform_paused?: boolean
+          onchain_status?: "not_required" | "pending" | "confirmed" | "failed"
+          onchain_tx_hash?: string | null
+          status?: "open" | "resolved"
+          resolved_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          executed?: boolean
+          platform_paused?: boolean
+          onchain_status?: "not_required" | "pending" | "confirmed" | "failed"
+          onchain_tx_hash?: string | null
+          status?: "open" | "resolved"
+          resolved_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bridge_transactions: {
+        Row: {
+          id: string
+          user_address: string
+          source_chain: string
+          destination: string
+          amount_base_units: string | null
+          status: "pending" | "attested" | "received" | "deposited" | "failed"
+          source_tx_hash: string | null
+          message_hash: string | null
+          redemption_tx_hash: string | null
+          pool_id: string | null
+          error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          user_address: string
+          source_chain: string
+          destination?: string
+          amount_base_units?: string | null
+          status?: "pending" | "attested" | "received" | "deposited" | "failed"
+          source_tx_hash?: string | null
+          message_hash?: string | null
+          redemption_tx_hash?: string | null
+          pool_id?: string | null
+          error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_address?: string
+          source_chain?: string
+          destination?: string
+          amount_base_units?: string | null
+          status?: "pending" | "attested" | "received" | "deposited" | "failed"
+          source_tx_hash?: string | null
+          message_hash?: string | null
+          redemption_tx_hash?: string | null
+          pool_id?: string | null
+          error?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

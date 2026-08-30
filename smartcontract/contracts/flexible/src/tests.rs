@@ -3,7 +3,7 @@
 use super::{FlexiblePool, FlexiblePoolClient};
 use soroban_sdk::{
     testutils::{storage::Persistent, Address as _, Ledger as _},
-    token, Address, Env, Vec,
+    token, Address, Env, Symbol, Vec,
 };
 
 fn setup_pool(
@@ -709,3 +709,57 @@ mod mock_strategy {
 }
 
 pub use mock_strategy::MockStrategy;
+
+// ── DAO governance integration ───────────────────────────────────────────────
+
+#[test]
+fn governance_contract_can_change_minimum_deposit() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, _a, _b) = setup_pool(&env, false);
+
+    let gov = Address::generate(&env);
+    client.set_governance_contract(&admin, &gov);
+    assert_eq!(client.governance_contract(), Some(gov.clone()));
+
+    client.apply_governance_proposal(&gov, &Symbol::new(&env, "change_deposit_amount"), &50i128);
+    assert_eq!(client.minimum_deposit(), 50i128);
+}
+
+#[test]
+fn admin_can_apply_governance_proposals_directly() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, _a, _b) = setup_pool(&env, false);
+
+    client.apply_governance_proposal(&admin, &Symbol::new(&env, "add_penalty"), &10i128);
+    assert_eq!(client.penalty_percentage(), 10u32);
+
+    client.apply_governance_proposal(&admin, &Symbol::new(&env, "remove_penalty"), &0i128);
+    assert_eq!(client.penalty_percentage(), 0u32);
+}
+
+#[test]
+#[should_panic(expected = "not authorized")]
+fn unauthorized_caller_cannot_apply_proposal() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, admin, _treasury, _a, _b) = setup_pool(&env, false);
+
+    let impostor = Address::generate(&env);
+    client.apply_governance_proposal(
+        &impostor,
+        &Symbol::new(&env, "change_deposit_amount"),
+        &50i128,
+    );
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn non_admin_cannot_register_governance_contract() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _token, _admin, _treasury, member_a, _b) = setup_pool(&env, false);
+
+    client.set_governance_contract(&member_a, &Address::generate(&env));
+}

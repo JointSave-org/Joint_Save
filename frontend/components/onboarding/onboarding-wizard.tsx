@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { useStellar } from "@/components/web3-provider"
 import { useOnboarding } from "@/hooks/useOnboarding"
 import { ONBOARDING_STEPS, ONBOARDING_STEP_COUNT, completedStepCount } from "@/lib/onboarding"
@@ -307,63 +308,58 @@ export function OnboardingWizard({ open, onClose }: WizardProps) {
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.97 }}
-            transition={{ duration: 0.25 }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("dialogAriaLabel")}
-          >
-            <Card className="p-6 sm:p-8 relative">
-              <button
-                onClick={skip}
-                aria-label={t("skipAria")}
-                className="absolute top-4 right-4 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-
-              {/* Progress bar */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                  <span className="font-medium capitalize">
-                    {t("stepOf", { current: step + 1, total: ONBOARDING_STEP_COUNT })}
-                  </span>
-                  <span className="capitalize">{tSteps(stepName)}</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold mb-1">{stepCopy[step].title}</h2>
-                <p className="text-sm text-muted-foreground">{stepCopy[step].subtitle}</p>
-              </div>
-
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={step}
-                  initial={{ opacity: 0, x: 16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -16 }}
-                  transition={{ duration: 0.2 }}
+        <Dialog open={open} onOpenChange={(isOpen) => !isOpen && skip()}>
+          <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-lg" showCloseButton={false}>
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.97 }}
+              transition={{ duration: 0.25 }}
+              className="w-full"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("dialogAriaLabel")}
+            >
+              <Card className="p-6 sm:p-8 relative">
+                <button
+                  onClick={skip}
+                  aria-label={t("skipAria")}
+                  className="absolute top-4 right-4 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 >
-                  {renderStep()}
-                </motion.div>
-              </AnimatePresence>
-            </Card>
-          </motion.div>
-        </motion.div>
+                  <X className="h-4 w-4" />
+                </button>
+
+                {/* Progress bar */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                    <span className="font-medium capitalize">
+                      {t("stepOf", { current: step + 1, total: ONBOARDING_STEP_COUNT })}
+                    </span>
+                    <span className="capitalize">{tSteps(stepName)}</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold mb-1">{stepCopy[step].title}</h2>
+                  <p className="text-sm text-muted-foreground">{stepCopy[step].subtitle}</p>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={step}
+                    initial={{ opacity: 0, x: 16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -16 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {renderStep()}
+                  </motion.div>
+                </AnimatePresence>
+              </Card>
+            </motion.div>
+          </DialogContent>
+        </Dialog>
       )}
     </AnimatePresence>
   )

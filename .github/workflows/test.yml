@@ -33,6 +33,10 @@ jobs:
         working-directory: frontend
         run: pnpm lint
 
+      - name: Format files automatically
+        working-directory: frontend
+        run: pnpm format --write
+
       - name: Run Prettier format check
         working-directory: frontend
         run: pnpm format:check
@@ -90,6 +94,10 @@ jobs:
       - name: Build Flexible contract
         working-directory: smartcontract
         run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/flexible/Cargo.toml
+
+      - name: Build Governance contract
+        working-directory: smartcontract
+        run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/governance/Cargo.toml
 
       - name: Verify WASM artifacts
         working-directory: smartcontract

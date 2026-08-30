@@ -267,7 +267,28 @@
       "noSearchResultsTitle": "Ninguna tanda coincide con tu búsqueda",
       "noSearchResultsHint": "Intenta ajustar tu término de búsqueda o <clear>borra la búsqueda</clear>.",
       "showingRange": "Mostrando {from}–{to} de {total} tandas",
-      "fetchError": "Error al obtener las tandas"
+      "fetchError": "Error al obtener las tandas",
+      "viewToggle": {
+        "label": "Vista",
+        "grid": "Cuadrícula",
+        "calendar": "Calendario"
+      }
+    },
+    "depositCalendar": {
+      "title": "Calendario de Depósitos",
+      "subtitle": "Próximas fechas límite de depósito en tus tandas rotativas",
+      "exportAll": "Exportar Todo",
+      "exportEvent": "Exportar al Calendario",
+      "loadingLabel": "Cargando calendario de depósitos",
+      "deposited": "Depositado",
+      "listHeading": "Próximos depósitos",
+      "prevMonth": "Mes anterior",
+      "nextMonth": "Mes siguiente",
+      "moreEvents": "+{count} más",
+      "empty": {
+        "heading": "Aún no tienes tandas rotativas",
+        "subheading": "Aún no tienes tandas rotativas. Crea o únete a una para ver aquí tu calendario de depósitos."
+      }
     },
     "poolCard": {
       "members": "Miembros",
@@ -351,6 +372,30 @@
         "payout": "Pago",
         "refund": "Reembolso"
       }
+    },
+    "archived": {
+      "title": "Grupos archivados",
+      "badge": "Archivado",
+      "tabActive": "Activos",
+      "tabArchived": "Archivados",
+      "count": "{count, plural, =0 {Aún no hay grupos archivados} one {# grupo archivado} other {# grupos archivados}}",
+      "empty": "Aún no hay nada archivado",
+      "emptyHint": "Los grupos aparecen aquí cuando terminan, o tras 90 días sin actividad y sin fondos de miembros. No se elimina nada: el historial completo sigue disponible.",
+      "fetchError": "No se pudieron cargar los grupos archivados",
+      "loadingLabel": "Cargando grupos archivados",
+      "showingRange": "Mostrando {from}–{to} de {total} grupos archivados",
+      "completedOn": "Completado",
+      "archivedOn": "Archivado",
+      "finalTvl": "TVL final",
+      "memberCount": "{count, plural, one {# miembro} other {# miembros}}",
+      "viewHistory": "Ver historial",
+      "cardAria": "Grupo archivado {name}. {reason}",
+      "reason": {
+        "completed": "Este grupo terminó y se archivó tras su periodo de revisión.",
+        "inactive_90d": "Archivado tras 90 días sin actividad y sin fondos de miembros.",
+        "admin_archived": "Archivado por el administrador del grupo.",
+        "emergency_withdrawn": "Archivado tras un retiro de emergencia."
+      }
     }
   },
   "pool": {
@@ -362,7 +407,8 @@
     "status": {
       "active": "Activa",
       "completed": "Completada",
-      "paused": "Pausada"
+      "paused": "Pausada",
+      "emergency_withdrawn": "Retiro de emergencia"
     },
     "create": {
       "intro": {
@@ -944,6 +990,77 @@
       "sectionYieldDashboard": "Panel de Rendimiento",
       "sectionMembersList": "Lista de Miembros",
       "loadingLending": "Cargando Préstamos..."
+    },
+    "disputes": {
+      "title": "Disputas",
+      "fileDispute": "Presentar disputa",
+      "empty": "No se han presentado disputas en este grupo.",
+      "retry": "Reintentar",
+      "expiresIn": "La votación termina en {time}",
+      "against": "Contra",
+      "resolutionNote": "Resolución",
+      "voteCounts": "{for} a favor · {against} en contra · {needed} necesarias para decidir",
+      "votesCast": "{count} votos emitidos",
+      "voteUphold": "A favor",
+      "voteDismiss": "En contra",
+      "resolve": "Resolver como admin",
+      "resolveTitle": "Resolver esta disputa",
+      "resolveDescription": "Como administrador del grupo puedes cerrar esta disputa con una resolución escrita. Esto queda registrado en la actividad del grupo.",
+      "resolvePlaceholder": "Explica el resultado y el motivo…",
+      "upholdDispute": "Aprobar disputa",
+      "dismissDispute": "Rechazar disputa",
+      "invalidUrl": "Los enlaces de evidencia deben empezar por http:// o https://",
+      "submitFailed": "No se pudo presentar la disputa. Verifica que eres miembro y que no tienes otra disputa activa.",
+      "cancel": "Cancelar",
+      "submit": "Presentar disputa",
+      "submitting": "Presentando…",
+      "fileTitle": "Presentar una disputa",
+      "fileDescription": "Plantea un problema para que los miembros voten. Las disputas expiran 72 horas después de presentarse.",
+      "typeLabel": "Tipo",
+      "typePlaceholder": "Selecciona un tipo",
+      "targetLabel": "Contra un miembro (opcional)",
+      "targetNone": "Ningún miembro específico / acción de admin",
+      "descriptionLabel": "¿Qué pasó?",
+      "descriptionPlaceholder": "Describe qué pasó, cuándo, y las rondas o transacciones relevantes…",
+      "evidenceLabel": "Enlaces de evidencia (opcional)",
+      "addEvidence": "Añadir enlace",
+      "types": {
+        "missed_deposit": "Depósito omitido",
+        "unfair_penalty": "Multa injusta",
+        "admin_abuse": "Acción del admin",
+        "member_misconduct": "Mala conducta de un miembro",
+        "other": "Otro"
+      },
+      "status": {
+        "open": "Abierta",
+        "voting": "En votación",
+        "resolved_upheld": "Aprobada",
+        "resolved_dismissed": "Rechazada",
+        "expired": "Expirada"
+      }
+    },
+    "archived": {
+      "title": "Este grupo ha sido archivado",
+      "body": "Ya no está activo y se muestra en modo solo lectura. Los depósitos, retiros y acciones de administrador están deshabilitados. Todo el historial siguiente se conserva.",
+      "historicalActivity": "Actividad histórica: este grupo está archivado y no recibe eventos nuevos.",
+      "archivedOn": "Archivado el {date}",
+      "unarchive": "Restaurar grupo",
+      "unarchiving": "Restaurando…",
+      "unarchiveSuccess": "Grupo restaurado: vuelve a estar activo y visible.",
+      "unarchiveError": "No se pudo restaurar este grupo. Inténtalo de nuevo.",
+      "archive": "Archivar grupo",
+      "archiving": "Archivando…",
+      "archiveSuccess": "Grupo archivado. Su historial sigue disponible en la pestaña Archivados.",
+      "archiveError": "No se pudo archivar este grupo. Inténtalo de nuevo.",
+      "archiveConfirmTitle": "¿Archivar este grupo?",
+      "archiveConfirmBody": "Se ocultará de Explorar y de la pestaña de grupos activos, y pasará a solo lectura. No se elimina nada: se conservan miembros, actividad e historial, y puedes restaurarlo cuando quieras.",
+      "cancel": "Cancelar",
+      "reason": {
+        "completed": "Este grupo terminó y se archivó tras su periodo de revisión.",
+        "inactive_90d": "Archivado tras 90 días sin actividad y sin fondos de miembros.",
+        "admin_archived": "Archivado por el administrador del grupo.",
+        "emergency_withdrawn": "Archivado tras un retiro de emergencia."
+      }
     }
   },
   "explore": {
@@ -956,7 +1073,10 @@
       "poolCount": "{count, plural, =0 {Todavía no hay tandas para explorar} one {Explora # tanda — la insignia de salud muestra qué tan constantes han sido los depósitos de los miembros} other {Explora # tandas — la insignia de salud muestra qué tan constantes han sido los depósitos de los miembros}}",
       "nothingToExplore": "Todavía no hay nada que explorar",
       "nothingToExploreHint": "Cuando la gente empiece a crear tandas de ahorro, aparecerán aquí para que las explores.",
-      "showingRange": "Mostrando {from}–{to} de {total} tandas"
+      "showingRange": "Mostrando {from}–{to} de {total} tandas",
+      "showArchived": "Mostrar archivados",
+      "showArchivedHint": "Incluir grupos que han terminado o quedado inactivos",
+      "archivedBadge": "Archivado"
     },
     "timeAgo": {
       "justNow": "justo ahora",
@@ -1189,43 +1309,41 @@
   },
   "bridge": {
     "metaTitle": "Bridge de USDC a Stellar — JointSave",
-    "metaDescription": "Guía paso a paso para traer USDC desde Ethereum, Base o Solana a Stellar para depositarlo en una tanda de JointSave.",
-    "badge": "Guía de Bridge",
+    "metaDescription": "Trae USDC desde Ethereum, Optimism, Arbitrum, Base o Polygon a Stellar vía CCTP de Circle y depósitalo directo en tu tanda de JointSave.",
+    "badge": "USDC entre cadenas",
     "title": "Bridge de USDC a Stellar",
-    "description": "Las tandas de JointSave aceptan USDC nativo en Stellar como moneda de depósito junto con XLM. Si tu USDC está en Ethereum, Base, Solana u otra cadena, así puedes traerlo antes de depositar.",
-    "educationalTitle": "Esta página es solo educativa",
-    "educationalBody": "JointSave no custodia fondos durante una transferencia de bridge ni opera un bridge. El bridging ocurre completamente en los servicios externos enlazados abajo — siempre verifica las URLs y confirma las direcciones de destino antes de enviar fondos.",
-    "cctp": {
-      "title": "Opción A: Protocolo de Transferencia entre Cadenas de Circle (CCTP)",
-      "description": "La ruta recomendada para USDC en Ethereum, Base, Avalanche y otras cadenas compatibles con CCTP.",
-      "step1Title": "Abre un bridge compatible con CCTP",
-      "step1Body": "El Protocolo de Transferencia entre Cadenas de Circle (CCTP) quema USDC en la cadena de origen y emite USDC nativo en Stellar — sin activos envueltos, sin token de gas adicional en el destino. Usa una interfaz compatible con CCTP como el bridge de Circle, Allbridge o Portal.",
-      "step2Title": "Conecta tu billetera de la cadena de origen",
-      "step2Body": "Conecta la billetera que tiene tu USDC en Ethereum, Base, Avalanche u otra cadena compatible con CCTP. Selecciona Stellar como red de destino.",
-      "step3Title": "Ingresa tu dirección de Stellar",
-      "step3Body": "Pega la dirección de Stellar (G…) que usas con JointSave como destinatario. Verifícala bien — las transferencias a Stellar sin la trustline o memo correctos pueden ser irrecuperables, así que la mayoría de las interfaces de bridge te advertirán si algo no coincide.",
-      "step4Title": "Confirma la quema y emisión",
-      "step4Body": "Aprueba la transacción en la cadena de origen. CCTP quema tu USDC allí y, una vez confirmada la atestación de Circle, emite el monto equivalente de USDC nativo directamente en tu cuenta de Stellar. Esto suele tomar unos minutos.",
-      "step5Title": "Deposita en tu tanda",
-      "step5Body": "Una vez que el USDC llegue a tu billetera de Stellar, abre tu tanda de JointSave y deposita como de costumbre — el formulario de depósito muestra tu saldo de USDC en vivo y usa automáticamente el contrato de token correcto.",
-      "linkLabel": "CCTP de Circle"
-    },
-    "stellarUsdc": {
-      "title": "Opción B: USDC nativo de Stellar",
-      "description": "Si ya tienes USDC en un exchange centralizado, a menudo puedes retirarlo directamente a Stellar sin necesidad de bridge.",
-      "step1Title": "¿Ya tienes USDC en un exchange centralizado?",
-      "step1Body": "Muchos exchanges (Coinbase, Kraken y otros) permiten retirar USDC directamente en la red de Stellar. Elige \"Stellar\" como red de retiro y envía a la dirección G… de tu billetera de JointSave.",
-      "step2Title": "Agrega una trustline de USDC",
-      "step2Body": "Las cuentas de Stellar deben \"confiar\" en un activo antes de poder tenerlo. La mayoría de las billeteras modernas de Stellar (Freighter, Lobstr, xBull) te piden agregar la trustline de USDC automáticamente la primera vez que lo recibes — si no, agrégala manualmente desde la pantalla de activos de tu billetera.",
-      "step3Title": "Verifica en Stellar Expert",
-      "step3Body": "Usa Stellar Expert para confirmar la transacción entrante de USDC y que tu saldo refleje el activo USDC oficial emitido por Circle, no una imitación.",
-      "linkLabel": "Stellar Expert"
-    },
-    "afterBridging": {
-      "title": "Después del bridge",
-      "body": "Una vez que el USDC aparezca en tu billetera de Stellar, vuelve a tu tanda. El formulario de depósito de cualquier tanda denominada en USDC lee automáticamente tu saldo de USDC en vivo y construye la transacción con el contrato de token correcto — sin configuración adicional.",
-      "dashboardLink": "Ir a tu panel"
-    }
+    "description": "Deposita USDC en tu tanda desde cualquier cadena compatible con CCTP. El Protocolo de Transferencia entre Cadenas de Circle quema tu USDC en la cadena de origen y emite USDC nativo en Stellar — sin activos envueltos ni token de gas adicional en el destino.",
+    "formTitle": "Inicia una transferencia",
+    "formDescription": "Elige la cadena donde está tu USDC y el monto que quieres pasar a Stellar.",
+    "sourceChain": "Cadena de origen",
+    "destinationHint": "El destino siempre es USDC nativo en Stellar.",
+    "usdcAmount": "Monto de USDC",
+    "converted": "{n} USDC en Stellar",
+    "stellarUsdcLabel": "USDC (Stellar)",
+    "startBridge": "Iniciar Bridge",
+    "burning": "Quemando en la cadena de origen…",
+    "burnInitiated": "Quema iniciada — esperando atestación de Circle.",
+    "burnFailed": "No se pudo iniciar la transferencia.",
+    "connectWalletFirst": "Conecta tu billetera de Stellar primero.",
+    "connectWalletTitle": "Conecta tu billetera",
+    "connectWalletBody": "Necesitas una billetera de Stellar para recibir el USDC y depositarlo en una tanda.",
+    "progressTitle": "Progreso de la transferencia",
+    "statusPending": "Quema iniciada",
+    "statusAttested": "Atestado por Circle",
+    "statusReceived": "Recibido en Stellar",
+    "statusDeposited": "Depositado en la tanda",
+    "statusFailed": "Falló",
+    "attestedTitle": "Atestación confirmada",
+    "attestedBody": "Circle ha confirmado la quema. Ya puedes recibir tu USDC en Stellar.",
+    "receiveOnStellar": "Recibir USDC en Stellar",
+    "receivedTitle": "USDC recibido en Stellar",
+    "receivedBody": "Tu USDC nativo está en Stellar y listo para depositar en una tanda.",
+    "depositIntoPool": "Continuar al depósito",
+    "failedTitle": "La transferencia falló",
+    "failedBody": "La atestación no pudo completarse. Usa el flujo de reembolso de tu quema en la cadena de origen.",
+    "refundLink": "Ver transacción de reembolso en el explorador",
+    "attestationFailed": "Circle no pudo atestar la quema.",
+    "messageHash": "Hash del mensaje"
   },
   "join": {
     "poolNotFoundTitle": "Tanda No Encontrada",
@@ -1784,6 +1902,58 @@
       "cancelFailed": "Error al cancelar la solicitud de préstamo",
       "markedDefaulted": "Préstamo marcado como incumplido — penalización de reputación aplicada",
       "defaultFailed": "Error al marcar el préstamo como incumplido"
+    }
+  },
+  "governance": {
+    "title": "Gobernanza",
+    "subtitle": "Los parámetros del grupo se deciden colectivamente entre los miembros.",
+    "quorumInfo": "{needed} de {total} miembros deben votar A Favor para alcanzar el quórum del {quorum}%",
+    "membersCount": "{total} miembros",
+    "createProposal": "Nueva Propuesta",
+    "emptyState": "No hay propuestas activas",
+    "emptyHint": "Inicia una propuesta para cambiar cómo funciona este grupo.",
+    "recentTitle": "Propuestas recientes",
+    "showRecent": "Mostrar recientes",
+    "hideRecent": "Ocultar recientes",
+    "votesFor": "A favor",
+    "votesAgainst": "En contra",
+    "timeLeft": "Termina en {time}",
+    "voteFor": "Votar a favor",
+    "voteAgainst": "Votar en contra",
+    "execute": "Ejecutar",
+    "voting": "Votando...",
+    "executing": "Ejecutando...",
+    "alreadyVoted": "Ya votaste",
+    "ownProposal": "No puedes votar tu propia propuesta",
+    "notMember": "Solo los miembros pueden participar",
+    "closed": "Votación cerrada",
+    "typeLabel": "Tipo de propuesta",
+    "descriptionLabel": "Descripción",
+    "descriptionPlaceholder": "Describe el cambio que quieres realizar...",
+    "paramLabel": "Valor",
+    "submit": "Enviar propuesta",
+    "submitting": "Enviando...",
+    "cancel": "Cancelar",
+    "charCount": "{count}/{max}",
+    "fillRequired": "Completa todos los campos obligatorios",
+    "toastCreated": "Propuesta enviada",
+    "toastVoteRecorded": "Voto registrado en la blockchain",
+    "toastExecuted": "Propuesta ejecutada",
+    "toastError": "La transacción falló. Inténtalo de nuevo.",
+    "statuses": {
+      "Active": "Activa",
+      "Passed": "Aprobada",
+      "Executed": "Ejecutada",
+      "Expired": "Expirada",
+      "Rejected": "Rechazada"
+    },
+    "types": {
+      "ChangeDepositAmount": "Cambiar monto de depósito",
+      "ExtendDeadline": "Extender plazo",
+      "AddPenalty": "Agregar penalización",
+      "RemovePenalty": "Quitar penalización",
+      "ChangeQuorum": "Cambiar quórum",
+      "Custom": "Personalizada"
     }
   }
 }

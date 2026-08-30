@@ -8,6 +8,7 @@ import {
   type MemberRecord,
   type AdminActionRecord,
 } from "@/lib/security-rules"
+import { runIncidentResponse } from "@/lib/server/incident-actions"
 
 /**
  * POST /api/cron/security-scan
@@ -15,6 +16,8 @@ import {
  * Runs every 6 hours automatically via cron.
  * Stores all results in security_alerts table.
  * Sends immediate notifications to platform admins for CRITICAL alerts.
+ * Runs the incident-response circuit breaker over the critical alerts, which
+ * may auto-pause a pool (see lib/incident-response.ts). Dry-run by default.
  *
  * Protected by a shared secret in the x-cron-secret header.
  */
@@ -152,6 +155,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Escalate critical alerts into recovery actions. A failure here must not
+    // lose the scan: the alerts are already persisted and are the more
+    // important record.
+    let incidentResponse = null
+    try {
+      incidentResponse = await runIncidentResponse(admin, alerts, "cron")
+    } catch (incidentError) {
+      console.error("Incident response failed:", incidentError)
+    }
+
     // Log the cron job execution
     await admin.from("cron_job_logs").insert({
       job_name: "security-scan",
@@ -165,6 +178,7 @@ export async function POST(req: NextRequest) {
       scanTime: now.toISOString(),
       alertsStored: alerts.length,
       criticalAlerts: criticalAlerts.length,
+      incidentResponse,
     })
   } catch (error) {
     console.error("Cron security scan error:", error)

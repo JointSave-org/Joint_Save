@@ -24,6 +24,10 @@ pub enum DataKey {
     ReputationTracker,
     /// Optional allowlist of accepted token addresses (empty = unrestricted).
     SupportedTokens,
+    /// Optional address of the attached DAO governance contract.
+    GovernanceContract,
+    /// Late/missed-deposit penalty percentage governable by the DAO (0-100).
+    PenaltyPercentage,
 }
 
 const LEDGER_THRESHOLD: u32 = 518400;
@@ -441,6 +445,12 @@ impl TargetPool {
         if storage.has(&DataKey::SupportedTokens) {
             storage.extend_ttl(&DataKey::SupportedTokens, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
+        if storage.has(&DataKey::GovernanceContract) {
+            storage.extend_ttl(&DataKey::GovernanceContract, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::PenaltyPercentage) {
+            storage.extend_ttl(&DataKey::PenaltyPercentage, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
     }
 
     /// Point this pool at a deployed ReputationTracker contract so deposits
@@ -455,210 +465,68 @@ impl TargetPool {
         Self::bump_config_state_internal(&env);
     }
 
-    /// Remove a member from the pool (single-sig fallback; rejected if quorum is configured).
-    pub fn remove_member(env: Env, admin: Address, member: Address) {
+    // ── DAO governance ────────────────────────────────────────────────────
+
+    /// Register the DAO governance contract allowed to apply proposals.
+    pub fn set_governance_contract(env: Env, admin: Address, governance: Address) {
         admin.require_auth();
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
-        let quorum: Vec<Address> = storage
-            .get(&DataKey::AdminQuorum)
-            .unwrap_or(Vec::new(&env));
-        assert!(quorum.len() == 0, "multi-sig enabled; use approve_action + execute_approved");
 
-        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
-        let mut new_members = Vec::new(&env);
-        let mut found = false;
-        for m in members.iter() {
-            if m == member {
-                found = true;
-            } else {
-                new_members.push_back(m);
-            }
-        }
-        assert!(found, "member not found");
-        assert!(new_members.len() >= 1, "must have at least 1 member");
-        storage.set(&DataKey::Members, &new_members);
-        env.events()
-            .publish((symbol_short!("mem_rm"), member), ());
-    }
-
-    // ── Multi-sig admin controls ──────────────────────────────────────────
-
-    /// Set the admin quorum. Only callable by the current single admin.
-    /// When quorum has >=1 members, high-risk actions require multi-sig approval.
-    pub fn set_admin_quorum(env: Env, admin: Address, new_admins: Vec<Address>) {
-        admin.require_auth();
-        let storage = env.storage().persistent();
-        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
-        assert!(admin == stored_admin, "not admin");
-        assert!(new_admins.len() >= 2, "quorum must have at least 2 admins");
-        // The original admin must be in the quorum
-        let mut found = false;
-        for a in new_admins.iter() {
-            if a == stored_admin {
-                found = true;
-                break;
-            }
-        }
-        assert!(found, "original admin must be in quorum");
-        storage.set(&DataKey::AdminQuorum, &new_admins);
-        env.events()
-            .publish((symbol_short!("qrm_set"),), new_admins.len() as u32);
-    }
-
-    /// Record an admin's approval for a proposed action.
-    pub fn approve_action(env: Env, admin: Address, action_hash: BytesN<32>) {
-        admin.require_auth();
-        let storage = env.storage().persistent();
-        let quorum: Vec<Address> = storage
-            .get(&DataKey::AdminQuorum)
-            .unwrap_or(Vec::new(&env));
-        assert!(quorum.len() > 0, "no quorum configured");
-        assert!(Self::is_quorum_member(&quorum, &admin), "not a quorum admin");
-
-        let mut pending = storage
-            .get(&DataKey::PendingAction(action_hash.clone()))
-            .unwrap_or(PendingAction {
-                approvers: Vec::new(&env),
-                created_at: env.ledger().timestamp(),
-            });
-
-        // Don't double-count
-        for a in pending.approvers.iter() {
-            assert!(a != admin, "already approved");
-        }
-
-        pending.approvers.push_back(admin.clone());
-        storage.set(&DataKey::PendingAction(action_hash.clone()), &pending);
+        storage.set(&DataKey::GovernanceContract, &governance);
+        Self::bump_config_state_internal(&env);
 
         env.events()
-            .publish((symbol_short!("approved"), admin), action_hash);
+            .publish((symbol_short!("gov_set"), admin), governance);
     }
 
-    /// Revoke a previously-given approval.
-    pub fn revoke_approval(env: Env, admin: Address, action_hash: BytesN<32>) {
-        admin.require_auth();
-        let storage = env.storage().persistent();
-        let quorum: Vec<Address> = storage
-            .get(&DataKey::AdminQuorum)
-            .unwrap_or(Vec::new(&env));
-        assert!(quorum.len() > 0, "no quorum configured");
-
-        let mut pending = storage
-            .get(&DataKey::PendingAction(action_hash.clone()))
-            .unwrap_or(PendingAction {
-                approvers: Vec::new(&env),
-                created_at: 0,
-            });
-
-        let mut new_approvers = Vec::new(&env);
-        let mut found = false;
-        for a in pending.approvers.iter() {
-            if a == admin {
-                found = true;
-            } else {
-                new_approvers.push_back(a);
-            }
-        }
-        assert!(found, "no approval to revoke");
-        pending.approvers = new_approvers;
-        storage.set(&DataKey::PendingAction(action_hash.clone()), &pending);
-        env.events()
-            .publish((symbol_short!("revoked"), admin), action_hash);
-    }
-
-    /// Execute an approved action. Requires simple majority (ceil(N/2)) of quorum approvals.
-    /// action_type: 1=pause, 2=unpause, 3=emergency_withdraw, 4=remove_member
-    pub fn execute_approved(
+    /// Apply a governance-approved parameter change. Callable by the pool
+    /// admin directly or by the registered governance contract via CPI.
+    ///
+    /// Proposal types (symbols):
+    ///   - "extend_deadline" -> ledgers to add to the deadline (> 0)
+    ///   - "add_penalty"     -> penalty percentage 0-100
+    ///   - "remove_penalty"  -> clears penalty percentage
+    pub fn apply_governance_proposal(
         env: Env,
         caller: Address,
-        action_hash: BytesN<32>,
-        action_type: u32,
-        target: Address,
+        proposal_type: Symbol,
+        new_value: i128,
     ) {
         caller.require_auth();
         let storage = env.storage().persistent();
-
-        let quorum: Vec<Address> = storage
-            .get(&DataKey::AdminQuorum)
-            .unwrap_or(Vec::new(&env));
-        assert!(quorum.len() > 0, "no quorum configured");
-
-        let pending = storage
-            .get(&DataKey::PendingAction(action_hash.clone()))
-            .unwrap_or(PendingAction {
-                approvers: Vec::new(&env),
-                created_at: 0,
-            });
-        assert!(pending.approvers.len() > 0, "action not found");
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        let gov: Option<Address> = storage.get(&DataKey::GovernanceContract);
         assert!(
-            env.ledger().timestamp() - pending.created_at < PENDING_ACTION_EXPIRY,
-            "action expired"
+            caller == stored_admin || gov.map_or(false, |g| g == caller),
+            "not authorized"
         );
 
-        let threshold = (quorum.len() as u32 + 1) / 2; // ceil(N/2)
-        assert!(
-            pending.approvers.len() as u32 >= threshold,
-            "insufficient approvals"
-        );
+        let extend_deadline = Symbol::new(&env, "extend_deadline");
+        let add_penalty = Symbol::new(&env, "add_penalty");
+        let remove_penalty = Symbol::new(&env, "remove_penalty");
 
-        // Clear pending action before executing
-        storage.remove(&DataKey::PendingAction(action_hash.clone()));
-
-        // Execute the action
-        match action_type {
-            1 => {
-                // pause
-                storage.set(&DataKey::Paused, &true);
-                env.events().publish((symbol_short!("paused"),), ());
-            }
-            2 => {
-                // unpause
-                storage.set(&DataKey::Paused, &false);
-                env.events().publish((symbol_short!("unpaused"),), ());
-            }
-            3 => {
-                // emergency_withdraw
-                let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
-                assert!(paused, "pool not paused");
-                let token_addr: Address = storage.get(&DataKey::Token).unwrap();
-                let token_client = token::Client::new(&env, &token_addr);
-                let contract_balance = token_client.balance(&env.current_contract_address());
-                if contract_balance > 0 {
-                    token_client.transfer(
-                        &env.current_contract_address(),
-                        &target,
-                        &contract_balance,
-                    );
-                }
-                storage.set(&DataKey::TotalDeposited, &0i128);
-                env.events()
-                    .publish((symbol_short!("emrg_wd"),), contract_balance);
-            }
-            4 => {
-                // remove_member
-                let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
-                let mut new_members = Vec::new(&env);
-                let mut found = false;
-                for m in members.iter() {
-                    if m == target {
-                        found = true;
-                    } else {
-                        new_members.push_back(m);
-                    }
-                }
-                assert!(found, "member not found");
-                assert!(new_members.len() >= 1, "must have at least 1 member");
-                storage.set(&DataKey::Members, &new_members);
-                env.events()
-                    .publish((symbol_short!("mem_rm"), target.clone()), ());
-            }
-            _ => panic!("unknown action type"),
+        if proposal_type == extend_deadline {
+            assert!(new_value > 0, "extension must be > 0");
+            assert!(new_value <= u32::MAX as i128, "extension too large");
+            let deadline: u32 = storage.get(&DataKey::Deadline).unwrap();
+            let extended = deadline.checked_add(new_value as u32);
+            assert!(extended.is_some(), "deadline overflow");
+            storage.set(&DataKey::Deadline, &extended.unwrap());
+        } else if proposal_type == add_penalty {
+            assert!(new_value >= 0 && new_value <= 100, "penalty must be 0-100");
+            storage.set(&DataKey::PenaltyPercentage, &(new_value as u32));
+        } else if proposal_type == remove_penalty {
+            storage.set(&DataKey::PenaltyPercentage, &0u32);
+        } else {
+            panic!("unsupported proposal type");
         }
 
+        Self::bump_config_state_internal(&env);
+
         env.events()
-            .publish((symbol_short!("executed"),), action_hash);
+            .publish((symbol_short!("gov_appl"), proposal_type), new_value);
     }
 
     // ── Views ──────────────────────────────────────────────────────────────
@@ -742,6 +610,19 @@ impl TargetPool {
             .persistent()
             .get(&DataKey::SupportedTokens)
             .unwrap_or(Vec::new(&env))
+    }
+
+    /// Address of the attached DAO governance contract, if any.
+    pub fn governance_contract(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::GovernanceContract)
+    }
+
+    /// Penalty percentage applied to missed deposits (0 by default).
+    pub fn penalty_percentage(env: Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::PenaltyPercentage)
+            .unwrap_or(0)
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────

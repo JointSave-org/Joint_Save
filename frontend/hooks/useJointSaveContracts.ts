@@ -18,7 +18,11 @@ import {
 import { useStellar, STELLAR_RPC_URL, STELLAR_NETWORK_PASSPHRASE } from "@/components/web3-provider"
 import { enqueueSign } from "@/lib/tx-queue"
 import { submitWithRetry, toTrackedTxType } from "@/lib/tx-retry"
-import type { PendingTransactionType } from "@/lib/pending-transactions"
+import {
+  addPendingTransactionRecord,
+  removePendingTransactionRecord,
+  type PendingTransactionType,
+} from "@/lib/pending-transactions"
 import { TX_TIMEOUT } from "@/lib/constants"
 import { mapSorobanEvent } from "@/lib/soroban-event-mapping"
 import { isContractVersionUnknown } from "@/lib/contract-version"
@@ -176,6 +180,13 @@ function vecVal(addrs: string[]): xdr.ScVal {
 }
 
 /**
+ * Lifecycle phases a contract transaction moves through, reported via
+ * `onPhase` so callers (e.g. the batch-deposit progress list) can show
+ * per-transaction status without re-implementing the submit pipeline.
+ */
+export type TxPhase = "signing" | "submitted" | "confirmed"
+
+/**
  * Build a contract-call transaction without submitting it.
  *
  * Used by the simulation dialog flow to pre-validate transactions before
@@ -206,8 +217,12 @@ export async function buildContractCallTx(
  * retry uses the current sequence number (see lib/tx-retry.ts). Broadcast
  * transactions are tracked in the `jointsave_pending_txs` tracker plus the
  * legacy per-address pending list. Returns the tx hash.
+ *
+ * `onPhase` is optional. It reports progress as the transaction advances; a
+ * retried attempt reports its phases again, and a broadcast whose confirmation
+ * stays ambiguous settles on "submitted" rather than claiming "confirmed".
  */
-async function submitTx(
+export async function submitTx(
   address: string,
   buildTx: (account: Account) => Transaction,
   pendingTx?: {
@@ -215,16 +230,26 @@ async function submitTx(
     type: PendingTransactionType
     poolId: string
     amount?: string
-  }
+  },
+  onPhase?: (phase: TxPhase, hash?: string) => void
 ): Promise<string> {
-  if (IS_E2E) return E2E_TX_HASH
+  if (IS_E2E) {
+    onPhase?.("signing")
+    onPhase?.("submitted", E2E_TX_HASH)
+    onPhase?.("confirmed", E2E_TX_HASH)
+    return E2E_TX_HASH
+  }
   const result = await submitWithRetry({
     address,
     networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-    sign: async (txXdr: string) =>
-      (await enqueueSign(txXdr, { networkPassphrase: STELLAR_NETWORK_PASSPHRASE })).signedTxXdr,
+    sign: async (txXdr: string) => {
+      onPhase?.("signing")
+      return (await enqueueSign(txXdr, { networkPassphrase: STELLAR_NETWORK_PASSPHRASE }))
+        .signedTxXdr
+    },
     buildTx,
     rpcServer: getRpc(),
+    onBroadcast: (hash) => onPhase?.("submitted", hash),
     dedup: pendingTx
       ? { poolId: pendingTx.poolId, type: toTrackedTxType(pendingTx.type) }
       : undefined,
@@ -248,6 +273,7 @@ async function submitTx(
   if (result.status === "failed") {
     throw new Error(result.error ?? "Transaction failed on-chain")
   }
+  if (result.status === "confirmed") onPhase?.("confirmed", result.hash)
   return result.hash
 }
 
@@ -380,7 +406,7 @@ async function buildAndSubmitDeposit(
       opts: { networkPassphrase: string }
     ) => Promise<{ signedTxXdr: string }>
   },
-  tx: Transaction,
+  buildTx: (account: Account) => Transaction,
   userAddress: string,
   sponsored: boolean,
   pendingTx?: {
@@ -391,14 +417,18 @@ async function buildAndSubmitDeposit(
   }
 ): Promise<string> {
   if (!sponsored) {
-    return submitTx(kit, tx, pendingTx)
+    return submitTx(userAddress, buildTx, pendingTx)
   }
 
   try {
-    return await submitTxWithSponsorship(kit, tx, userAddress, pendingTx)
+    // The sponsorship path fee-bumps a concrete envelope, so it needs one
+    // built up front; the retry path keeps the builder so each attempt gets a
+    // fresh sequence number.
+    const account = await getRpc().getAccount(userAddress)
+    return await submitTxWithSponsorship(kit, buildTx(account), userAddress, pendingTx)
   } catch (sponsorErr) {
     console.warn("[sponsorship] Falling back to normal submission:", sponsorErr)
-    return submitTx(kit, tx, pendingTx)
+    return submitTx(userAddress, buildTx, pendingTx)
   }
 }
 
@@ -684,19 +714,26 @@ export function useRotationalDeposit(contractId: string) {
     if (!kit || !address || !contractId) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(new Contract(normalizeId(contractId)).call("deposit", addressVal(address)))
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
+      return await buildAndSubmitDeposit(
+        kit,
+        (account) =>
+          new TransactionBuilder(account, {
+            fee: BASE_FEE,
+            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+          })
+            .addOperation(
+              new Contract(normalizeId(contractId)).call("deposit", addressVal(address))
+            )
+            .setTimeout(TX_TIMEOUT)
+            .build(),
         address,
-        type: "deposit",
-        poolId: contractId,
-      })
+        sponsored,
+        {
+          address,
+          type: "deposit",
+          poolId: contractId,
+        }
+      )
     } finally {
       setIsLoading(false)
     }
@@ -749,26 +786,31 @@ export function useTargetContribute(contractId: string, amount: string, decimals
     if (!kit || !address || !contractId || !amount) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(contractId)).call(
-            "deposit",
-            addressVal(address),
-            i128Val(toBaseUnits(amount, decimals))
-          )
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
+      return await buildAndSubmitDeposit(
+        kit,
+        (account) =>
+          new TransactionBuilder(account, {
+            fee: BASE_FEE,
+            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+          })
+            .addOperation(
+              new Contract(normalizeId(contractId)).call(
+                "deposit",
+                addressVal(address),
+                i128Val(toBaseUnits(amount, decimals))
+              )
+            )
+            .setTimeout(TX_TIMEOUT)
+            .build(),
         address,
-        type: "deposit",
-        poolId: contractId,
-        amount,
-      })
+        sponsored,
+        {
+          address,
+          type: "deposit",
+          poolId: contractId,
+          amount,
+        }
+      )
     } finally {
       setIsLoading(false)
     }
@@ -853,26 +895,31 @@ export function useFlexibleDeposit(contractId: string, amount: string, decimals 
     if (!kit || !address || !contractId || !amount) return
     setIsLoading(true)
     try {
-      const account = await getRpc().getAccount(address)
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-        .addOperation(
-          new Contract(normalizeId(contractId)).call(
-            "deposit",
-            addressVal(address),
-            i128Val(toBaseUnits(amount, decimals))
-          )
-        )
-        .setTimeout(TX_TIMEOUT)
-        .build()
-      return await buildAndSubmitDeposit(kit, tx, address, sponsored, {
+      return await buildAndSubmitDeposit(
+        kit,
+        (account) =>
+          new TransactionBuilder(account, {
+            fee: BASE_FEE,
+            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+          })
+            .addOperation(
+              new Contract(normalizeId(contractId)).call(
+                "deposit",
+                addressVal(address),
+                i128Val(toBaseUnits(amount, decimals))
+              )
+            )
+            .setTimeout(TX_TIMEOUT)
+            .build(),
         address,
-        type: "deposit",
-        poolId: contractId,
-        amount,
-      })
+        sponsored,
+        {
+          address,
+          type: "deposit",
+          poolId: contractId,
+          amount,
+        }
+      )
     } finally {
       setIsLoading(false)
     }
@@ -1694,4 +1741,220 @@ export function useBumpPoolState(contractId: string) {
   }
 
   return { bumpPoolState, isLoading }
+}
+
+// ── DAO governance (issue #207) ───────────────────────────────────────────────
+
+export type GovernanceProposalStatus = "Active" | "Passed" | "Executed" | "Expired" | "Rejected"
+
+export type GovernanceProposalType =
+  | "ChangeDepositAmount"
+  | "ExtendDeadline"
+  | "AddPenalty"
+  | "RemovePenalty"
+  | "ChangeQuorum"
+  | "Custom"
+
+export interface GovernanceProposal {
+  id: string
+  proposer: string
+  proposalType: GovernanceProposalType
+  description: string
+  votesFor: string[]
+  votesAgainst: string[]
+  status: GovernanceProposalStatus
+  createdAt: number
+  expiresAt: number
+}
+
+const PROPOSAL_STATUSES = new Set(["Active", "Passed", "Executed", "Expired", "Rejected"])
+
+/** Build the scvBytes value for a BytesN<32> proposal id from hex. */
+export function proposalIdVal(idHex: string): xdr.ScVal {
+  const clean = idHex.replace(/^0x/, "").toLowerCase()
+  if (!/^[0-9a-f]{64}$/.test(clean)) throw new Error("invalid proposal id")
+  return nativeToScVal(Buffer.from(clean, "hex"), { type: "bytes" })
+}
+
+function scMapEntry(key: string, val: xdr.ScVal): xdr.ScMapEntry {
+  return new xdr.ScMapEntry({
+    key: nativeToScVal(key, { type: "string" }),
+    val,
+  })
+}
+
+/**
+ * Serialize client-side parameters into the contract's Map<String, Bytes>
+ * shape. Values are i128 big-endian, matching lib/governance.encodeParamHex.
+ */
+export function governanceParamsVal(params: Record<string, string>): xdr.ScVal {
+  return nativeToScVal(
+    Object.entries(params).map(([key, hex]) =>
+      scMapEntry(key, nativeToScVal(Buffer.from(hex, "hex"), { type: "bytes" }))
+    )
+  )
+}
+
+function parseProposal(val: xdr.ScVal): GovernanceProposal | null {
+  try {
+    if (val.switch().name !== "scvMap") return null
+    const field = (name: string) => structField(val, name)
+
+    const idSc = field("id")
+    const idBuf = idSc && idSc.switch().name === "scvBytes" ? (idSc.bytes() as Buffer) : null
+    if (!idBuf || idBuf.length !== 32) return null
+
+    const statusRaw = scValToText(field("status") ?? xdr.ScVal.scvVoid())
+    const typeRaw = scValToText(field("proposal_type") ?? xdr.ScVal.scvVoid())
+
+    return {
+      id: idBuf.toString("hex"),
+      proposer: scValToString(field("proposer") ?? xdr.ScVal.scvVoid()),
+      proposalType: (typeRaw || "Custom") as GovernanceProposalType,
+      description:
+        field("description")?.switch().name === "scvString"
+          ? field("description")!.str().toString()
+          : "",
+      votesFor: field("votes_for")?.vec()?.map(scValToString) ?? [],
+      votesAgainst: field("votes_against")?.vec()?.map(scValToString) ?? [],
+      status: (PROPOSAL_STATUSES.has(statusRaw) ? statusRaw : "Active") as GovernanceProposalStatus,
+      createdAt: Number(scValToBigInt(field("created_at") ?? xdr.ScVal.scvU64(0))),
+      expiresAt: Number(scValToBigInt(field("expires_at") ?? xdr.ScVal.scvU64(0))),
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function fetchGovernanceQuorum(govContractId: string): Promise<number | null> {
+  if (!govContractId) return null
+  try {
+    const val = await viewCall(govContractId, "get_voting_quorum")
+    return val.switch().name === "scvU32" ? val.u32() : null
+  } catch {
+    return null
+  }
+}
+
+export async function fetchActiveProposals(
+  govContractId: string,
+  poolContractId: string
+): Promise<GovernanceProposal[]> {
+  if (!govContractId || !poolContractId) return []
+  try {
+    const val = await viewCall(govContractId, "get_active_proposals", addressVal(poolContractId))
+    return (val.vec() ?? []).map(parseProposal).filter((p): p is GovernanceProposal => p !== null)
+  } catch {
+    return []
+  }
+}
+
+export async function fetchRecentProposals(govContractId: string): Promise<GovernanceProposal[]> {
+  if (!govContractId) return []
+  try {
+    const val = await viewCall(govContractId, "get_recent_proposals")
+    return (val.vec() ?? []).map(parseProposal).filter((p): p is GovernanceProposal => p !== null)
+  } catch {
+    return []
+  }
+}
+
+export function useCreateProposal(govContractId: string) {
+  const { address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const createProposal = async (
+    proposalType: string,
+    description: string,
+    params: Record<string, string>
+  ): Promise<string | undefined> => {
+    if (!address || !govContractId) return
+    setIsLoading(true)
+    try {
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(govContractId)).call(
+              "create_proposal",
+              addressVal(address),
+              nativeToScVal(proposalType, { type: "symbol" }),
+              nativeToScVal(description, { type: "string" }),
+              governanceParamsVal(params)
+            )
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { createProposal, isLoading }
+}
+
+export function useGovernanceVote(govContractId: string) {
+  const { address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const vote = async (proposalIdHex: string, inFavor: boolean): Promise<string | undefined> => {
+    if (!address || !govContractId) return
+    setIsLoading(true)
+    try {
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(govContractId)).call(
+              "vote",
+              addressVal(address),
+              proposalIdVal(proposalIdHex),
+              boolVal(inFavor)
+            )
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { vote, isLoading }
+}
+
+export function useExecuteProposal(govContractId: string) {
+  const { address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const executeProposal = async (proposalIdHex: string): Promise<string | undefined> => {
+    if (!address || !govContractId) return
+    setIsLoading(true)
+    try {
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(govContractId)).call(
+              "execute_proposal",
+              addressVal(address),
+              proposalIdVal(proposalIdHex)
+            )
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build()
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { executeProposal, isLoading }
 }
