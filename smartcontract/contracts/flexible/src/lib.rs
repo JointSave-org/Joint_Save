@@ -300,6 +300,10 @@ impl FlexiblePool {
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
+        let quorum: Vec<Address> = storage
+            .get(&DataKey::AdminQuorum)
+            .unwrap_or(Vec::new(&env));
+        assert!(quorum.len() == 0, "multi-sig enabled; use approve_action + execute_approved");
         storage.set(&DataKey::Paused, &true);
 
         Self::bump_config_state_internal(&env);
@@ -312,6 +316,10 @@ impl FlexiblePool {
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
+        let quorum: Vec<Address> = storage
+            .get(&DataKey::AdminQuorum)
+            .unwrap_or(Vec::new(&env));
+        assert!(quorum.len() == 0, "multi-sig enabled; use approve_action + execute_approved");
         storage.set(&DataKey::Paused, &false);
 
         Self::bump_config_state_internal(&env);
@@ -345,6 +353,10 @@ impl FlexiblePool {
         let storage = env.storage().persistent();
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         assert!(admin == stored_admin, "not admin");
+        let quorum: Vec<Address> = storage
+            .get(&DataKey::AdminQuorum)
+            .unwrap_or(Vec::new(&env));
+        assert!(quorum.len() == 0, "multi-sig enabled; use approve_action + execute_approved");
 
         let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
         assert!(paused, "pool not paused");
