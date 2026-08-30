@@ -1,0 +1,20 @@
+﻿{
+  "crons": [
+    {
+      "path": "/api/cron/snapshot-pool-metrics",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/deadline-warnings",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/disputes/expire",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/archive-pools",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}

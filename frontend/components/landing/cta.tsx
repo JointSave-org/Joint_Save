@@ -1,11 +1,13 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
 import { useStellar } from "@/components/web3-provider"
-import Link from "next/link"
+import { Link } from "@/i18n/navigation"
 
 export function CTA() {
+  const t = useTranslations("landing.cta")
   const { connect, isConnected } = useStellar()
 
   return (
@@ -22,21 +24,27 @@ export function CTA() {
 
           <div className="max-w-2xl mx-auto text-center">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 text-balance">
-              Ready to start saving with your community?
+              {t("title")}
             </h2>
-            <p className="text-lg text-muted-foreground mb-8 text-pretty">
-              Join communities worldwide building financial trust onchain with Stellar
-            </p>
+            <p className="text-lg text-muted-foreground mb-8 text-pretty">{t("subtitle")}</p>
             {isConnected ? (
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 h-14" asChild>
+              <Button
+                size="lg"
+                className="bg-primary hover:bg-primary/90 text-lg px-8 h-14"
+                asChild
+              >
                 <Link href="/dashboard">
-                  Launch App
+                  {t("launchApp")}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
             ) : (
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 h-14" onClick={connect}>
-                Connect Wallet
+              <Button
+                size="lg"
+                className="bg-primary hover:bg-primary/90 text-lg px-8 h-14"
+                onClick={connect}
+              >
+                {t("connectWallet")}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             )}

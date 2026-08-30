@@ -1,0 +1,36 @@
+# Changelog
+
+All notable changes to **JointSave** will be documented in this file.
+
+> Keep a Changelog format is based on https://keepachangelog.com/en/1.1.0/
+
+## [Unreleased]
+
+### Added
+
+- **React Error Boundaries** with fallback UIs and error reporting across all dashboard routes to prevent full page crashes.
+- **Smart contract pause & recovery** capabilities to improve safety and operational resilience of deployed pool contracts.
+- **Multi-token support** (including support for the native token) for pool participation.
+- **USDC deposits** for all three pool types, with an on-chain supported-token allowlist, a token-aware deposit flow (live balance + approximate USD value), token-separated dashboard totals, and a bridge tutorial page (`/bridge`) covering Circle's CCTP and Stellar's native USDC.
+- **Reputation tracking** to represent participant trust based on pool participation.
+- **Pool notifications** for user-facing updates related to pool activity.
+- **Explore page** so users can discover available pools.
+- **User-facing transparency features** including transaction/pool visibility aligned with on-chain state.
+- **Automated pool archival** — a daily job that moves completed, emergency-withdrawn, and genuinely dead pools out of Explore and My Groups into a read-only Archived view, with admin archive/unarchive controls and a full audit log. Nothing is deleted: archived pools keep all history and remain viewable and exportable, and on-chain data is untouched. See [docs/pool-archival.md](docs/pool-archival.md).
+
+### Changed
+
+- Improved **group/pool UX** across the frontend to better reflect on-chain state and pool modes.
+- Enhanced support for **multiple Stellar wallets** in the web app.
+
+### Fixed
+
+- Various user-facing issues discovered during testnet usage and CI runs (details tracked per PR).
+
+## [v0.0.0] - Initial release
+
+> This placeholder section exists only to keep the changelog structure consistent until the project’s first tagged release is known.
+
+### Added
+
+- Initial publication of JointSave documentation and prototype UI.

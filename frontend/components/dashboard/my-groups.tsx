@@ -1,251 +1,464 @@
 "use client"
 
 import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Users, TrendingUp, Calendar, ArrowRight, Loader2 } from "lucide-react"
-import Link from "next/link"
-import { motion } from "framer-motion"
-import { useState, useEffect } from "react"
-import { useStellar } from "@/components/web3-provider"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
-  fetchRotationalState,
-  fetchTargetState,
-  fetchFlexibleState,
-  stroopsToXlm,
-} from "@/hooks/useJointSaveContracts"
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { LayoutGrid, Search, CalendarDays, Archive } from "lucide-react"
+import { motion } from "framer-motion"
+import { useTranslations } from "next-intl"
+import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "@/i18n/navigation"
+import { useSearchParams } from "next/navigation"
+import { useStellar } from "@/components/web3-provider"
+import { EmptyState } from "@/components/dashboard/empty-state"
+import { FirstPoolTooltip } from "@/components/dashboard/first-pool-tooltip"
+import { PoolCard, PoolCardSkeleton, type Pool } from "@/components/dashboard/pool-card"
+import { BatchDepositPanel } from "@/components/dashboard/batch-deposit-panel"
+import { DepositCalendar } from "@/components/dashboard/deposit-calendar/DepositCalendar"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { ArchivedPoolCard, type ArchivedPool } from "@/components/shared/archived-pool-card"
 
-interface Pool {
-  id: string
-  name: string
-  type: "rotational" | "target" | "flexible"
-  status: "active" | "completed" | "paused"
-  members_count: number
-  total_saved: number
-  progress: number
-  frequency?: string
-  next_payout?: string
-  contract_address: string
-  target_amount: number | null
-  contribution_amount: number | null
-  minimum_deposit: number | null
-}
-
-interface PoolWithLive extends Pool {
-  liveTotalSaved?: number
-  liveProgress?: number
-  progressLabel?: string
-}
+const PAGE_SIZE = 6
 
 interface MyGroupsProps {
   onCreateClick?: () => void
 }
 
-const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }
-const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
-
-async function fetchLiveBalance(pool: Pool): Promise<{ totalSaved: number; progress: number; progressLabel: string }> {
-  const isPending = !pool.contract_address || pool.contract_address === "pending_deployment"
-  if (isPending) return { totalSaved: 0, progress: 0, progressLabel: "Pending deployment" }
-
-  try {
-    if (pool.type === "rotational") {
-      const state = await fetchRotationalState(pool.contract_address)
-      const totalMembers = state.members.length || pool.members_count || 1
-      // Progress = rounds completed / total rounds (one round per member)
-      const progress = Math.min(100, Math.round((state.currentRound / totalMembers) * 100))
-      // Total saved = rounds completed × contribution per member × members
-      const perRound = (pool.contribution_amount || 0) * totalMembers
-      const totalSaved = state.currentRound * perRound
-      return {
-        totalSaved,
-        progress,
-        progressLabel: `Round ${state.currentRound + 1} of ${totalMembers}`,
-      }
-    } else if (pool.type === "target") {
-      const state = await fetchTargetState(pool.contract_address)
-      const saved = stroopsToXlm(state.totalDeposited)
-      const target = pool.target_amount || stroopsToXlm(state.targetAmount) || 1
-      const progress = Math.min(100, Math.round((saved / target) * 100))
-      return {
-        totalSaved: saved,
-        progress,
-        progressLabel: `${saved.toFixed(2)} / ${target.toFixed(2)} XLM`,
-      }
-    } else {
-      // Flexible: progress = members who have deposited / total members
-      const state = await fetchFlexibleState(pool.contract_address)
-      const totalSaved = stroopsToXlm(state.totalBalance)
-      // Use minimum_deposit as a soft goal per member if available
-      const softGoal = (pool.minimum_deposit || 0) * (pool.members_count || 1)
-      const progress = softGoal > 0
-        ? Math.min(100, Math.round((totalSaved / softGoal) * 100))
-        : state.isActive ? 50 : 100 // active = in progress, inactive = complete
-      return {
-        totalSaved,
-        progress,
-        progressLabel: softGoal > 0
-          ? `${totalSaved.toFixed(2)} / ${softGoal.toFixed(2)} XLM`
-          : `${totalSaved.toFixed(2)} XLM saved`,
-      }
-    }
-  } catch {
-    return { totalSaved: pool.total_saved || 0, progress: pool.progress || 0, progressLabel: "" }
-  }
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
 }
 
+// ── Main MyGroups component ───────────────────────────────────────────────────
 export function MyGroups({ onCreateClick }: MyGroupsProps) {
+  const t = useTranslations("dashboard.myGroups")
+  const tArchived = useTranslations("dashboard.archived")
   const { address } = useStellar()
-  const [pools, setPools] = useState<PoolWithLive[]>([])
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const [pools, setPools] = useState<Pool[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [view, setView] = useState<"grid" | "calendar">("grid")
+
+  const page = Math.max(0, parseInt(searchParams.get("page") || "0", 10))
+  const searchTerm = searchParams.get("search") || ""
+  const [searchInput, setSearchInput] = useState(searchTerm)
+  const debouncedSearchInput = useDebouncedValue(searchInput, 300)
+  const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  // Tab lives in the URL so an archived view survives a refresh or a back
+  // navigation from a pool's history page.
+  const tab = searchParams.get("groupsTab") === "archived" ? "archived" : "active"
+
+  const setPage = useCallback(
+    (p: number) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("page", String(p))
+      router.push(`?${params.toString()}`, { scroll: false })
+    },
+    [router, searchParams]
+  )
+
+  const setTab = useCallback(
+    (next: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (next === "archived") params.set("groupsTab", "archived")
+      else params.delete("groupsTab")
+      router.push(`?${params.toString()}`, { scroll: false })
+    },
+    [router, searchParams]
+  )
+
+  const setSearchTerm = useCallback(
+    (term: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (term) {
+        params.set("search", term)
+      } else {
+        params.delete("search")
+      }
+      // Reset to first page when searching
+      params.set("page", "0")
+      router.push(`?${params.toString()}`, { scroll: false })
+    },
+    [router, searchParams]
+  )
 
   useEffect(() => {
-    if (!address) { setLoading(false); return }
-    loadPools()
-  }, [address])
+    setSearchInput(searchTerm)
+  }, [searchTerm])
 
-  const loadPools = async () => {
+  useEffect(() => {
+    if (debouncedSearchInput !== searchTerm) {
+      setSearchTerm(debouncedSearchInput)
+    }
+  }, [debouncedSearchInput, searchTerm, setSearchTerm])
+
+  useEffect(() => {
+    if (!address) {
+      setLoading(false)
+      return
+    }
+    loadPools(page)
+  }, [address, page])
+
+  const loadPools = async (currentPage: number) => {
     try {
       setLoading(true)
       setError("")
-      const res = await fetch(`/api/pools?creator=${address?.toLowerCase()}`)
-      if (!res.ok) throw new Error("Failed to fetch pools")
-      const data: Pool[] = await res.json()
-      const base = Array.isArray(data) ? data : []
-
-      // Set DB data immediately so UI renders fast
-      setPools(base)
-      setLoading(false)
-
-      // Then enrich with live on-chain balances in parallel
-      const enriched = await Promise.all(
-        base.map(async (pool) => {
-          const live = await fetchLiveBalance(pool)
-          return { ...pool, liveTotalSaved: live.totalSaved, liveProgress: live.progress, progressLabel: live.progressLabel }
-        })
-      )
-      setPools(enriched)
+      // No `archived` param — archived pools are excluded by default and live
+      // in their own tab below.
+      const res = await fetch(`/api/pools?creator=${address?.toLowerCase()}&page=${currentPage}`)
+      if (!res.ok) throw new Error(t("fetchError"))
+      const json = await res.json()
+      const data: Pool[] = Array.isArray(json) ? json : (json.data ?? [])
+      setPools(data)
+      setTotal(json.total ?? data.length)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch pools")
+      setError(err instanceof Error ? err.message : t("fetchError"))
       setPools([])
+    } finally {
       setLoading(false)
     }
   }
 
-  const formatXlm = (amount: number | null | undefined) =>
-    amount ? `${amount.toFixed(2)} XLM` : "0 XLM"
+  // Client-side filtering by pool name
+  // Note: This filters only the currently loaded page (6 pools max).
+  // For a full cross-page search, we would need backend API support.
+  const filteredPools = searchTerm
+    ? pools.filter((pool) => pool.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    : pools
 
-  if (loading) return (
-    <div className="space-y-6">
-      <div><h2 className="text-3xl font-bold">My Groups</h2></div>
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+  const activeContent = loading ? (
+    <div
+      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+      aria-label={t("loadingLabel")}
+    >
+      {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+        <PoolCardSkeleton key={i} />
+      ))}
     </div>
-  )
-
-  if (error) return (
+  ) : error ? (
+    <Card className="p-6 bg-destructive/10 text-destructive">
+      <p>{error}</p>
+    </Card>
+  ) : (
     <div className="space-y-6">
-      <div><h2 className="text-3xl font-bold">My Groups</h2></div>
-      <Card className="p-6 bg-destructive/10 text-destructive"><p>{error}</p></Card>
+      {/* Deposits owed across every pool the wallet belongs to. Renders
+          nothing when there is nothing outstanding. */}
+      <BatchDepositPanel onDepositsComplete={() => loadPools(page)} />
+
+      {view === "calendar" ? (
+        <DepositCalendar />
+      ) : (
+        <>
+          {/* Search input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder={t("searchPlaceholder")}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {pools.length === 0 ? (
+            <EmptyState onCreateClick={onCreateClick} />
+          ) : filteredPools.length === 0 ? (
+            <Card className="p-12 flex flex-col items-center text-center gap-3">
+              <div className="rounded-full bg-muted p-3">
+                <Search className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="font-medium">{t("noSearchResultsTitle")}</p>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                {t.rich("noSearchResultsHint", {
+                  clear: (chunks) => (
+                    <button
+                      onClick={() => setSearchInput("")}
+                      className="text-primary hover:underline"
+                    >
+                      {chunks}
+                    </button>
+                  ),
+                })}
+              </p>
+            </Card>
+          ) : (
+            <>
+              <FirstPoolTooltip poolCount={pools.length} />
+
+              <motion.div
+                variants={container}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
+                {filteredPools.map((pool) => (
+                  <PoolCard key={pool.id} pool={pool} />
+                ))}
+              </motion.div>
+
+              {totalPages > 1 && (
+                <div className="flex flex-col items-center gap-3 mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    {t("showingRange", {
+                      from: page * PAGE_SIZE + 1,
+                      to: Math.min((page + 1) * PAGE_SIZE, total),
+                      total,
+                    })}
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setPage(page - 1)}
+                          aria-disabled={page === 0}
+                          className={
+                            page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"
+                          }
+                        />
+                      </PaginationItem>
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setPage(page + 1)}
+                          aria-disabled={page >= totalPages - 1}
+                          className={
+                            page >= totalPages - 1
+                              ? "pointer-events-none opacity-50"
+                              : "cursor-pointer"
+                          }
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
     </div>
   )
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-        className="flex items-center justify-between">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="flex flex-wrap items-center justify-between gap-3"
+      >
         <div>
-          <h2 className="text-3xl font-bold">My Groups</h2>
-          <p className="text-muted-foreground mt-1">
-            {pools.length === 0 ? "Manage your savings circles" : `${pools.length} active group${pools.length !== 1 ? "s" : ""}`}
-          </p>
+          <h2 className="text-3xl font-bold">{t("title")}</h2>
+          {loading ? (
+            <Skeleton className="h-4 w-40 mt-2" />
+          ) : (
+            <p className="text-muted-foreground mt-1">{t("activeGroupsCount", { count: total })}</p>
+          )}
         </div>
+
+        {/* Grid/calendar only applies to active groups — archived pools have no
+            upcoming deposits to put on a calendar. */}
+        {tab === "active" && (
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            value={view}
+            onValueChange={(next) => next && setView(next as "grid" | "calendar")}
+            aria-label={t("viewToggle.label")}
+          >
+            <ToggleGroupItem
+              value="grid"
+              aria-label={t("viewToggle.grid")}
+              data-testid="my-groups-view-grid"
+            >
+              <LayoutGrid className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">{t("viewToggle.grid")}</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="calendar"
+              aria-label={t("viewToggle.calendar")}
+              data-testid="my-groups-view-calendar"
+            >
+              <CalendarDays className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">{t("viewToggle.calendar")}</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}
       </motion.div>
 
-      {pools.length === 0 ? (
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
-          <Card className="p-12 text-center">
-            <div className="max-w-md mx-auto">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mx-auto mb-4">
-                <Users className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">No groups yet</h3>
-              <p className="text-muted-foreground mb-6">Create your first savings group or join an existing one</p>
-              <Button className="bg-primary hover:bg-primary/90" onClick={onCreateClick}>
-                Create Your First Group
-              </Button>
-            </div>
-          </Card>
-        </motion.div>
-      ) : (
-        <motion.div variants={container} initial="hidden" animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {pools.map((pool) => {
-            const totalSaved = pool.liveTotalSaved ?? pool.total_saved ?? 0
-            const progress = pool.liveProgress ?? pool.progress ?? 0
-            return (
-              <motion.div key={pool.id} variants={item}>
-                <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full flex flex-col">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-semibold mb-1">{pool.name}</h3>
-                      <Badge variant="secondary">{pool.type.charAt(0).toUpperCase() + pool.type.slice(1)}</Badge>
-                    </div>
-                    <Badge className="bg-primary/10 text-primary hover:bg-primary/20">{pool.status}</Badge>
-                  </div>
+      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="active" data-testid="my-groups-tab-active">
+            {tArchived("tabActive")}
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="gap-1.5" data-testid="my-groups-tab-archived">
+            <Archive className="size-3.5" aria-hidden="true" />
+            {tArchived("tabArchived")}
+          </TabsTrigger>
+        </TabsList>
 
-                  <div className="space-y-3 mb-4 flex-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground flex items-center gap-2">
-                        <Users className="h-4 w-4" />Members
-                      </span>
-                      <span className="font-medium">{pool.members_count}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4" />Total Saved
-                      </span>
-                      <span className="font-medium">{formatXlm(totalSaved)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        {pool.type === "rotational" ? "Frequency" : "Status"}
-                      </span>
-                      <span className="font-medium">{pool.frequency || pool.status}</span>
-                    </div>
-                  </div>
+        <TabsContent value="active">{activeContent}</TabsContent>
 
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-muted-foreground">Progress</span>
-                      <span className="font-medium">{progress.toFixed(1)}%</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress}%` }}
-                        transition={{ duration: 1, delay: 0.5 }}
-                        className="h-full bg-primary"
-                      />
-                    </div>
-                    {pool.progressLabel && (
-                      <p className="text-xs text-muted-foreground mt-1">{pool.progressLabel}</p>
-                    )}
-                  </div>
+        <TabsContent value="archived">
+          <ArchivedGroups address={address} enabled={tab === "archived"} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
 
-                  <Button className="w-full bg-transparent" variant="outline" asChild>
-                    <Link href={`/dashboard/group/${pool.id}`}>
-                      View Details <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                </Card>
-              </motion.div>
-            )
-          })}
-        </motion.div>
+// ── Archived tab ──────────────────────────────────────────────────────────────
+
+/**
+ * Compact list of the wallet's archived pools (issue #212).
+ *
+ * Fetched lazily — the request only fires once the tab is opened, so the
+ * common case of never looking at archived pools costs nothing. Uses its own
+ * `archivedPage` param so paging here does not disturb the active tab.
+ */
+function ArchivedGroups({ address, enabled }: { address: string | null; enabled: boolean }) {
+  const t = useTranslations("dashboard.archived")
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const [pools, setPools] = useState<ArchivedPool[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  const page = Math.max(0, parseInt(searchParams.get("archivedPage") || "0", 10))
+  const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  const setPage = useCallback(
+    (p: number) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("archivedPage", String(p))
+      router.push(`?${params.toString()}`, { scroll: false })
+    },
+    [router, searchParams]
+  )
+
+  useEffect(() => {
+    if (!enabled) return
+    if (!address) {
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError("")
+        const res = await fetch(
+          `/api/pools?creator=${address.toLowerCase()}&page=${page}&archived=only`
+        )
+        if (!res.ok) throw new Error(t("fetchError"))
+        const json = await res.json()
+        if (cancelled) return
+        const data: ArchivedPool[] = Array.isArray(json) ? json : (json.data ?? [])
+        setPools(data)
+        setTotal(json.total ?? data.length)
+      } catch (err) {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : t("fetchError"))
+        setPools([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [address, page, enabled, t])
+
+  if (loading) {
+    return (
+      <div className="space-y-3" aria-label={t("loadingLabel")}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 w-full rounded-xl" />
+        ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className="p-6 bg-destructive/10 text-destructive">
+        <p>{error}</p>
+      </Card>
+    )
+  }
+
+  if (pools.length === 0) {
+    return (
+      <Card className="p-12 flex flex-col items-center text-center gap-3">
+        <div className="rounded-full bg-muted p-3">
+          <Archive className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <p className="font-medium">{t("empty")}</p>
+        <p className="text-sm text-muted-foreground max-w-sm">{t("emptyHint")}</p>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">{t("count", { count: total })}</p>
+
+      <div className="space-y-3">
+        {pools.map((pool) => (
+          <ArchivedPoolCard key={pool.id} pool={pool} />
+        ))}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex flex-col items-center gap-3 mt-4">
+          <p className="text-sm text-muted-foreground">
+            {t("showingRange", {
+              from: page * PAGE_SIZE + 1,
+              to: Math.min((page + 1) * PAGE_SIZE, total),
+              total,
+            })}
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => setPage(page - 1)}
+                  aria-disabled={page === 0}
+                  className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => setPage(page + 1)}
+                  aria-disabled={page >= totalPages - 1}
+                  className={
+                    page >= totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
       )}
     </div>
   )

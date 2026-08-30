@@ -1,0 +1,313 @@
+"use client"
+
+import { use, useCallback, useEffect, useRef, useState } from "react"
+import { useTranslations } from "next-intl"
+import dynamic from "next/dynamic"
+import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+import { GroupDetails } from "@/components/group/group-details"
+import { GroupMembers } from "@/components/group/group-members"
+import { GroupActions } from "@/components/group/group-actions"
+import { ArchivedPoolBanner, ArchivePoolButton } from "@/components/group/archived-pool-banner"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ArrowLeft, LayoutDashboard, HandCoins } from "lucide-react"
+import { Link } from "@/i18n/navigation"
+import { fetchIsPaused, fetchPoolAdmin } from "@/hooks/useJointSaveContracts"
+import { useStellar } from "@/components/web3-provider"
+import { useRecentPools } from "@/hooks/useRecentPools"
+import { ErrorBoundary, SectionErrorBoundary } from "@/components/error-boundary"
+import type { ArchiveReason } from "@/lib/archival"
+import {
+  GroupActivitySkeleton,
+  YieldDashboardSkeleton,
+  GroupPageSkeleton,
+} from "@/components/ui/loading-skeletons"
+
+// Heavy components dynamic lazy loading with skeleton fallbacks
+const GroupActivity = dynamic(
+  () => import("@/components/group/group-activity").then((mod) => mod.GroupActivity),
+  { ssr: false, loading: () => <GroupActivitySkeleton /> }
+)
+
+const YieldDashboard = dynamic(
+  () => import("@/components/group/yield-dashboard").then((mod) => mod.YieldDashboard),
+  { ssr: false, loading: () => <YieldDashboardSkeleton /> }
+)
+
+function AdminAuditLogLoading() {
+  const t = useTranslations("group.page")
+  return <div className="p-4 bg-muted/20 animate-pulse rounded-lg h-32">{t("loadingAuditLog")}</div>
+}
+
+const AdminAuditLog = dynamic(
+  () => import("@/components/group/admin-audit-log").then((mod) => mod.AdminAuditLog),
+  { ssr: false, loading: AdminAuditLogLoading }
+)
+
+function AdminActionsLogLoading() {
+  const t = useTranslations("group.page")
+  return (
+    <div className="p-4 bg-muted/20 animate-pulse rounded-lg h-32">{t("loadingAdminActions")}</div>
+  )
+}
+
+const AdminActionsLog = dynamic(
+  () => import("@/components/group/admin-actions-log").then((mod) => mod.AdminActionsLog),
+  { ssr: false, loading: AdminActionsLogLoading }
+)
+
+function LendingTabLoading() {
+  const t = useTranslations("group.page")
+  return <div className="p-4 bg-muted/20 animate-pulse rounded-lg h-48">{t("loadingLending")}</div>
+}
+
+const LendingTab = dynamic(
+  () => import("@/components/lending/lending-tab").then((mod) => mod.LendingTab),
+  { ssr: false, loading: LendingTabLoading }
+)
+
+interface Pool {
+  id: string
+  name: string
+  type: "rotational" | "target" | "flexible"
+  contract_address: string
+  token_address: string
+  creator_address: string
+  /** Pool member list returned by /api/pools — used for lending eligibility checks */
+  pool_members?: { member_address: string }[]
+  archived_at?: string | null
+  archive_reason?: ArchiveReason | null
+}
+
+const isPendingAddress = (addr: string) => !addr || addr === "pending_deployment"
+
+export default function GroupPage({
+  params,
+}: {
+  params: Promise<{ id: string }> | { id: string }
+}) {
+  const t = useTranslations("group.page")
+  const tArchived = useTranslations("group.archived")
+  // Support both async params (Next 15+) and plain object params
+  const resolvedParams = params instanceof Promise ? use(params) : (params as { id: string })
+  const id = resolvedParams.id
+  const { address } = useStellar()
+  const { trackVisit } = useRecentPools(address)
+  const [pool, setPool] = useState<Pool | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [isPaused, setIsPaused] = useState(false)
+  const [poolAdmin, setPoolAdmin] = useState<string | null>(null)
+  const trackedRef = useRef(false)
+
+  const loadPool = useCallback(() => {
+    fetch(`/api/pools?id=${id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setPool(data)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [id])
+
+  useEffect(() => {
+    loadPool()
+  }, [loadPool])
+
+  // Track visit when pool data loads
+  useEffect(() => {
+    if (pool && !loading && !trackedRef.current) {
+      trackedRef.current = true
+      trackVisit({
+        id: pool.id,
+        name: pool.name,
+        type: pool.type,
+        contract_address: pool.contract_address,
+      })
+    }
+    if (!pool || loading) {
+      trackedRef.current = false
+    }
+  }, [pool, loading, trackVisit])
+
+  const refreshPoolState = useCallback(async () => {
+    if (!pool || isPendingAddress(pool.contract_address)) return
+    try {
+      const [paused, admin] = await Promise.all([
+        fetchIsPaused(pool.contract_address),
+        fetchPoolAdmin(pool.contract_address),
+      ])
+      setIsPaused(paused)
+      setPoolAdmin(admin)
+    } catch {}
+  }, [pool])
+
+  useEffect(() => {
+    refreshPoolState()
+  }, [refreshPoolState])
+
+  if (loading) return <GroupPageSkeleton />
+  if (!pool) return <div className="p-8 text-center text-muted-foreground">{t("poolNotFound")}</div>
+
+  const cacheKey =
+    pool.contract_address && pool.contract_address !== "pending_deployment"
+      ? pool.contract_address
+      : pool.id
+
+  // Derive membership and member list from pool_members array
+  const poolMemberAddresses: string[] = pool.pool_members?.map((m) => m.member_address) ?? []
+  const isMember =
+    !!address &&
+    (poolMemberAddresses.some((m) => m.toLowerCase() === address.toLowerCase()) ||
+      pool.creator_address?.toLowerCase() === address.toLowerCase())
+
+  const isAdmin =
+    !!address &&
+    (poolAdmin?.toLowerCase() === address.toLowerCase() ||
+      pool.creator_address?.toLowerCase() === address.toLowerCase())
+
+  // An archived pool is read-only: the whole actions column and the lending
+  // marketplace come off, rather than each button being disabled individually.
+  // The API refuses these writes too (lib/server/archival-guard.ts) — hiding
+  // the controls alone would not be enforcement.
+  const archived = !!pool.archived_at
+
+  return (
+    <ErrorBoundary sectionName={t("sectionGroupDetail")} walletAddress={address}>
+      <div className="min-h-screen bg-background">
+        <DashboardHeader />
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Button variant="ghost" className="mb-6" asChild>
+            <Link href="/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              {t("backToDashboard")}
+            </Link>
+          </Button>
+
+          {archived && (
+            <ArchivedPoolBanner
+              groupId={id}
+              archivedAt={pool.archived_at!}
+              archiveReason={pool.archive_reason ?? null}
+              isAdmin={isAdmin}
+              adminAddress={address}
+              onRestored={loadPool}
+            />
+          )}
+
+          {/* Top-level Overview / Lending tabs */}
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="overview" className="gap-1.5">
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                {t("overview")}
+              </TabsTrigger>
+              {!archived && (
+                <TabsTrigger value="lending" className="gap-1.5">
+                  <HandCoins className="h-3.5 w-3.5" />
+                  {t("lending")}
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            {/* ── Overview tab — existing pool content ────────────────── */}
+            <TabsContent value="overview">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <SectionErrorBoundary
+                    sectionName={t("sectionPoolDetails")}
+                    walletAddress={address}
+                  >
+                    <GroupDetails groupId={id} contractAddress={cacheKey} poolAdmin={poolAdmin} />
+                  </SectionErrorBoundary>
+                  <SectionErrorBoundary
+                    sectionName={t("sectionActivityFeed")}
+                    walletAddress={address}
+                  >
+                    {archived && (
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {tArchived("historicalActivity")}
+                      </p>
+                    )}
+                    <GroupActivity groupId={id} contractAddress={cacheKey} startLedger={0} />
+                  </SectionErrorBoundary>
+                  {/* Admin audit log with CSV export — only shown to the pool creator */}
+                  <SectionErrorBoundary sectionName={t("sectionAuditLog")} walletAddress={address}>
+                    <AdminAuditLog groupId={id} creatorAddress={pool.creator_address} />
+                  </SectionErrorBoundary>
+                  {/* Admin actions log — visible to all pool members */}
+                  <SectionErrorBoundary
+                    sectionName={t("sectionAdminActions")}
+                    walletAddress={address}
+                  >
+                    <AdminActionsLog groupId={id} />
+                  </SectionErrorBoundary>
+                </div>
+
+                <div className="space-y-6">
+                  {!archived && (
+                    <SectionErrorBoundary
+                      sectionName={t("sectionGroupActions")}
+                      walletAddress={address}
+                    >
+                      <GroupActions
+                        groupId={id}
+                        poolAddress={pool.contract_address}
+                        poolType={pool.type}
+                        tokenAddress={pool.token_address}
+                        creatorAddress={pool.creator_address}
+                        isPaused={isPaused}
+                        poolAdmin={poolAdmin}
+                        onPauseChange={refreshPoolState}
+                      />
+                      {isAdmin && (
+                        <div className="mt-4">
+                          <ArchivePoolButton
+                            groupId={id}
+                            adminAddress={address}
+                            onArchived={loadPool}
+                          />
+                        </div>
+                      )}
+                    </SectionErrorBoundary>
+                  )}
+                  {pool.type === "flexible" && !archived && (
+                    <SectionErrorBoundary
+                      sectionName={t("sectionYieldDashboard")}
+                      walletAddress={address}
+                    >
+                      <YieldDashboard poolAddress={pool.contract_address} />
+                    </SectionErrorBoundary>
+                  )}
+                  <SectionErrorBoundary
+                    sectionName={t("sectionMembersList")}
+                    walletAddress={address}
+                  >
+                    <GroupMembers groupId={id} contractAddress={cacheKey} poolType={pool.type} />
+                  </SectionErrorBoundary>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* ── Lending tab — P2P microloan marketplace ──────────────── */}
+            {/* Archived pools take no new loans, so the tab comes off entirely
+                rather than rendering a marketplace whose actions would 409. */}
+            {!archived && (
+              <TabsContent value="lending">
+                <SectionErrorBoundary sectionName={t("lending")} walletAddress={address}>
+                  <LendingTab
+                    poolId={cacheKey}
+                    tokenAddress={pool.token_address}
+                    poolMembers={poolMemberAddresses}
+                    isMember={isMember}
+                    isAdmin={isAdmin}
+                    walletAddress={address}
+                  />
+                </SectionErrorBoundary>
+              </TabsContent>
+            )}
+          </Tabs>
+        </main>
+      </div>
+    </ErrorBoundary>
+  )
+}

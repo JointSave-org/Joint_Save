@@ -1,8 +1,13 @@
-import { supabase, savePoolToDatabase } from '@/lib/supabase'
-import { NextRequest, NextResponse } from 'next/server'
+import { supabase, savePoolToDatabase } from "@/lib/supabase"
+import { NextRequest, NextResponse } from "next/server"
+import { readLimiter, writeLimiter } from "@/lib/rate-limit"
+import { jsonPublic, jsonPrivate } from "@/lib/cache-headers"
+import { blockIfArchived } from "@/lib/server/archival-guard"
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = writeLimiter(req)
+    if (limited) return limited
     const body = await req.json()
 
     const {
@@ -12,6 +17,8 @@ export async function POST(req: NextRequest) {
       creatorAddress,
       poolAddress,
       tokenAddress,
+      tokenSymbol,
+      tokenDecimals,
       members,
       contributionAmount,
       roundDuration,
@@ -25,9 +32,19 @@ export async function POST(req: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!name || !poolType || !creatorAddress || !poolAddress || !tokenAddress || !members?.length) {
+    if (
+      !name ||
+      !poolType ||
+      !creatorAddress ||
+      !poolAddress ||
+      !tokenAddress ||
+      !members?.length
+    ) {
       return NextResponse.json(
-        { error: 'Missing required fields. Need: name, poolType, creatorAddress, poolAddress, tokenAddress, members' },
+        {
+          error:
+            "Missing required fields. Need: name, poolType, creatorAddress, poolAddress, tokenAddress, members",
+        },
         { status: 400 }
       )
     }
@@ -40,6 +57,8 @@ export async function POST(req: NextRequest) {
       creatorAddress,
       contractAddress: poolAddress,
       tokenAddress,
+      tokenSymbol,
+      tokenDecimals,
       members,
       contributionAmount,
       roundDuration,
@@ -52,18 +71,15 @@ export async function POST(req: NextRequest) {
     })
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.error || 'Failed to save pool' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: result.error || "Failed to save pool" }, { status: 500 })
     }
 
     // Log the pool creation activity with tx hash
     if (txHash && result.poolId) {
-      await supabase.from('pool_activity').insert([
+      await supabase.from("pool_activity").insert([
         {
           pool_id: result.poolId,
-          activity_type: 'pool_created',
+          activity_type: "pool_created",
           user_address: creatorAddress.toLowerCase(),
           description: `${poolType} pool created`,
           tx_hash: txHash,
@@ -73,9 +89,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result.pool, { status: 201 })
   } catch (error) {
-    console.error('Pool creation error:', error)
+    console.error("Pool creation error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     )
   }
@@ -83,14 +99,26 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const poolId = req.nextUrl.searchParams.get('id')
-    const creatorAddress = req.nextUrl.searchParams.get('creator')
+    const limited = readLimiter(req)
+    if (limited) return limited
+    const poolId = req.nextUrl.searchParams.get("id")
+    const creatorAddress = req.nextUrl.searchParams.get("creator")
+    const contractAddress = req.nextUrl.searchParams.get("contract")
+    const memberAddress = req.nextUrl.searchParams.get("member")
+    // Archived pools are excluded from every list view unless asked for.
+    // `archived=true` includes them alongside active ones; `archived=only`
+    // returns just the archived set, which is what the My Groups "Archived"
+    // tab and the Explore toggle use.
+    const archivedParam = req.nextUrl.searchParams.get("archived")
+    const includeArchived = archivedParam === "true" || archivedParam === "only"
+    const archivedOnly = archivedParam === "only"
 
     if (poolId) {
       // Fetch single pool by ID
       const { data, error } = await supabase
-        .from('pools')
-        .select(`
+        .from("pools")
+        .select(
+          `
           *,
           pool_members (
             id,
@@ -107,49 +135,141 @@ export async function GET(req: NextRequest) {
             created_at,
             tx_hash
           )
-        `)
-        .eq('id', poolId)
+        `
+        )
+        .eq("id", poolId)
         .single()
 
       if (error) {
-        return NextResponse.json(
-          { error: 'Pool not found' },
-          { status: 404 }
-        )
+        return NextResponse.json({ error: "Pool not found" }, { status: 404 })
       }
 
-      return NextResponse.json(data)
-    } else if (creatorAddress) {
-      // Fetch all pools by creator
+      return jsonPublic(data)
+    } else if (contractAddress) {
+      // Fetch single pool by contract address
       const { data, error } = await supabase
-        .from('pools')
-        .select('*')
-        .eq('creator_address', creatorAddress.toLowerCase())
-        .order('created_at', { ascending: false })
+        .from("pools")
+        .select(
+          `
+          *,
+          pool_members (
+            id,
+            member_address,
+            contribution_amount,
+            status
+          ),
+          pool_activity (
+            id,
+            activity_type,
+            user_address,
+            amount,
+            description,
+            created_at,
+            tx_hash
+          )
+        `
+        )
+        .eq("contract_address", contractAddress)
+        .single()
+
+      if (error) {
+        return NextResponse.json({ error: "Pool not found" }, { status: 404 })
+      }
+
+      return jsonPublic(data)
+    } else if (memberAddress) {
+      // Every pool the wallet belongs to (created *or* joined), unpaginated —
+      // the batch-deposit panel has to consider all of them to decide which
+      // still owe a deposit this round. Membership lives in `pool_members`,
+      // which the creator is also inserted into at pool-creation time.
+      const { data, error } = await supabase
+        .from("pool_members")
+        .select("pools(*)")
+        .eq("member_address", memberAddress.toLowerCase())
 
       if (error) {
         throw error
       }
 
-      return NextResponse.json(data || [])
+      // Supabase types the embedded relation loosely; each row carries the
+      // joined pool (or null if it was deleted).
+      const pools = (data || [])
+        .map((row: { pools: unknown }) => row.pools)
+        .filter((pool): pool is Record<string, unknown> => !!pool)
+        // Filtered here rather than in the query: `pools` is an embedded
+        // relation, so PostgREST cannot filter it without dropping the
+        // membership rows the caller is paginating over.
+        .filter((pool) => {
+          const isArchived = !!pool.archived_at
+          if (archivedOnly) return isArchived
+          return includeArchived || !isArchived
+        })
+
+      // Wallet-scoped, like the `creator=` branch — never shared-cached.
+      return jsonPrivate({ data: pools, total: pools.length })
+    } else if (creatorAddress) {
+      const PAGE_SIZE = 6
+      const page = Math.max(0, parseInt(req.nextUrl.searchParams.get("page") || "0", 10))
+      const from = page * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+
+      let query = supabase
+        .from("pools")
+        .select("*", { count: "exact" })
+        .eq("creator_address", creatorAddress.toLowerCase())
+
+      if (archivedOnly) query = query.not("archived_at", "is", null)
+      else if (!includeArchived) query = query.is("archived_at", null)
+
+      const { data, error, count } = await query
+        .order("created_at", { ascending: false })
+        .range(from, to)
+
+      if (error) {
+        throw error
+      }
+
+      return jsonPrivate({ data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE })
+    } else if (req.nextUrl.searchParams.get("explore") !== null) {
+      // Explore feed — all pools, paginated, newest first, for prospective members.
+      const PAGE_SIZE = 6
+      const page = Math.max(0, parseInt(req.nextUrl.searchParams.get("page") || "0", 10))
+      const from = page * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+
+      let query = supabase.from("pools").select("*", { count: "exact" })
+
+      if (archivedOnly) query = query.not("archived_at", "is", null)
+      else if (!includeArchived) query = query.is("archived_at", null)
+
+      const { data, error, count } = await query
+        .order("created_at", { ascending: false })
+        .range(from, to)
+
+      if (error) {
+        throw error
+      }
+
+      return jsonPublic({ data: data || [], total: count ?? 0, page, pageSize: PAGE_SIZE })
     } else {
       // Fetch all pools
-      const { data, error } = await supabase
-        .from('pools')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50)
+      let query = supabase.from("pools").select("*")
+
+      if (archivedOnly) query = query.not("archived_at", "is", null)
+      else if (!includeArchived) query = query.is("archived_at", null)
+
+      const { data, error } = await query.order("created_at", { ascending: false }).limit(50)
 
       if (error) {
         throw error
       }
 
-      return NextResponse.json(data || [])
+      return jsonPublic(data || [])
     }
   } catch (error) {
-    console.error('Pool fetch error:', error)
+    console.error("Pool fetch error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     )
   }
@@ -157,46 +277,78 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const limited = writeLimiter(req)
+    if (limited) return limited
     const body = await req.json()
-    const poolId = req.nextUrl.searchParams.get('id') || body.id
+    const poolId = req.nextUrl.searchParams.get("id") || body.id
 
     if (!poolId) {
-      return NextResponse.json({ error: 'Pool ID required' }, { status: 400 })
+      return NextResponse.json({ error: "Pool ID required" }, { status: 400 })
     }
+
+    // Archived pools are read-only. Enforced here and not only in the UI, so a
+    // stale tab or a direct request cannot write to a pool that has left
+    // discovery. Un-archiving goes through PUT /api/pools/[id]/unarchive.
+    const archived = await blockIfArchived(poolId)
+    if (archived) return archived
 
     // If body contains an `activity` object, log it to pool_activity
     if (body.activity) {
-      const { activity_type, user_address, amount, tx_hash } = body.activity
-      const { error: actErr } = await supabase.from('pool_activity').insert([{
-        pool_id: poolId,
-        activity_type,
-        user_address: user_address?.toLowerCase() || null,
-        amount: amount || null,
-        tx_hash: tx_hash || null,
-        description: `${activity_type} transaction`,
-      }])
-      if (actErr) console.error('Activity log error:', actErr)
+      const { activity_type, user_address, amount, token_amount, tx_hash } = body.activity
+      const { error: actErr } = await supabase.from("pool_activity").insert([
+        {
+          pool_id: poolId,
+          activity_type,
+          user_address: user_address?.toLowerCase() || null,
+          amount: amount || null,
+          token_amount: token_amount ?? amount ?? null,
+          tx_hash: tx_hash || null,
+          description: `${activity_type} transaction`,
+        },
+      ])
+      if (actErr) console.error("Activity log error:", actErr)
+
+      // Synchronize database pool_members table with on-chain membership changes
+      if (activity_type === "member_added" && body.memberAddress) {
+        const { error: addErr } = await supabase.from("pool_members").insert([
+          {
+            pool_id: poolId,
+            member_address: body.memberAddress.toLowerCase(),
+            contribution_amount: 0,
+            status: "pending",
+          },
+        ])
+        if (addErr) console.error("Failed to add member in DB:", addErr)
+      } else if (activity_type === "member_removed" && body.memberAddress) {
+        const { error: remErr } = await supabase
+          .from("pool_members")
+          .delete()
+          .eq("pool_id", poolId)
+          .eq("member_address", body.memberAddress.toLowerCase())
+        if (remErr) console.error("Failed to remove member in DB:", remErr)
+      }
+
       return NextResponse.json({ success: true })
     }
 
     // Otherwise update pool fields
     const { id: _id, activity: _activity, ...updateFields } = body
     const { data, error } = await supabase
-      .from('pools')
+      .from("pools")
       .update(updateFields)
-      .eq('id', poolId)
+      .eq("id", poolId)
       .select()
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to update pool' }, { status: 500 })
+      return NextResponse.json({ error: "Failed to update pool" }, { status: 500 })
     }
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Pool update error:', error)
+    console.error("Pool update error:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     )
   }

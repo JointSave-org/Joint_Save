@@ -19,6 +19,14 @@ FACTORY_ID=$(stellar contract deploy \
 echo "Factory contract ID: $FACTORY_ID"
 
 echo ""
+echo "Deploying Reputation Tracker..."
+REPUTATION_ID=$(stellar contract deploy \
+  --wasm target/wasm32v1-none/release/jointsave_reputation.wasm \
+  --source "$SOURCE" \
+  --network "$NETWORK")
+echo "Reputation Tracker contract ID: $REPUTATION_ID"
+
+echo ""
 echo "Uploading Rotational Pool wasm..."
 ROTATIONAL_WASM_HASH=$(stellar contract upload \
   --wasm target/wasm32v1-none/release/jointsave_rotational.wasm \
@@ -60,6 +68,7 @@ echo "Factory initialized."
 echo ""
 echo "Deployment complete. Update your .env with:"
 echo "NEXT_PUBLIC_FACTORY_CONTRACT_ID=$FACTORY_ID"
+echo "NEXT_PUBLIC_REPUTATION_CONTRACT_ID=$REPUTATION_ID"
 echo "NEXT_PUBLIC_ROTATIONAL_WASM_HASH=$ROTATIONAL_WASM_HASH"
 echo "NEXT_PUBLIC_TARGET_WASM_HASH=$TARGET_WASM_HASH"
 echo "NEXT_PUBLIC_FLEXIBLE_WASM_HASH=$FLEXIBLE_WASM_HASH"

@@ -5,6 +5,7 @@
 JointSave is a decentralized community savings platform built on Stellar's Soroban smart contract platform. It enables trusted groups to automate contributions, payouts, and transparency through blockchain technology, solving traditional problems in informal savings groups like missed payments, fraud, and lack of transparency.
 
 The platform supports three distinct savings models:
+
 - Rotational Mode: Members take turns receiving the full pool payout
 - Target Pool Mode: Groups save toward a shared financial goal
 - Flexible Pool Mode: Members deposit anytime with optional yield distribution
@@ -14,48 +15,59 @@ The platform supports three distinct savings models:
 ### High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Frontend (Next.js)                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │   Landing    │  │  Dashboard   │  │ Group Detail │     │
-│  │     Page     │  │     Page     │  │     Page     │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │         Stellar Wallets Kit Integration              │  │
-│  │  (Freighter, xBull, Albedo, Lobstr)                 │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Stellar RPC / Horizon API                      │
-│         (soroban-testnet.stellar.org)                       │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│           Soroban Smart Contracts (Rust)                    │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │   Factory    │  │  Rotational  │  │    Target    │     │
-│  │   Contract   │  │     Pool     │  │     Pool     │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-│                    ┌──────────────┐                         │
-│                    │   Flexible   │                         │
-│                    │     Pool     │                         │
-│                    └──────────────┘                         │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  Supabase (PostgreSQL)                      │
-│         (Off-chain metadata & user profiles)                │
-└─────────────────────────────────────────────────────────────┘
+  User (Browser / Wallet)
+          │
+          ▼
+┌─────────────────────────────────────────────────────────┐
+│                   Frontend  ·  Next.js 14               │
+│                                                         │
+│   Landing Page   │   Dashboard   │   Group Detail       │
+│   ─────────────────────────────────────────────         │
+│   Stellar Wallets Kit  (Freighter · xBull · Lobstr)     │
+└────────────────────────┬────────────────────────────────┘
+                         │  signed transactions / view calls
+          ┌──────────────┴──────────────┐
+          ▼                             ▼
+┌──────────────────┐         ┌─────────────────────┐
+│  Stellar RPC     │         │   Supabase           │
+│  (Soroban)       │         │   (PostgreSQL)        │
+│                  │         │                      │
+│  simulate tx     │         │  pool metadata       │
+│  send tx         │         │  member lists        │
+│  view calls      │         │  activity feed       │
+└────────┬─────────┘         └─────────────────────┘
+         │  on-chain execution
+         ▼
+┌─────────────────────────────────────────────────────────┐
+│               Soroban Smart Contracts  ·  Rust/WASM     │
+│                                                         │
+│  ┌─────────────┐  ┌────────────┐  ┌────────────┐       │
+│  │   Factory   │  │ Rotational │  │   Target   │       │
+│  │  (registry) │  │    Pool    │  │    Pool    │       │
+│  └─────────────┘  └────────────┘  └────────────┘       │
+│                        ┌────────────┐                   │
+│                        │  Flexible  │                   │
+│                        │    Pool    │                   │
+│                        └────────────┘                   │
+└─────────────────────────────────────────────────────────┘
 ```
+
+**Data flow summary:**
+
+| Step           | What happens                                                 |
+| -------------- | ------------------------------------------------------------ |
+| 1. User action | User clicks deposit/withdraw/create in the frontend          |
+| 2. Build tx    | Frontend builds a Soroban transaction via Stellar SDK        |
+| 3. Sign        | Stellar Wallets Kit prompts user's wallet to sign            |
+| 4. Submit      | Signed tx sent to Stellar RPC; result polled until confirmed |
+| 5. On-chain    | Smart contract executes, updates balances & emits events     |
+| 6. Off-chain   | Activity recorded in Supabase for fast UI queries            |
+| 7. Refresh     | Frontend re-fetches on-chain state and updates UI            |
 
 ### Technology Stack
 
 Frontend:
+
 - Next.js 14 (App Router)
 - React 19
 - TypeScript
@@ -66,18 +78,21 @@ Frontend:
 - Supabase client
 
 Smart Contracts:
+
 - Rust (Soroban SDK)
 - WASM compilation target
 - Stellar testnet deployment
 
 Infrastructure:
+
 - Vercel (frontend hosting)
 - GitHub Actions (CI/CD)
 - Supabase (database)
 - Stellar Testnet
 
-
 ## Smart Contract Layer
+
+> For the complete API reference (functions, events, storage keys, error conditions, and CLI examples) see **[docs/contract-api.md](docs/contract-api.md)**.
 
 ### Factory Contract
 
@@ -86,6 +101,7 @@ The Factory contract acts as the central registry for all deployed pool contract
 Contract Address: `CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI`
 
 Key Functions:
+
 - `initialize(admin, token, treasury)`: One-time setup after deployment
 - `register_rotational(caller, pool_id)`: Register a deployed rotational pool
 - `register_target(caller, pool_id)`: Register a deployed target pool
@@ -94,6 +110,7 @@ Key Functions:
 - `all_rotational()`, `all_target()`, `all_flexible()`: Query registered pools
 
 Storage:
+
 - Admin address
 - Token address (native XLM or custom token)
 - Treasury address
@@ -106,12 +123,14 @@ Members take turns receiving the full pool payout. Each round has a fixed deposi
 WASM Hash: `d350a325d8734263a3d7150c875555d8956e13a527fb3497d5141b8b3f3d2c74`
 
 Key Functions:
+
 - `initialize(token, members, deposit_amount, round_duration, treasury_fee_bps, relayer_fee_bps, treasury)`: Setup pool parameters
 - `deposit(member)`: Member deposits their fixed contribution for current round
 - `trigger_payout(relayer)`: Execute payout when round duration expires
 - `is_active()`, `current_round()`, `members()`, `has_deposited(member)`, `next_payout_time()`: View functions
 
 Lifecycle:
+
 1. Initialize with member list and deposit amount
 2. Each round: members deposit fixed amount
 3. After round_duration: trigger_payout distributes funds to current beneficiary
@@ -119,6 +138,7 @@ Lifecycle:
 5. Pool becomes inactive after final round
 
 Fee Structure:
+
 - Treasury fee (basis points): deducted from total collected
 - Relayer fee (basis points): paid to caller of trigger_payout
 
@@ -129,6 +149,7 @@ Groups save toward a shared financial goal. Funds unlock when target is reached 
 WASM Hash: `133a62226501fc5443e70007d79deeeb0b33fdf8c85c7fcd3cf16293bb5c7292`
 
 Key Functions:
+
 - `initialize(token, admin, members, target_amount, deadline)`: Setup goal and deadline
 - `deposit(member, amount)`: Member contributes any amount toward target
 - `withdraw(member)`: Withdraw proportional share after target is reached
@@ -136,6 +157,7 @@ Key Functions:
 - `balance_of(member)`, `total_deposited()`, `is_unlocked()`, `target_amount()`: View functions
 
 Lifecycle:
+
 1. Initialize with target amount and deadline (ledger sequence)
 2. Members deposit variable amounts
 3. Auto-unlock when total_deposited >= target_amount
@@ -149,6 +171,7 @@ Members deposit anytime with optional yield distribution. Most flexible savings 
 WASM Hash: `df6ff088fd79f13d8d03e72160434517fdb4a83b8c7bfdd887be4369805e0d6b`
 
 Key Functions:
+
 - `initialize(token, members, minimum_deposit, withdrawal_fee_bps, yield_enabled, treasury, treasury_fee_bps)`: Setup pool parameters
 - `deposit(member, amount)`: Member deposits any amount >= minimum
 - `withdraw(member, amount)`: Member withdraws with fee deduction
@@ -156,11 +179,71 @@ Key Functions:
 - `balance_of(member)`, `total_balance()`, `members()`, `is_active()`: View functions
 
 Features:
+
 - Variable deposit amounts (must meet minimum)
 - Withdrawal fees (basis points)
 - Optional yield distribution from external DeFi integrations
 - Proportional yield allocation based on balance
 
+### Storage TTL (Time-To-Live) Management
+
+To prevent critical contract state expiry under Soroban's state archival rules, all persistent storage entries utilize a Time-To-Live (TTL) management strategy:
+
+- **Bumping Thresholds**:
+  - `LEDGER_THRESHOLD = 518400` (~30 days): Bumping is triggered if the remaining TTL falls below this sequence count.
+  - `LEDGER_BUMP = 2592000` (~150 days): Storage entries have their TTL extended to this maximum.
+
+- **Optimized O(1) Automatic Bumping**:
+  To prevent gas exhaustion and out-of-gas (DoS) vulnerabilities on hot transaction paths, automatic state bumping is highly optimized:
+  - Configuration/global keys are bumped collectively in an O(1) helper function `bump_config_state_internal` at the end of every state-changing method.
+  - Member-specific keys (like individual `Balance` or transient flags like `HasDeposited`) are bumped individually in O(1) time within the methods that modify them (e.g. `deposit`, `withdraw`).
+
+- **Administrative Sweep**:
+  - Each contract exposes a public `bump_state(env: Env)` endpoint with no authentication required.
+  - Calling this sweeps the contract, executing an O(N) loop to extend the TTL of all configuration keys and all registered member balance keys. This is useful for reviving long-lived pools that have had no user interaction for a long period.
+
+- **Frontend Exposing & Warnings**:
+  - The frontend caches and tracks `ttlDays` using the centralized `PoolDataProvider` context.
+  - If a pool's storage lease is close to expiry (TTL < 7 days), the pool details view displays a warning alert banner with an "Extend Storage" button to allow users to trigger the manual `bump_state` sweep transaction.
+
+## Constants Module
+
+All platform-wide configuration values live in a single file:
+
+```
+frontend/lib/constants.ts
+```
+
+This is the single source of truth for every tunable number in the frontend. To change a platform setting — for example the signing timeout or the treasury fee default — edit only this file. Nothing else needs to be touched.
+
+### Domain Groups
+
+| Group                  | Constants                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Pool Configuration** | `MAX_POOL_MEMBERS`, `MIN_POOL_MEMBERS`, `DEFAULT_TREASURY_FEE_BPS`, `DEFAULT_RELAYER_FEE_BPS`          |
+| **Timing**             | `TX_TIMEOUT`, `STALE_TIME_MS`, `SIGN_TIMEOUT_MS`, `RECENT_DUPLICATE_WINDOW_MS`, `DROPPED_TX_WINDOW_MS` |
+| **Rate Limiting**      | `RATE_LIMIT_WINDOW_MS`, `READ_RATE_LIMIT`, `WRITE_RATE_LIMIT`                                          |
+| **UI**                 | `NOTIFICATION_BADGE_MAX`                                                                               |
+| **Validation**         | `MAX_CSV_ROWS`, `MAX_NAME_LENGTH`, `MAX_DESCRIPTION_LENGTH`, `MAX_DEADLINE_DAYS`                       |
+
+### Usage
+
+Always import with named imports:
+
+```typescript
+import { TX_TIMEOUT, STALE_TIME_MS, MAX_POOL_MEMBERS } from "@/lib/constants";
+```
+
+Every constant has a JSDoc comment that explains its purpose, units, and reasoning. Units are called out explicitly (seconds vs milliseconds, basis points vs percent) to prevent conversion mistakes.
+
+### Adding a New Constant
+
+1. Add the value to `frontend/lib/constants.ts` in the appropriate domain group.
+2. Give it a JSDoc comment explaining purpose and units.
+3. Use `as const` so TypeScript narrows the type to the literal value.
+4. Import it by name in the file that needs it — never re-declare it inline.
+
+---
 
 ## Frontend Architecture
 
@@ -222,6 +305,7 @@ frontend/
 ### Key Components
 
 Landing Page:
+
 - Hero section with CTA
 - Features showcase
 - How it works explanation
@@ -229,17 +313,18 @@ Landing Page:
 - Footer with links
 
 Dashboard:
+
 - Tab navigation (My Groups, Create Group, Transactions, Profile)
 - My Groups: displays user's pools with live on-chain balances
 - Profile: real stats derived from DB queries and on-chain data
 - Create Group: type selection and form routing
 
 Group Detail:
+
 - Live on-chain state display (balance, status, members)
 - Action buttons (deposit, withdraw, trigger payout)
 - Member list with contribution tracking
 - Activity feed from Supabase
-
 
 ## Contract Interaction Layer
 
@@ -248,6 +333,7 @@ Group Detail:
 The central hook for all blockchain interactions. Located at `frontend/hooks/useJointSaveContracts.ts`.
 
 Key Features:
+
 - Deploy pool contracts from WASM hashes
 - Initialize pools with parameters
 - Register pools with factory
@@ -259,40 +345,48 @@ Key Features:
 ### Deployment Flow
 
 1. Deploy Pool Contract:
+
    ```typescript
-   const { deploy } = useDeployPool()
-   const contractId = await deploy('rotational') // or 'target', 'flexible'
+   const { deploy } = useDeployPool();
+   const contractId = await deploy("rotational"); // or 'target', 'flexible'
    ```
    - Uses `Operation.createCustomContract` with WASM hash
    - Generates random salt for unique contract ID
    - Returns new contract address
 
 2. Initialize Pool:
+
    ```typescript
-   const { initRotational } = useInitializePool()
+   const { initRotational } = useInitializePool();
    await initRotational(contractId, {
-     token, members, depositAmount, roundDuration,
-     treasuryFeeBps, relayerFeeBps, treasury
-   })
+     token,
+     members,
+     depositAmount,
+     roundDuration,
+     treasuryFeeBps,
+     relayerFeeBps,
+     treasury,
+   });
    ```
    - Calls contract's `initialize` method
    - Sets up pool parameters in contract storage
 
 3. Register with Factory:
+
    ```typescript
-   const { register } = useRegisterPool('rotational')
-   await register(callerAddress, contractId)
+   const { register } = useRegisterPool("rotational");
+   await register(callerAddress, contractId);
    ```
    - Registers pool in factory's on-chain registry
    - Non-fatal if factory not initialized (wrapped in try/catch)
 
 4. Save to Database:
    ```typescript
-   await supabase.from('pools').insert({
+   await supabase.from("pools").insert({
      contract_address: contractId,
-     pool_type: 'rotational',
+     pool_type: "rotational",
      // ... other metadata
-   })
+   });
    ```
    - Stores pool metadata for fast queries
    - Links pool to creator and members
@@ -302,6 +396,7 @@ Key Features:
 All write operations follow this pattern:
 
 1. Build Transaction:
+
    ```typescript
    const tx = new TransactionBuilder(account, {
      fee: BASE_FEE,
@@ -309,38 +404,41 @@ All write operations follow this pattern:
    })
      .addOperation(contract.call(method, ...args))
      .setTimeout(TX_TIMEOUT) // 300 seconds
-     .build()
+     .build();
    ```
 
 2. Simulate:
+
    ```typescript
-   const simResult = await server.simulateTransaction(tx)
+   const simResult = await server.simulateTransaction(tx);
    if (rpc.Api.isSimulationError(simResult)) {
-     throw new Error(`Simulation failed: ${simResult.error}`)
+     throw new Error(`Simulation failed: ${simResult.error}`);
    }
    ```
 
 3. Assemble & Sign:
+
    ```typescript
-   const preparedTx = rpc.assembleTransaction(tx, simResult).build()
+   const preparedTx = rpc.assembleTransaction(tx, simResult).build();
    const { signedTxXdr } = await kit.signTransaction(preparedTx.toXDR(), {
      networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-   })
+   });
    ```
 
 4. Submit:
+
    ```typescript
    const result = await server.sendTransaction(
-     new Transaction(signedTxXdr, STELLAR_NETWORK_PASSPHRASE)
-   )
+     new Transaction(signedTxXdr, STELLAR_NETWORK_PASSPHRASE),
+   );
    ```
 
 5. Poll for Confirmation:
    ```typescript
-   let getResult = await server.getTransaction(result.hash)
+   let getResult = await server.getTransaction(result.hash);
    while (getResult.status === rpc.Api.GetTransactionStatus.NOT_FOUND) {
-     await new Promise(r => setTimeout(r, 1500))
-     getResult = await server.getTransaction(result.hash)
+     await new Promise((r) => setTimeout(r, 1500));
+     getResult = await server.getTransaction(result.hash);
    }
    ```
 
@@ -351,34 +449,38 @@ View calls don't require signing or fees:
 ```typescript
 export async function fetchTargetState(
   contractId: string,
-  userAddress?: string
+  userAddress?: string,
 ): Promise<TargetPoolState> {
   const [unlockedVal, totalVal, targetVal] = await Promise.all([
     viewCall(contractId, "is_unlocked"),
     viewCall(contractId, "total_deposited"),
     viewCall(contractId, "target_amount"),
-  ])
-  
-  let userBalance = 0n
+  ]);
+
+  let userBalance = 0n;
   if (userAddress) {
-    const balVal = await viewCall(contractId, "balance_of", addressVal(userAddress))
-    userBalance = scValToBigInt(balVal)
+    const balVal = await viewCall(
+      contractId,
+      "balance_of",
+      addressVal(userAddress),
+    );
+    userBalance = scValToBigInt(balVal);
   }
-  
+
   return {
     isUnlocked: unlockedVal.b(),
     totalDeposited: scValToBigInt(totalVal),
     targetAmount: scValToBigInt(targetVal),
     userBalance,
-  }
+  };
 }
 ```
 
 Used in:
+
 - Group detail page: display live balances and status
 - My Groups dashboard: enrich pool cards with on-chain data
 - Profile page: calculate user's total saved across all pools
-
 
 ## Data Flow
 
@@ -474,7 +576,6 @@ User clicks Withdraw → Check unlocked → Build tx → Sign → Submit → Tra
 7. Refresh on-chain state
 8. Update UI
 
-
 ## Database Schema (Supabase)
 
 ### pools table
@@ -531,7 +632,24 @@ CREATE TABLE pool_activity (
   activity_type TEXT NOT NULL,            -- 'deposit', 'withdraw', 'payout', 'refund'
   amount NUMERIC,
   tx_hash TEXT,
+  on_chain_timestamp TIMESTAMPTZ,         -- ledger close time (from Horizon / RPC)
+  block_number BIGINT,                    -- ledger sequence number
+  fee_charged BIGINT,                     -- fee in stroops (from Horizon)
   created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### event_index_log table
+
+Tracks per-pool on-chain indexing progress so a re-index run never re-reads
+old ledgers (populated by `POST /api/pools/[id]/index-events`).
+
+```sql
+CREATE TABLE event_index_log (
+  id BIGSERIAL PRIMARY KEY,
+  pool_id UUID NOT NULL UNIQUE REFERENCES pools(id) ON DELETE CASCADE,
+  last_indexed_ledger BIGINT NOT NULL DEFAULT 0,
+  indexed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
@@ -558,27 +676,27 @@ Hybrid approach: DB for metadata, blockchain for source of truth
   - Falls back to DB values if on-chain fetch fails
 
 Example (My Groups component):
+
 ```typescript
 // 1. Fast initial render from DB
-const { data: pools } = await supabase.from('pools').select('*')
+const { data: pools } = await supabase.from("pools").select("*");
 
 // 2. Enrich with live on-chain data
 const enrichedPools = await Promise.all(
   pools.map(async (pool) => {
     try {
-      const state = await fetchTargetState(pool.contract_address)
+      const state = await fetchTargetState(pool.contract_address);
       return {
         ...pool,
         total_saved: stroopsToXlm(state.totalDeposited),
-        progress: (state.totalDeposited / state.targetAmount) * 100
-      }
+        progress: (state.totalDeposited / state.targetAmount) * 100,
+      };
     } catch {
-      return pool // Fallback to DB values
+      return pool; // Fallback to DB values
     }
-  })
-)
+  }),
+);
 ```
-
 
 ## Wallet Integration
 
@@ -587,6 +705,7 @@ const enrichedPools = await Promise.all(
 JointSave uses Stellar Wallets Kit for multi-wallet support.
 
 Supported Wallets:
+
 - Freighter (browser extension)
 - xBull (browser extension)
 - Albedo (web-based)
@@ -603,7 +722,7 @@ import {
   xBullModule,
   AlbedoModule,
   LobstrModule,
-} from "@stellar/wallets-kit"
+} from "@stellar/wallets-kit";
 
 const kit = new StellarWalletsKit({
   network: WalletNetwork.TESTNET,
@@ -614,10 +733,11 @@ const kit = new StellarWalletsKit({
     new AlbedoModule(),
     new LobstrModule(),
   ],
-})
+});
 ```
 
 Key Features:
+
 - Automatic wallet detection
 - Unified API across wallets
 - Transaction signing
@@ -642,16 +762,16 @@ All write operations require wallet signature:
 ```typescript
 const { signedTxXdr } = await kit.signTransaction(preparedTx.toXDR(), {
   networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-})
+});
 ```
 
 User sees:
+
 - Transaction details in wallet
 - Fee amount
 - Contract being called
 - Method and parameters
 - Approve/Reject buttons
-
 
 ## Deployment
 
@@ -712,6 +832,7 @@ echo "{
 ```
 
 Current Deployment (Testnet):
+
 - Factory: `CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI`
 - Rotational WASM: `d350a325d8734263a3d7150c875555d8956e13a527fb3497d5141b8b3f3d2c74`
 - Target WASM: `133a62226501fc5443e70007d79deeeb0b33fdf8c85c7fcd3cf16293bb5c7292`
@@ -724,6 +845,7 @@ Current Deployment (Testnet):
 Frontend is deployed to Vercel with automatic deployments from GitHub.
 
 Environment Variables:
+
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://[project].supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=[anon-key]
@@ -757,28 +879,31 @@ GitHub Actions workflows:
    - Updates deployment JSON
    - Commits deployment info
 
-
 ## Security Considerations
 
 ### Smart Contract Security
 
 Authorization:
+
 - All write operations require `require_auth()` on caller
 - Factory admin functions protected by admin address check
 - Member-only operations verify membership before execution
 
 Input Validation:
+
 - Minimum member count (>=2)
 - Positive amounts for deposits and targets
 - Deadline validation (must be in future)
 - Balance checks before withdrawals
 
 Reentrancy Protection:
+
 - State updates before external calls
 - Token transfers use Stellar's built-in token contract
 - No recursive calls between pool contracts
 
 Fee Limits:
+
 - Fee basis points capped at reasonable values
 - Treasury and relayer fees deducted before payouts
 - Withdrawal fees clearly communicated
@@ -786,24 +911,28 @@ Fee Limits:
 ### Frontend Security
 
 Wallet Security:
+
 - Never store private keys
 - All signing happens in user's wallet
 - Transaction details shown before signing
 - Network passphrase validation
 
 Input Sanitization:
+
 - Form validation before submission
 - Amount parsing with precision handling
 - Address format validation (StrKey encoding)
 - Contract ID normalization (uppercase)
 
 API Security:
+
 - Supabase Row Level Security (RLS) policies
 - User authentication for sensitive operations
 - Read-only public access for pool discovery
 - Rate limiting on API routes
 
 Transaction Safety:
+
 - Simulation before signing (catch errors early)
 - Timeout protection (300 seconds)
 - Confirmation polling with retry limits
@@ -812,6 +941,7 @@ Transaction Safety:
 ### Data Privacy
 
 On-chain Data (Public):
+
 - Pool parameters
 - Member addresses
 - Deposit amounts
@@ -819,17 +949,18 @@ On-chain Data (Public):
 - All financial data
 
 Off-chain Data (Supabase):
+
 - Pool names and descriptions
 - User profiles (optional)
 - Activity metadata
 - UI preferences
 
 User Control:
+
 - Users can participate with just a wallet address
 - No email or personal info required
 - Pseudonymous by default
 - Optional profile enrichment
-
 
 ## Key Technical Decisions
 
@@ -845,11 +976,13 @@ User Control:
 ### Why Separate Deploy + Initialize?
 
 Soroban contracts cannot deploy other contracts at runtime. The factory pattern requires:
+
 1. Deploy pool contract from WASM hash
 2. Initialize pool with parameters
 3. Register pool ID with factory
 
 This enables:
+
 - Factory to track all pools on-chain
 - Inter-contract coordination
 - Upgradeable pool implementations (change WASM hash)
@@ -858,6 +991,7 @@ This enables:
 ### Why Hybrid DB + Blockchain?
 
 Database (Supabase):
+
 - Fast queries for UI
 - Full-text search
 - User profiles
@@ -865,6 +999,7 @@ Database (Supabase):
 - Metadata storage
 
 Blockchain (Stellar):
+
 - Source of truth for balances
 - Immutable transaction history
 - Trustless execution
@@ -872,6 +1007,7 @@ Blockchain (Stellar):
 - Cryptographic guarantees
 
 Hybrid approach:
+
 - DB for fast initial render
 - Blockchain for accurate financial data
 - Parallel fetching for best UX
@@ -884,6 +1020,7 @@ Stellar strkeys (addresses starting with G or C) are case-insensitive in theory 
 ### Why 300 Second Timeout?
 
 Initial 30-second timeout caused `txTooLate` errors when users took time to review transactions in their wallet. 300 seconds (5 minutes) provides comfortable buffer for:
+
 - Wallet popup delays
 - User review time
 - Network congestion
@@ -892,6 +1029,7 @@ Initial 30-second timeout caused `txTooLate` errors when users took time to revi
 ### Why Stellar SDK v15?
 
 Upgraded from v12 to v15 to fix "Bad union switch: 1" XDR protocol mismatch. v15 changes:
+
 - `SorobanRpc` → `rpc` namespace
 - Updated XDR definitions
 - Better TypeScript types
@@ -901,33 +1039,36 @@ Upgraded from v12 to v15 to fix "Bad union switch: 1" XDR protocol mismatch. v15
 
 Initial `allowAllModules()` caused MetaMask connection errors (MetaMask doesn't support Stellar). Solution: explicitly list Stellar-only wallets (Freighter, xBull, Albedo, Lobstr) to eliminate non-Stellar wallet interference.
 
-
 ## Performance Optimizations
 
 ### Frontend Performance
 
 Code Splitting:
+
 - Next.js automatic code splitting
 - Dynamic imports for heavy components
 - Route-based chunking
 - Lazy loading for modals
 
 Caching Strategy:
+
 - Supabase query caching
 - React Query for server state (future)
 - Local storage for user preferences
 - Service worker for offline support (future)
 
 Parallel Data Fetching:
+
 ```typescript
 // Fetch DB and on-chain data in parallel
 const [dbPools, onChainStates] = await Promise.all([
-  supabase.from('pools').select('*'),
-  Promise.all(pools.map(p => fetchTargetState(p.contract_address)))
-])
+  supabase.from("pools").select("*"),
+  Promise.all(pools.map((p) => fetchTargetState(p.contract_address))),
+]);
 ```
 
 Optimistic Updates:
+
 - Update UI immediately on user action
 - Revert if transaction fails
 - Show loading states during confirmation
@@ -936,18 +1077,21 @@ Optimistic Updates:
 ### Smart Contract Optimization
 
 Storage Efficiency:
+
 - Use persistent storage for long-term data
 - Minimize storage keys
 - Pack data structures efficiently
 - Clean up expired data
 
 Gas Optimization:
+
 - Batch operations where possible
 - Minimize cross-contract calls
 - Use view functions for reads (no fees)
 - Efficient loop patterns
 
 View Call Optimization:
+
 - No signing required
 - No fees charged
 - Parallel fetching
@@ -956,6 +1100,7 @@ View Call Optimization:
 ### Database Optimization
 
 Indexes:
+
 ```sql
 CREATE INDEX idx_pools_creator ON pools(creator_id);
 CREATE INDEX idx_pools_type ON pools(pool_type);
@@ -965,11 +1110,11 @@ CREATE INDEX idx_pool_activity_user ON pool_activity(user_address);
 ```
 
 Query Optimization:
+
 - Select only needed columns
 - Use joins instead of multiple queries
 - Limit results with pagination
 - Filter at database level
-
 
 ## Error Handling
 
@@ -1005,80 +1150,87 @@ Common errors and solutions:
 ### Frontend Error Handling
 
 Try-Catch Blocks:
+
 ```typescript
 try {
-  const txHash = await deposit()
-  toast.success('Deposit successful!')
+  const txHash = await deposit();
+  toast.success("Deposit successful!");
 } catch (error) {
-  console.error('Deposit failed:', error)
-  toast.error(error.message || 'Transaction failed')
+  console.error("Deposit failed:", error);
+  toast.error(error.message || "Transaction failed");
 }
 ```
 
 Loading States:
+
 ```typescript
-const [isLoading, setIsLoading] = useState(false)
+const [isLoading, setIsLoading] = useState(false);
 
 const handleDeposit = async () => {
-  setIsLoading(true)
+  setIsLoading(true);
   try {
-    await deposit()
+    await deposit();
   } finally {
-    setIsLoading(false)
+    setIsLoading(false);
   }
-}
+};
 ```
 
 Graceful Degradation:
+
 ```typescript
 // Fallback to DB values if on-chain fetch fails
 try {
-  const state = await fetchTargetState(contractId)
-  return { ...pool, ...state }
+  const state = await fetchTargetState(contractId);
+  return { ...pool, ...state };
 } catch {
-  return pool // Use DB values
+  return pool; // Use DB values
 }
 ```
 
 User Feedback:
+
 - Toast notifications for success/error
 - Loading spinners during async operations
 - Disabled buttons during processing
 - Clear error messages
-
 
 ## Testing Strategy
 
 ### Smart Contract Testing
 
 Unit Tests:
+
 - Test each contract function in isolation
 - Mock external dependencies
 - Verify state changes
 - Check authorization logic
 
 Integration Tests:
+
 - Test full deployment flow
 - Test inter-contract calls (factory registration)
 - Test multi-user scenarios
 - Verify fee calculations
 
 Test Framework:
+
 - Soroban SDK test utilities
 - Rust's built-in test framework
 - GitHub Actions CI
 
 Example Test:
+
 ```rust
 #[test]
 fn test_rotational_deposit() {
     let env = Env::default();
     let contract_id = env.register_contract(None, RotationalPool);
     let client = RotationalPoolClient::new(&env, &contract_id);
-    
+
     // Initialize pool
     client.initialize(&token, &members, &amount, &duration, &fees, &treasury);
-    
+
     // Test deposit
     client.deposit(&member1);
     assert!(client.has_deposited(&member1));
@@ -1088,47 +1240,53 @@ fn test_rotational_deposit() {
 ### Frontend Testing
 
 Component Tests (Future):
+
 - Jest + React Testing Library
 - Test user interactions
 - Mock wallet connections
 - Verify UI state changes
 
 E2E Tests (Future):
+
 - Playwright or Cypress
 - Test full user flows
 - Real wallet integration (testnet)
 - Screenshot comparisons
 
 Manual Testing:
+
 - Test on multiple wallets (Freighter, xBull)
 - Test on mobile devices
 - Test error scenarios
 - Test network failures
-
 
 ## Future Enhancements
 
 ### Phase 2 – Enhancement
 
 Yield Integrations:
+
 - Connect flexible pools to Stellar DeFi protocols
 - Automatic yield distribution
 - Multiple yield strategies
 - Risk-adjusted returns
 
 Mobile App:
+
 - React Native or Flutter
 - Native wallet integration
 - Push notifications for payouts
 - Offline transaction queuing
 
 Group Chat:
+
 - In-app messaging per pool
 - Encrypted communications
 - Payment requests
 - Activity notifications
 
 Reputation System:
+
 - On-chain reputation scores
 - Deposit history tracking
 - Payout reliability metrics
@@ -1137,24 +1295,28 @@ Reputation System:
 ### Phase 3 – Scale
 
 Social Onboarding:
+
 - Invite friends via link
 - Social login options
 - Profile customization
 - Achievement system
 
 Fiat On-Ramp:
+
 - Credit card to XLM
 - Bank transfer integration
 - Local payment methods
 - KYC compliance
 
 Microloan Marketplace:
+
 - Borrow against savings
 - Peer-to-peer lending
 - Credit scoring
 - Collateralized loans
 
 DAO Governance:
+
 - Token-based voting
 - Protocol parameter updates
 - Treasury management
@@ -1163,29 +1325,32 @@ DAO Governance:
 ### Technical Improvements
 
 Smart Contracts:
+
 - Upgradeable contract pattern
 - Emergency pause functionality
 - Multi-signature admin
 - Automated yield strategies
 
 Frontend:
+
 - Progressive Web App (PWA)
 - Offline support
 - Real-time updates (WebSocket)
 - Advanced analytics dashboard
 
 Infrastructure:
+
 - Mainnet deployment
 - Multi-network support (testnet + mainnet)
 - Decentralized hosting (IPFS)
 - GraphQL API layer
 
 Developer Experience:
+
 - SDK for third-party integrations
 - Webhook notifications
 - REST API documentation
 - Plugin system
-
 
 ## Appendix
 
@@ -1216,18 +1381,21 @@ View Call: Read-only contract call that doesn't require signing or fees
 ### Useful Links
 
 Documentation:
+
 - Stellar Docs: https://developers.stellar.org
 - Soroban Docs: https://soroban.stellar.org
 - Stellar SDK: https://github.com/stellar/js-stellar-sdk
 - Wallets Kit: https://github.com/stellar/stellar-wallets-kit
 
 Tools:
+
 - Stellar Laboratory: https://laboratory.stellar.org
 - Stellar Expert: https://stellar.expert
 - Freighter Wallet: https://freighter.app
 - Stellar CLI: https://github.com/stellar/stellar-cli
 
 Community:
+
 - Stellar Discord: https://discord.gg/stellar
 - Stellar Stack Exchange: https://stellar.stackexchange.com
 - GitHub Discussions: https://github.com/stellar/soroban-docs/discussions
@@ -1235,12 +1403,14 @@ Community:
 ### Environment Setup
 
 Prerequisites:
+
 - Node.js 18+
 - Rust 1.70+
 - Stellar CLI
 - Freighter wallet (or other Stellar wallet)
 
 Smart Contract Setup:
+
 ```bash
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -1257,6 +1427,7 @@ stellar contract build
 ```
 
 Frontend Setup:
+
 ```bash
 cd frontend
 npm install
@@ -1277,4 +1448,3 @@ Document Version: 1.0
 Last Updated: 2026-04-28
 Network: Stellar Testnet
 Status: Production Ready
-

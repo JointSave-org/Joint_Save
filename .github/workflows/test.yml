@@ -6,12 +6,53 @@ on:
   workflow_dispatch:
 
 jobs:
+  frontend-lint:
+    name: Frontend – Lint & Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        working-directory: frontend
+        run: pnpm lint
+
+      - name: Format files automatically
+        working-directory: frontend
+        run: pnpm format --write
+
+      - name: Run Prettier format check
+        working-directory: frontend
+        run: pnpm format:check
+
+      - name: Build Next.js & Check Performance Budget
+        working-directory: frontend
+        run: |
+          pnpm build
+          pnpm check-budget
+
   build:
     name: Build Soroban Contracts
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -20,7 +61,7 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -54,8 +95,43 @@ jobs:
         working-directory: smartcontract
         run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/flexible/Cargo.toml
 
+      - name: Build Governance contract
+        working-directory: smartcontract
+        run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/governance/Cargo.toml
+
       - name: Verify WASM artifacts
         working-directory: smartcontract
         run: |
           ls -lh target/wasm32-unknown-unknown/release/*.wasm
           echo "All contracts built successfully"
+
+      - name: Run unit tests
+        working-directory: smartcontract
+        run: cargo test
+
+  component-tests:
+    name: Run React Component Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run React Component Test Suite with Coverage
+        working-directory: frontend
+        run: pnpm test:components:coverage
