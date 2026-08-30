@@ -1,6 +1,8 @@
 # Admin Emergency Controls with SEP-53 Signature Proof
 
-Closes #263
+Fixes JointSave-org/Joint_Save#263
+
+**Contributing from fork**: This PR is submitted from `morelucks/Joint_Save` fork to the upstream `JointSave-org/Joint_Save` repository.
 
 ## Summary
 
@@ -251,7 +253,7 @@ This PR focuses on the **safe UI + API layer** as specified. Future enhancements
 
 ## Related Issues & PRs
 
-- Closes #263
+- Fixes JointSave-org/Joint_Save#263
 - Builds on PR #259 (security circuit breaker)
 - Follows patterns from archive flow hardening
 
