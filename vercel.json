@@ -11,6 +11,10 @@
     {
       "path": "/api/disputes/expire",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/archive-pools",
+      "schedule": "0 2 * * *"
     }
   ]
 }

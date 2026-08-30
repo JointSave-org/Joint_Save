@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import type { ArchiveAction, ArchiveReason } from "@/lib/archival"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
@@ -25,7 +26,7 @@ export type Database = {
           name: string
           description: string | null
           type: "rotational" | "target" | "flexible"
-          status: "active" | "completed" | "paused"
+          status: "active" | "completed" | "paused" | "emergency_withdrawn"
           creator_address: string
           contract_address: string
           token_address: string
@@ -48,12 +49,16 @@ export type Database = {
           minimum_deposit: number | null
           withdrawal_fee: number | null
           yield_enabled: boolean
+          archived_at: string | null
+          archive_reason: ArchiveReason | null
+          completed_at: string | null
+          emergency_withdrawn_at: string | null
         }
         Insert: {
           name: string
           description?: string | null
           type: "rotational" | "target" | "flexible"
-          status?: "active" | "completed" | "paused"
+          status?: "active" | "completed" | "paused" | "emergency_withdrawn"
           creator_address: string
           contract_address: string
           token_address: string
@@ -74,12 +79,16 @@ export type Database = {
           minimum_deposit?: number | null
           withdrawal_fee?: number | null
           yield_enabled?: boolean
+          archived_at?: string | null
+          archive_reason?: ArchiveReason | null
+          completed_at?: string | null
+          emergency_withdrawn_at?: string | null
         }
         Update: {
           name?: string
           description?: string | null
           type?: "rotational" | "target" | "flexible"
-          status?: "active" | "completed" | "paused"
+          status?: "active" | "completed" | "paused" | "emergency_withdrawn"
           creator_address?: string
           contract_address?: string
           token_address?: string
@@ -100,6 +109,10 @@ export type Database = {
           minimum_deposit?: number | null
           withdrawal_fee?: number | null
           yield_enabled?: boolean
+          archived_at?: string | null
+          archive_reason?: ArchiveReason | null
+          completed_at?: string | null
+          emergency_withdrawn_at?: string | null
         }
         Relationships: []
       }
@@ -442,6 +455,34 @@ export type Database = {
         }
         Relationships: []
       }
+      archive_log: {
+        Row: {
+          id: string
+          pool_id: string
+          action: ArchiveAction
+          reason: ArchiveReason
+          triggered_by: string
+          automated: boolean
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          pool_id: string
+          action: ArchiveAction
+          reason: ArchiveReason
+          triggered_by: string
+          automated?: boolean
+          note?: string | null
+        }
+        Update: {
+          action?: ArchiveAction
+          reason?: ArchiveReason
+          triggered_by?: string
+          automated?: boolean
+          note?: string | null
+        }
+        Relationships: []
+      }
       disputes: {
         Row: {
           id: string
@@ -755,6 +796,52 @@ export type Database = {
           resolved_by?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bridge_transactions: {
+        Row: {
+          id: string
+          user_address: string
+          source_chain: string
+          destination: string
+          amount_base_units: string | null
+          status: "pending" | "attested" | "received" | "deposited" | "failed"
+          source_tx_hash: string | null
+          message_hash: string | null
+          redemption_tx_hash: string | null
+          pool_id: string | null
+          error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          user_address: string
+          source_chain: string
+          destination?: string
+          amount_base_units?: string | null
+          status?: "pending" | "attested" | "received" | "deposited" | "failed"
+          source_tx_hash?: string | null
+          message_hash?: string | null
+          redemption_tx_hash?: string | null
+          pool_id?: string | null
+          error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_address?: string
+          source_chain?: string
+          destination?: string
+          amount_base_units?: string | null
+          status?: "pending" | "attested" | "received" | "deposited" | "failed"
+          source_tx_hash?: string | null
+          message_hash?: string | null
+          redemption_tx_hash?: string | null
+          pool_id?: string | null
+          error?: string | null
           updated_at?: string
         }
         Relationships: []

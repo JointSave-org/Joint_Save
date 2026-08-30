@@ -11,6 +11,10 @@ Deno Edge Functions (`functions/`).
 | `send-deposit-reminders`    | Scheduled (cron)                     | Reminds members who haven't deposited before a round deadline     |
 | `cron/auto-trigger-payouts` | pg_cron, every 15 minutes            | Auto-triggers `trigger_payout` for expired rotational pool rounds |
 
+Pool archival runs as a Vercel Cron route rather than an Edge Function —
+see [`docs/pool-archival.md`](../docs/pool-archival.md) for its schema,
+criteria, and rollback path.
+
 Deploy a function with:
 
 ```bash
