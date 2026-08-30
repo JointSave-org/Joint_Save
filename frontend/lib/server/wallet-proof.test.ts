@@ -8,7 +8,13 @@ import assert from "node:assert"
 import { createHash } from "node:crypto"
 import { Keypair } from "@stellar/stellar-sdk"
 import { checkWalletProof, verifySignedMessage } from "./wallet-proof"
-import { PROOF_MAX_AGE_MS, proofIsFresh, revokePauseAuthorizationMessage } from "../wallet-proof"
+import {
+  archivePoolMessage,
+  PROOF_MAX_AGE_MS,
+  proofIsFresh,
+  revokePauseAuthorizationMessage,
+  unarchivePoolMessage,
+} from "../wallet-proof"
 
 /** Signs the way SEP-53 specifies: ed25519 over SHA-256 of the prefixed message. */
 function sign(keypair: Keypair, message: string): string {
@@ -132,4 +138,75 @@ test("check: a valid signature from the wrong account is refused", () => {
   })
   assert.strictEqual(result.ok, false)
   assert.match(result.reason ?? "", /does not match/)
+})
+
+// ── Archiving ───────────────────────────────────────────────────────────────
+//
+// A pool id and its creator's address are both public, so the archive and
+// unarchive endpoints cannot treat an address in a request body as evidence.
+// These pin the two properties the fix depends on.
+
+test("archive: the pool admin's own signature is accepted", () => {
+  const admin = Keypair.random()
+  const message = archivePoolMessage("pool-1", Date.now())
+
+  assert.strictEqual(verifySignedMessage(admin.publicKey(), message, sign(admin, message)), true)
+})
+
+test("archive: naming the admin's address does not archive their pool", () => {
+  // The whole bug this closes: the caller supplies admin_address, so anybody
+  // can claim to be the creator. Only the signature settles it.
+  const admin = Keypair.random()
+  const attacker = Keypair.random()
+  const message = archivePoolMessage("pool-1", Date.now())
+
+  assert.strictEqual(
+    checkWalletProof({
+      address: admin.publicKey(),
+      message,
+      signature: sign(attacker, message),
+      signedAt: Date.now(),
+    }).ok,
+    false
+  )
+})
+
+test("archive: a proof for one pool does not archive another", () => {
+  const admin = Keypair.random()
+  const now = Date.now()
+  const signature = sign(admin, archivePoolMessage("pool-1", now))
+
+  assert.strictEqual(
+    verifySignedMessage(admin.publicKey(), archivePoolMessage("pool-2", now), signature),
+    false
+  )
+})
+
+test("archive: a proof to archive cannot be replayed to unarchive", () => {
+  // The two messages differ by more than the pool id for exactly this reason.
+  const admin = Keypair.random()
+  const now = Date.now()
+  const signature = sign(admin, archivePoolMessage("pool-1", now))
+
+  assert.strictEqual(
+    verifySignedMessage(admin.publicKey(), unarchivePoolMessage("pool-1", now), signature),
+    false
+  )
+})
+
+test("archive: a captured proof stops working once it goes stale", () => {
+  const admin = Keypair.random()
+  const signedAt = Date.now() - PROOF_MAX_AGE_MS - 1_000
+  const message = archivePoolMessage("pool-1", signedAt)
+
+  assert.strictEqual(proofIsFresh(signedAt), false)
+  assert.strictEqual(
+    checkWalletProof({
+      address: admin.publicKey(),
+      message,
+      signature: sign(admin, message),
+      signedAt,
+    }).ok,
+    false
+  )
 })

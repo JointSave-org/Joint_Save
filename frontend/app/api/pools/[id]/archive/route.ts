@@ -13,6 +13,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminClient } from "@/lib/supabase-admin"
 import { writeLimiter } from "@/lib/rate-limit"
+import { checkWalletProof } from "@/lib/server/wallet-proof"
+import { archivePoolMessage } from "@/lib/wallet-proof"
 import { isArchiveReason, type ArchiveReason } from "@/lib/archival"
 
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -21,7 +23,13 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
 
   const { id } = await ctx.params
 
-  let body: { admin_address?: string; reason?: string; note?: string }
+  let body: {
+    admin_address?: string
+    signature?: string
+    signed_at?: number
+    reason?: string
+    note?: string
+  }
   try {
     body = await req.json()
   } catch {
@@ -64,6 +72,19 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
       { error: "Only the pool admin can archive this pool" },
       { status: 403 }
     )
+  }
+
+  // Ownership alone is not proof: admin_address is caller-supplied. The
+  // signature is verified against the pool's admin as the database knows it, so
+  // naming someone else's address buys nothing.
+  const proof = checkWalletProof({
+    address: pool.creator_address,
+    message: archivePoolMessage(id, Number(body.signed_at)),
+    signature: body.signature,
+    signedAt: body.signed_at,
+  })
+  if (!proof.ok) {
+    return NextResponse.json({ error: proof.reason }, { status: 403 })
   }
 
   if (pool.archived_at) {

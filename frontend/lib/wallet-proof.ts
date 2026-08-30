@@ -32,6 +32,32 @@ export function revokePauseAuthorizationMessage(authorizationId: string, signedA
   ].join("\n")
 }
 
+/**
+ * The exact text signed to archive a pool, and to bring one back.
+ *
+ * Archiving is an admin action that changes what every member sees, so it is
+ * proved the same way a pause authorization is. The two messages differ by more
+ * than the pool id so a proof gathered to archive cannot be turned around and
+ * replayed to unarchive, and each carries a timestamp so it expires in minutes.
+ */
+export function archivePoolMessage(poolId: string, signedAt: number): string {
+  return [
+    "JointSave: archive pool",
+    `pool: ${poolId}`,
+    `at: ${signedAt}`,
+    "Signing this does not move funds.",
+  ].join("\n")
+}
+
+export function unarchivePoolMessage(poolId: string, signedAt: number): string {
+  return [
+    "JointSave: unarchive pool",
+    `pool: ${poolId}`,
+    `at: ${signedAt}`,
+    "Signing this does not move funds.",
+  ].join("\n")
+}
+
 /** True while a proof's timestamp is close enough to now to be accepted. */
 export function proofIsFresh(signedAt: number, now: number = Date.now()): boolean {
   if (!Number.isFinite(signedAt)) return false
