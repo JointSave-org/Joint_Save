@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog"
 import { Archive, ArchiveRestore, Loader2 } from "lucide-react"
 import { toastManager } from "@/lib/toast"
+import { signArchiveProof, signUnarchiveProof } from "@/lib/archive-proof"
+import { STELLAR_NETWORK_PASSPHRASE, useStellar } from "@/components/web3-provider"
 import type { ArchiveReason } from "@/lib/archival"
 
 interface ArchivedPoolBannerProps {
@@ -44,18 +46,31 @@ export function ArchivedPoolBanner({
   onRestored,
 }: ArchivedPoolBannerProps) {
   const t = useTranslations("group.archived")
+  const { kit } = useStellar()
   const [restoring, setRestoring] = useState(false)
 
   const reason: ArchiveReason = archiveReason ?? "admin_archived"
 
   const handleRestore = async () => {
-    if (!adminAddress) return toastManager.error(t("unarchiveError"))
+    if (!adminAddress || !kit) return toastManager.error(t("unarchiveError"))
     setRestoring(true)
     try {
+      // The wallet signs before the request goes out: the endpoint authorises
+      // on this signature, not on the address in the body.
+      const proof = await signUnarchiveProof({
+        kit,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        adminAddress,
+        poolId: groupId,
+      })
       const res = await fetch(`/api/pools/${groupId}/unarchive`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_address: adminAddress }),
+        body: JSON.stringify({
+          admin_address: adminAddress,
+          signature: proof.signature,
+          signed_at: proof.signedAt,
+        }),
       })
       if (!res.ok) throw new Error(await res.text())
       toastManager.success(t("unarchiveSuccess"))
@@ -125,17 +140,29 @@ interface ArchivePoolButtonProps {
  */
 export function ArchivePoolButton({ groupId, adminAddress, onArchived }: ArchivePoolButtonProps) {
   const t = useTranslations("group.archived")
+  const { kit } = useStellar()
   const [open, setOpen] = useState(false)
   const [archiving, setArchiving] = useState(false)
 
   const handleArchive = async () => {
-    if (!adminAddress) return toastManager.error(t("archiveError"))
+    if (!adminAddress || !kit) return toastManager.error(t("archiveError"))
     setArchiving(true)
     try {
+      // Signed before the request, for the same reason as the restore above.
+      const proof = await signArchiveProof({
+        kit,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        adminAddress,
+        poolId: groupId,
+      })
       const res = await fetch(`/api/pools/${groupId}/archive`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_address: adminAddress }),
+        body: JSON.stringify({
+          admin_address: adminAddress,
+          signature: proof.signature,
+          signed_at: proof.signedAt,
+        }),
       })
       if (!res.ok) throw new Error(await res.text())
       toastManager.success(t("archiveSuccess"))

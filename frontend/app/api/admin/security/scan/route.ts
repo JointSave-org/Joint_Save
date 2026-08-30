@@ -10,12 +10,15 @@ import {
   type MemberRecord,
   type AdminActionRecord,
 } from "@/lib/security-rules"
+import { runIncidentResponse } from "@/lib/server/incident-actions"
 
 /**
  * POST /api/admin/security/scan
  *
  * Runs all monitoring rules against recent activity (last 24 hours).
- * Returns array of triggered alerts.
+ * Returns array of triggered alerts, plus what the incident-response circuit
+ * breaker decided about them. In dry-run (the default) the decisions are
+ * reported and recorded but no pool is paused.
  * Rate limited: max 1 scan per 5 minutes (uses writeLimiter).
  */
 export async function POST(req: NextRequest) {
@@ -125,9 +128,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Escalate critical alerts into recovery actions. The scan result is still
+    // worth returning if this fails, so it is contained.
+    let incidentResponse = null
+    try {
+      incidentResponse = await runIncidentResponse(admin, alerts, "admin")
+    } catch (incidentError) {
+      console.error("Incident response failed:", incidentError)
+    }
+
     return jsonPrivate({
       scanTime: now.toISOString(),
       alerts,
+      incidentResponse,
       summary: {
         total: alerts.length,
         critical: alerts.filter((a) => a.severity === "critical").length,

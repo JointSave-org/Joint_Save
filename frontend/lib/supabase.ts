@@ -43,6 +43,8 @@ export type Database = {
           contribution_amount: number | null
           round_duration: number | null
           frequency: string | null
+          pause_reason: string | null
+          paused_at: string | null
           deadline: string | null
           minimum_deposit: number | null
           withdrawal_fee: number | null
@@ -71,6 +73,8 @@ export type Database = {
           contribution_amount?: number | null
           round_duration?: number | null
           frequency?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
           deadline?: string | null
           minimum_deposit?: number | null
           withdrawal_fee?: number | null
@@ -99,6 +103,8 @@ export type Database = {
           contribution_amount?: number | null
           round_duration?: number | null
           frequency?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
           deadline?: string | null
           minimum_deposit?: number | null
           withdrawal_fee?: number | null
@@ -687,6 +693,110 @@ export type Database = {
           resolved_by?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
+        }
+        Relationships: []
+      }
+      pause_authorizations: {
+        Row: {
+          id: string
+          pool_id: string
+          contract_address: string
+          admin_address: string
+          entry_xdr: string
+          expiration_ledger: number
+          used_at: string | null
+          used_by_incident: string | null
+          revoked_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          contract_address: string
+          admin_address: string
+          entry_xdr: string
+          expiration_ledger: number
+          used_at?: string | null
+          used_by_incident?: string | null
+          revoked_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          used_at?: string | null
+          used_by_incident?: string | null
+          revoked_at?: string | null
+        }
+        Relationships: []
+      }
+      incidents: {
+        Row: {
+          id: string
+          pool_id: string
+          trigger_rule_ids: string[]
+          severity: "info" | "warning" | "critical"
+          alert_count: number
+          reason: string
+          created_by_scan: boolean
+          scan_source: "cron" | "admin" | "manual"
+          action: "pause" | "none"
+          executed: boolean
+          dry_run: boolean
+          skip_reason:
+            | "below_threshold"
+            | "already_paused"
+            | "pool_not_active"
+            | "cooldown"
+            | "unknown_pool"
+            | null
+          platform_paused: boolean
+          onchain_status: "not_required" | "pending" | "confirmed" | "failed"
+          onchain_tx_hash: string | null
+          status: "open" | "resolved"
+          resolved_by: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          trigger_rule_ids?: string[]
+          severity?: "info" | "warning" | "critical"
+          alert_count?: number
+          reason: string
+          created_by_scan?: boolean
+          scan_source?: "cron" | "admin" | "manual"
+          action?: "pause" | "none"
+          executed?: boolean
+          dry_run?: boolean
+          skip_reason?:
+            | "below_threshold"
+            | "already_paused"
+            | "pool_not_active"
+            | "cooldown"
+            | "unknown_pool"
+            | null
+          platform_paused?: boolean
+          onchain_status?: "not_required" | "pending" | "confirmed" | "failed"
+          onchain_tx_hash?: string | null
+          status?: "open" | "resolved"
+          resolved_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          executed?: boolean
+          platform_paused?: boolean
+          onchain_status?: "not_required" | "pending" | "confirmed" | "failed"
+          onchain_tx_hash?: string | null
+          status?: "open" | "resolved"
+          resolved_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
