@@ -802,6 +802,8 @@
       "unpausePool": "Unpause Pool",
       "connectWalletToManage": "Connect your wallet to manage this pool",
       "notPoolAdmin": "Your wallet is not the pool admin",
+      "manageTokens": "Manage Tokens",
+      "manageTokensDescription": "Choose which SEP-41 assets this pool accepts as deposits. This writes the allowlist on-chain and saves it for the deposit UI.",
       "manageMembers": "Manage Members",
       "addStellarAddress": "Add Stellar Address",
       "addMemberAria": "Add member",

@@ -1410,6 +1410,22 @@ export async function fetchIsPaused(contractId: string): Promise<boolean> {
   }
 }
 
+/**
+ * Read a pool's supported-token allowlist via `get_supported_tokens`.
+ * Returns a list of token identifiers — each is "native" (XLM) or a C…
+ * SEP-41 SAC contract id. An empty list means unrestricted (the contract
+ * default, matching `set_supported_tokens` semantics).
+ */
+export async function fetchSupportedTokens(contractId: string): Promise<string[]> {
+  try {
+    const val = await viewCall(contractId, "get_supported_tokens")
+    if (val.switch().name !== "scvVec") return []
+    return (val.vec() || []).map(scValToString).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 /** Parse Vec<BytesN<32>> from factory view calls into contract addresses. */
 function parseContractIdVec(val: xdr.ScVal): string[] {
   try {
@@ -1614,6 +1630,56 @@ export function useUnpausePool(contractId: string) {
   }
 
   return { unpause, isLoading }
+}
+
+/**
+ * Admin-only: call the contract's `set_supported_tokens` (replace semantics).
+ * `tokens` is a list of token identifiers — "native" (XLM) or a C… SEP-41 SAC
+ * contract id — and an empty array clears the allowlist back to unrestricted.
+ * Uses `vecVal` so the list is passed as a Vec<Address> to the contract.
+ */
+export function useSetSupportedTokens(contractId: string) {
+  const { kit, address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const setSupportedTokens = async (
+    tokens: string[],
+    sponsored = false
+  ): Promise<string | undefined> => {
+    if (!kit || !address || !contractId) return
+    setIsLoading(true)
+    try {
+      const toAddress = (id: string) => (id === "native" ? NATIVE_SAC_ID : id.toUpperCase())
+      return await buildAndSubmitDeposit(
+        kit,
+        (account) =>
+          new TransactionBuilder(account, {
+            fee: BASE_FEE,
+            networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+          })
+            .addOperation(
+              new Contract(normalizeId(contractId)).call(
+                "set_supported_tokens",
+                addressVal(address),
+                vecVal(tokens.map(toAddress))
+              )
+            )
+            .setTimeout(TX_TIMEOUT)
+            .build(),
+        address,
+        sponsored,
+        {
+          address,
+          type: "set_supported_tokens",
+          poolId: contractId,
+        }
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { setSupportedTokens, isLoading }
 }
 
 /** Read-only, no fees, no signing — safe to call for any address at any time. */
