@@ -1,5 +1,8 @@
 #![no_std]
 
+#[cfg(test)]
+mod fuzz_tests;
+
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env, IntoVal, Map,
     String, Symbol, Vec,

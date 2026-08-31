@@ -686,6 +686,7 @@ dependencies = [
 name = "jointsave-flexible"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 
@@ -693,6 +694,7 @@ dependencies = [
 name = "jointsave-governance"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 
@@ -701,6 +703,7 @@ name = "jointsave-microloan"
 version = "0.1.0"
 dependencies = [
  "jointsave-reputation",
+ "proptest",
  "soroban-sdk",
 ]
 
@@ -715,6 +718,7 @@ dependencies = [
 name = "jointsave-reputation"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 
@@ -731,6 +735,7 @@ dependencies = [
 name = "jointsave-target"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 
@@ -738,6 +743,7 @@ dependencies = [
 name = "jointsave-yield-strategy"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 

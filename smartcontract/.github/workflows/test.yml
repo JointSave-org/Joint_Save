@@ -71,3 +71,112 @@ jobs:
         run: |
           ls -lh target/wasm32-unknown-unknown/release/*.wasm
           echo "All contracts built successfully"
+
+  fuzz-invariant:
+    name: Fuzz & Invariant Tests
+    runs-on: ubuntu-latest
+    # Run fuzz tests on every push/PR; they are deterministic via PROPTEST_SEED.
+    env:
+      # Fixed seed ensures reproducible failures.  Override with
+      #   cargo test -- --proptest-seed=<new-seed>
+      # to explore different parts of the input space.
+      PROPTEST_SEED: "0x5a3f9c1d7b2e4068"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.85.0"
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-fuzz-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Pin incompatible dependencies
+        working-directory: smartcontract
+        run: |
+          cargo update serde_with@3.18.0 --precise 3.17.0 || true
+          cargo update serde_with_macros@3.18.0 --precise 3.17.0 || true
+          cargo update darling@0.23.0 --precise 0.21.3 || true
+          cargo update darling_core@0.23.0 --precise 0.21.3 || true
+          cargo update darling_macro@0.23.0 --precise 0.21.3 || true
+          cargo update indexmap@2.14.0 --precise 2.6.0 || true
+
+      # ── Rotational (extends existing coverage) ──────────────────────────────
+      - name: Fuzz – Rotational contract
+        working-directory: smartcontract
+        run: |
+          cargo test prop_ --manifest-path=contracts/rotational/Cargo.toml --release \
+            -- --nocapture 2>&1 | tee /tmp/fuzz-rotational.log
+          grep -q "test result: ok" /tmp/fuzz-rotational.log || \
+            { echo "::error::Rotational fuzz tests FAILED (seed: $PROPTEST_SEED)"; exit 1; }
+
+      # ── Microloan (highest priority) ────────────────────────────────────────
+      - name: Fuzz – Microloan contract
+        working-directory: smartcontract
+        run: |
+          cargo test prop_ --manifest-path=contracts/microloan/Cargo.toml --release \
+            -- --nocapture 2>&1 | tee /tmp/fuzz-microloan.log
+          grep -q "test result: ok" /tmp/fuzz-microloan.log || \
+            { echo "::error::Microloan fuzz tests FAILED (seed: $PROPTEST_SEED)"; exit 1; }
+
+      # ── Yield Strategy (highest priority) ───────────────────────────────────
+      - name: Fuzz – Yield Strategy contract
+        working-directory: smartcontract
+        run: |
+          cargo test prop_ --manifest-path=contracts/yield-strategy/Cargo.toml --release \
+            -- --nocapture 2>&1 | tee /tmp/fuzz-yield.log
+          grep -q "test result: ok" /tmp/fuzz-yield.log || \
+            { echo "::error::Yield Strategy fuzz tests FAILED (seed: $PROPTEST_SEED)"; exit 1; }
+
+      # ── Governance ──────────────────────────────────────────────────────────
+      - name: Fuzz – Governance contract
+        working-directory: smartcontract
+        run: |
+          cargo test prop_ --manifest-path=contracts/governance/Cargo.toml --release \
+            -- --nocapture 2>&1 | tee /tmp/fuzz-governance.log
+          grep -q "test result: ok" /tmp/fuzz-governance.log || \
+            { echo "::error::Governance fuzz tests FAILED (seed: $PROPTEST_SEED)"; exit 1; }
+
+      # ── Flexible Pool ───────────────────────────────────────────────────────
+      - name: Fuzz – Flexible Pool contract
+        working-directory: smartcontract
+        run: |
+          cargo test prop_ --manifest-path=contracts/flexible/Cargo.toml --release \
+            -- --nocapture 2>&1 | tee /tmp/fuzz-flexible.log
+          grep -q "test result: ok" /tmp/fuzz-flexible.log || \
+            { echo "::error::Flexible Pool fuzz tests FAILED (seed: $PROPTEST_SEED)"; exit 1; }
+
+      # ── Target Pool ─────────────────────────────────────────────────────────
+      - name: Fuzz – Target Pool contract
+        working-directory: smartcontract
+        run: |
+          cargo test prop_ --manifest-path=contracts/target/Cargo.toml --release \
+            -- --nocapture 2>&1 | tee /tmp/fuzz-target.log
+          grep -q "test result: ok" /tmp/fuzz-target.log || \
+            { echo "::error::Target Pool fuzz tests FAILED (seed: $PROPTEST_SEED)"; exit 1; }
+
+      # ── Reputation Tracker ──────────────────────────────────────────────────
+      - name: Fuzz – Reputation Tracker contract
+        working-directory: smartcontract
+        run: |
+          cargo test prop_ --manifest-path=contracts/reputation/Cargo.toml --release \
+            -- --nocapture 2>&1 | tee /tmp/fuzz-reputation.log
+          grep -q "test result: ok" /tmp/fuzz-reputation.log || \
+            { echo "::error::Reputation fuzz tests FAILED (seed: $PROPTEST_SEED)"; exit 1; }
+
+      # ── Upload counterexample logs on failure ───────────────────────────────
+      - name: Upload fuzz failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-failure-logs
+          path: /tmp/fuzz-*.log
+          retention-days: 30

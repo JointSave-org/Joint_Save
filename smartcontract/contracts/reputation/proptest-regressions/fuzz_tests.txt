@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 6cabe7b0959502907fe160c3df01de331ce322910adf4628c74d62be92d926b1 # shrinks to successful = 4294967295, missed = 1
+# prop_reputation_multicall_score_always_valid: shrinks to ops = [(false, true, 0, 1), (false, true, 0, 1)]
+# (pools_completed > pools_joined; fixed by incrementing pools_joined on each pool_completed event)
