@@ -1055,6 +1055,13 @@
         "admin_archived": "Archived by the pool admin.",
         "emergency_withdrawn": "Archived after an emergency withdrawal."
       }
+    },
+    "paused": {
+      "title": "This pool is paused",
+      "defaultReason": "This pool has been paused by an admin or the security circuit breaker.",
+      "body": "All deposits, withdrawals, and transactions are temporarily disabled. Members can still view pool information.",
+      "pausedOn": "Paused on {date}",
+      "reviewIncident": "Review Incident"
     }
   },
   "explore": {
@@ -1496,7 +1503,135 @@
       "falsePositiveBtn": "False Positive",
       "noAlertsTitle": "No security alerts detected",
       "noAlertsBody": "All monitoring rules are clear. Run a scan to check for new alerts."
-    }
+    },
+    "incidents": {
+      "title": "Incident Review",
+      "subtitle": "Review and act on security incidents for {poolName}",
+      "backToSecurity": "Back to Security",
+      "connectWalletTitle": "Connect Your Wallet",
+      "connectWalletBody": "Connect your wallet to review incidents.",
+      "incidentsList": "Incidents Timeline",
+      "noIncidents": "No incidents recorded for this pool.",
+      "poolPausedTitle": "Pool Paused",
+      "poolPausedReason": "This pool was automatically paused by the security circuit breaker.",
+      "pausedAt": "Paused at {date}",
+      "stats": {
+        "total": "Total Incidents",
+        "open": "Open",
+        "executed": "Executed",
+        "dryRun": "Dry Run",
+        "awaitingOnchain": "Awaiting On-chain"
+      },
+      "executed": "Executed",
+      "dryRun": "Dry Run",
+      "skipped": "Skipped",
+      "onchainStatus": {
+        "not_required": "Not Required",
+        "pending": "Pending",
+        "confirmed": "Confirmed",
+        "failed": "Failed"
+      },
+      "details": {
+        "severity": "Severity",
+        "alertCount": "Alert Count",
+        "triggerRules": "Trigger Rules",
+        "action": "Action",
+        "platformStatus": "Platform Status",
+        "onchainStatus": "On-chain Status",
+        "createdAt": "Created At",
+        "resolvedAt": "Resolved At"
+      },
+      "platformStatus": {
+        "paused": "Paused",
+        "active": "Active"
+      },
+      "status": {
+        "open": "Open",
+        "resolved": "Resolved"
+      },
+      "action": {
+        "resolve": "Resolve",
+        "resume": "Resume Pool",
+        "recordOnchain": "Record On-chain TX",
+        "resolveSuccess": "Incident resolved",
+        "resumeSuccess": "Pool resumed",
+        "recordOnchainSuccess": "Transaction recorded",
+        "resolveDescription": "Incident has been marked as resolved.",
+        "resumeDescription": "Pool has been resumed and is now active.",
+        "onchainUnpauseRequired": "Note: The contract is still paused on-chain. Sign an unpause transaction to fully resume.",
+        "error": "Action failed"
+      },
+      "dialogs": {
+        "resolveTitle": "Resolve Incident",
+        "resolveDescription": "Close this incident with a note. The pool will remain paused.",
+        "resumeTitle": "Resume Pool",
+        "resumeDescription": "Close this incident and resume the pool. Platform pause will be lifted.",
+        "recordTitle": "Record On-chain Transaction",
+        "recordDescription": "Record the transaction hash of the pause/unpause you signed.",
+        "notesLabel": "Resolution Notes",
+        "notesPlaceholder": "Describe how this incident was resolved...",
+        "txHashLabel": "Transaction Hash",
+        "txHashPlaceholder": "64-character hex hash",
+        "cancel": "Cancel",
+        "confirm": "Confirm",
+        "processing": "Processing..."
+      },
+      "error": {
+        "forbidden": "You are not authorized to view this pool's incidents.",
+        "fetchFailed": "Failed to fetch incidents.",
+        "missingPoolId": "Missing Pool ID",
+        "missingPoolIdDesc": "No pool ID was provided in the URL."
+      }
+    },
+    "pauseAuth": {
+      "title": "Pause Authorization",
+      "subtitle": "Manage automatic on-chain pause permissions",
+      "armed": "Armed",
+      "disarmed": "Disarmed",
+      "armedDescription": "The circuit breaker can pause this pool on-chain automatically.",
+      "disarmedDescription": "No active authorization — the breaker can only pause at the platform level.",
+      "activeAuthorizations": "Active Authorizations",
+      "noAuthorizations": "No authorizations registered.",
+      "create": {
+        "button": "Pre-authorize Pause",
+        "title": "Pre-authorize Automatic Pause",
+        "description": "Sign an authorization that lets the security circuit breaker pause your pool on-chain if it detects a threat. You remain in full control — revoke it at any time.",
+        "validity": "Valid for approximately 30 days",
+        "cancel": "Cancel",
+        "sign": "Sign Authorization",
+        "signing": "Signing...",
+        "success": "Authorization created",
+        "successDesc": "The circuit breaker can now pause this pool on-chain if needed.",
+        "error": "Failed to create authorization"
+      },
+      "revoke": {
+        "button": "Revoke",
+        "title": "Revoke Authorization",
+        "description": "Revoke this pre-signed authorization. The circuit breaker will no longer be able to pause this pool on-chain automatically.",
+        "cancel": "Cancel",
+        "confirm": "Revoke Authorization",
+        "revoking": "Revoking...",
+        "success": "Authorization revoked",
+        "successDesc": "The automatic on-chain pause is now disarmed.",
+        "error": "Failed to revoke authorization"
+      },
+      "status": {
+        "active": "Active",
+        "used": "Used",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      },
+      "details": {
+        "expiresAt": "Expires at ledger {ledger}",
+        "usedAt": "Used at {date}",
+        "createdAt": "Created {date}"
+      },
+      "error": {
+        "noWallet": "No wallet connected",
+        "connectWallet": "Connect your wallet to manage authorizations."
+      }
+    },
+    "sectionIncidentReview": "Incident Review"
   },
   "templates": {
     "page": {
