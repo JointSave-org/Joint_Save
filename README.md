@@ -4,6 +4,8 @@
 # JointSave
 
 [![CI – Build & Test Soroban Contracts](https://github.com/JointSave-org/Joint_Save/actions/workflows/test.yml/badge.svg)](https://github.com/JointSave-org/Joint_Save/actions/workflows/test.yml)
+[![CI – Frontend Unit Tests](https://github.com/JointSave-org/Joint_Save/actions/workflows/frontend-unit-tests.yml/badge.svg)](https://github.com/JointSave-org/Joint_Save/actions/workflows/frontend-unit-tests.yml)
+[![E2E – Playwright](https://github.com/JointSave-org/Joint_Save/actions/workflows/e2e.yml/badge.svg)](https://github.com/JointSave-org/Joint_Save/actions/workflows/e2e.yml)
 
 A decentralized community savings platform built on Stellar, enabling trusted groups to automate contributions, payouts, and transparency using Soroban smart contracts.
 </div>
@@ -74,7 +76,7 @@ The frontend is built with Next.js and integrates with multiple Stellar wallets 
 
 ## Deployed Contracts
 
-All contracts are deployed on **Stellar Testnet**:
+The codebase ships an **8-contract Soroban suite**. The following are deployed/uploaded on **Stellar Testnet**:
 
 | Contract            | Address                                                            |
 | ------------------- | ------------------------------------------------------------------ |
@@ -83,7 +85,9 @@ All contracts are deployed on **Stellar Testnet**:
 | **Target WASM**     | `133a62226501fc5443e70007d79deeeb0b33fdf8c85c7fcd3cf16293bb5c7292` |
 | **Flexible WASM**   | `df6ff088fd79f13d8d03e72160434517fdb4a83b8c7bfdd887be4369805e0d6b` |
 
-_Deployed on April 16, 2026_
+_Deployed on April 16, 2026 — see [`smartcontract/deployments/stellar-testnet.json`](smartcontract/deployments/stellar-testnet.json) for the source of truth._
+
+The full suite also includes **governance**, **microloan**, **reputation**, and **yield-strategy** contracts. Reputation is deployed by [`smartcontract/scripts/deploy.sh`](smartcontract/scripts/deploy.sh); governance, microloan, and yield-strategy have no testnet deployment recorded yet. Microloan and reputation are feature-gated through the `NEXT_PUBLIC_MICROLOAN_CONTRACT_ID` / `NEXT_PUBLIC_REPUTATION_CONTRACT_ID` env vars (leave blank to disable).
 
 For complete API documentation — functions, events, storage keys, error conditions, and CLI examples — see **[docs/contract-api.md](docs/contract-api.md)**.
 
