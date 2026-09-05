@@ -42,14 +42,23 @@ Across the world, millions of people rely on informal savings groups to pool mon
 
 ## Architecture
 
-JointSave uses a factory pattern with four smart contracts:
+JointSave uses a light on-chain / off-chain split:
 
-- **Factory Contract** – Central registry for all deployed pools
-- **Rotational Pool** – Fixed deposits, rotating payouts
-- **Target Pool** – Goal-based savings with deadline
-- **Flexible Pool** – Variable deposits with yield options
+- **Factory contract** – trusted registry that spawns pools and installs them by WASM hash
+- **Pool contracts** – Rotational (fixed deposits, rotating payouts), Target (goal + deadline), Flexible (variable deposits with yield options)
+- **Supporting contracts** – Reputation (on-chain trust scores), Microloan (P2P lending), Governance (vote-weighted proposals), Yield Strategy (yield routing)
+- **Frontend** – Next.js 16 (App Router) + Tailwind + shadcn/ui, connecting to Stellar via Stellar SDK and Wallets Kit
+- **Off-chain** – Supabase (Postgres) for user metadata, pool titles, notifications, and reusable views, with Row-Level Security
+- **Safeguards** – incident response / pause-authorization flows, pool archival, and dispute resolution (see [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md))
 
-The frontend is built with Next.js and integrates with multiple Stellar wallets through the Stellar Wallets Kit.
+A full technical walkthrough — contract layer, flows, and database schema — lives in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+
+## Current Status
+
+- **On-chain:** factory + Rotational/Target/Flexible WASMs deployed to **Stellar Testnet** (see [Deployed Contracts](#deployed-contracts)). Governance, Microloan, and Yield Strategy have **no recorded deployment yet** – they are feature-gated via env vars.
+- **Frontend:** `joint-save.vercel.app` is hosted on Vercel; the project needs re-linking from the personal fork to `JointSave-org/Joint_Save` (org admin pending) before auto-deploys on `main`.
+- **CI/CD:** 4 GitHub Actions workflows – contracts build/test, frontend lint + format + build + component tests, Node unit tests, Playwright E2E (pull requests), plus a manual contract-deploy dispatcher.
+- **Known gaps under active work:** the admin emergency-withdrawal flow is still awaiting contract execution support ([#263](https://github.com/JointSave-org/Joint_Save/issues/263)); the admin incident-review UI is in progress ([#261](https://github.com/JointSave-org/Joint_Save/issues/261)).
 
 ## Technology Stack
 
