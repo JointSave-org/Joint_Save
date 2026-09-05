@@ -3,7 +3,7 @@
 
 # JointSave
 
-[![CI – Build & Test Soroban Contracts](https://github.com/Sendi0011/Joint_Save/actions/workflows/test.yml/badge.svg)](https://github.com/Sendi0011/Joint_Save/actions/workflows/test.yml)
+[![CI – Build & Test Soroban Contracts](https://github.com/JointSave-org/Joint_Save/actions/workflows/test.yml/badge.svg)](https://github.com/JointSave-org/Joint_Save/actions/workflows/test.yml)
 
 A decentralized community savings platform built on Stellar, enabling trusted groups to automate contributions, payouts, and transparency using Soroban smart contracts.
 </div>
@@ -101,7 +101,7 @@ For complete API documentation — functions, events, storage keys, error condit
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/Sendi0011/Joint_Save.git
+   git clone https://github.com/JointSave-org/Joint_Save.git
    cd Joint_Save
    ```
 
@@ -240,7 +240,7 @@ We welcome contributions from the community! Here's how you can help:
 
 ### Development
 
-- 🐛 **Bug Reports** – Found an issue? [Open an issue](https://github.com/Sendi0011/Joint_Save/issues)
+- 🐛 **Bug Reports** – Found an issue? [Open an issue](https://github.com/JointSave-org/Joint_Save/issues)
 - 💡 **Feature Requests** – Have an idea? We'd love to hear it
 - 🔧 **Code Contributions** – Submit pull requests for improvements
 - 📖 **Documentation** – Help improve our docs and guides
@@ -270,8 +270,8 @@ Please refer to [SECURITY.md](SECURITY.md) for our security policy, in-scope com
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/Sendi0011/Joint_Save/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Sendi0011/Joint_Save/discussions)
+- **Issues**: [GitHub Issues](https://github.com/JointSave-org/Joint_Save/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/JointSave-org/Joint_Save/discussions)
 - **Email**: [Contact the team](mailto:support@jointsave.app)
 
 ## License
@@ -286,6 +286,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 _Powered by [Stellar](https://stellar.org) • [Soroban](https://soroban.stellar.org) • [Next.js](https://nextjs.org)_
 
-[Live Demo](https://joint-save.vercel.app) • [Watch Video](https://youtu.be/Iuy-As9im7A) • [View Code](https://github.com/Sendi0011/Joint_Save)
+[Live Demo](https://joint-save.vercel.app) • [Watch Video](https://youtu.be/Iuy-As9im7A) • [View Code](https://github.com/JointSave-org/Joint_Save)
 
 </div>
