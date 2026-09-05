@@ -213,30 +213,35 @@ _Filter by date, pool, or activity type — then export to CSV_
 
 ## Roadmap
 
-### 🚀 Phase 1 - Foundation (Current)
+### 🚀 Phase 1 - Foundation (Complete)
 
 - ✅ Core savings pool functionality (Rotational, Target, Flexible)
 - ✅ Multi-wallet Stellar integration
 - ✅ Factory contract for pool discovery
 - ✅ Mobile-responsive web interface
 - ✅ Real-time on-chain state synchronization
-- ✅ Automated CI/CD pipeline
+- ✅ Automated CI/CD pipeline (contract, frontend unit, Playwright E2E)
+- ✅ Reputation system – on-chain trust scores from participation
+- ✅ Microloan marketplace – peer-to-peer lending against the pool
+- ✅ DAO-style governance voting (merged `governance` contract)
+- ✅ USDC / multi-token (SEP-41) deposits with Circle CCTP bridge
+- ✅ Flexible contribution scheduling & recurring reminders
+- ✅ Push notifications (Web Push / VAPID)
+- ✅ Pool health scoring, archival, disputes & incident-response safety rails
 
 ### 🔧 Phase 2 - Enhancement
 
-- **DeFi Integration** – Connect flexible pools to Stellar DeFi protocols for yield
-- **Mobile App** – Native iOS and Android applications
-- **Advanced Analytics** – Detailed savings insights and projections
+- **DeFi Integration** – Connect flexible pools to Stellar DeFi protocols for yield (yield-strategy contract scaffolded; wire liquidity paths)
+- **Advanced Analytics** – Protocol-wide analytics dashboard (telemetry + insights beyond per-pool health)
 - **Group Communication** – In-app messaging and notifications
-- **Reputation System** – Trust scores based on participation history
+- **Mainnet Hardening** – Deploy the 8-contract suite to Stellar mainnet (governance, microloan, yield-strategy still have no testnet deployment recorded)
+- **Admin Emergency Console** – Self-service pause/resume/emergency-withdraw UI with SEP-53 proof (backend exists; UI on the way)
 
 ### 🌍 Phase 3 - Scale
 
-- **Mainnet Deployment** – Production-ready contracts on Stellar mainnet
 - **Fiat Integration** – Direct bank transfers and credit card support
 - **Social Features** – Friend invitations and community building
-- **Microloan Marketplace** – Borrow against savings with peer-to-peer lending
-- **DAO Governance** – Community-driven protocol improvements
+- **Native Mobile App** – iOS and Android applications
 
 ## Contributing
 
