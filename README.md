@@ -59,7 +59,7 @@ The frontend is built with Next.js and integrates with multiple Stellar wallets 
 
 ### Frontend
 
-- **Next.js 14** with App Router for modern React development
+- **Next.js 16** with App Router for modern React development
 - **TypeScript** for type-safe development
 - **Tailwind CSS** for responsive, mobile-first styling
 - **shadcn/ui** for consistent component library
@@ -91,7 +91,7 @@ For complete API documentation — functions, events, storage keys, error condit
 
 ### Prerequisites
 
-- Node.js 18+ and npm/pnpm
+- Node.js 20+ and pnpm (the repo's `packageManager` field pins the exact pnpm version)
 - Rust toolchain with `wasm32-unknown-unknown` target
 - Stellar CLI
 - A Stellar wallet (Freighter, xBull, Albedo, or Lobstr)
@@ -109,7 +109,7 @@ For complete API documentation — functions, events, storage keys, error condit
 
    ```bash
    cd frontend
-   npm install
+   pnpm install
    cp .env.example .env.local
    ```
 
@@ -128,7 +128,7 @@ For complete API documentation — functions, events, storage keys, error condit
 4. **Start the development server**
 
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
 5. **Access the application**
