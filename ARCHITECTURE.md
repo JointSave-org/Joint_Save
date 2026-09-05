@@ -1438,9 +1438,9 @@ npm run dev
 
 ### Contact & Support
 
-Project Repository: https://github.com/Sendi0011/Joint_Save
+Project Repository: https://github.com/JointSave-org/Joint_Save
 Live Demo: https://joint-save.vercel.app
-Issues: https://github.com/Sendi0011/Joint_Save/issues
+Issues: https://github.com/JointSave-org/Joint_Save/issues
 
 ---
 

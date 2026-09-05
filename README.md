@@ -3,7 +3,9 @@
 
 # JointSave
 
-[![CI – Build & Test Soroban Contracts](https://github.com/Sendi0011/Joint_Save/actions/workflows/test.yml/badge.svg)](https://github.com/Sendi0011/Joint_Save/actions/workflows/test.yml)
+[![CI – Build & Test Soroban Contracts](https://github.com/JointSave-org/Joint_Save/actions/workflows/test.yml/badge.svg)](https://github.com/JointSave-org/Joint_Save/actions/workflows/test.yml)
+[![CI – Frontend Unit Tests](https://github.com/JointSave-org/Joint_Save/actions/workflows/frontend-unit-tests.yml/badge.svg)](https://github.com/JointSave-org/Joint_Save/actions/workflows/frontend-unit-tests.yml)
+[![E2E – Playwright](https://github.com/JointSave-org/Joint_Save/actions/workflows/e2e.yml/badge.svg)](https://github.com/JointSave-org/Joint_Save/actions/workflows/e2e.yml)
 
 A decentralized community savings platform built on Stellar, enabling trusted groups to automate contributions, payouts, and transparency using Soroban smart contracts.
 </div>
@@ -40,14 +42,23 @@ Across the world, millions of people rely on informal savings groups to pool mon
 
 ## Architecture
 
-JointSave uses a factory pattern with four smart contracts:
+JointSave uses a light on-chain / off-chain split:
 
-- **Factory Contract** – Central registry for all deployed pools
-- **Rotational Pool** – Fixed deposits, rotating payouts
-- **Target Pool** – Goal-based savings with deadline
-- **Flexible Pool** – Variable deposits with yield options
+- **Factory contract** – trusted registry that spawns pools and installs them by WASM hash
+- **Pool contracts** – Rotational (fixed deposits, rotating payouts), Target (goal + deadline), Flexible (variable deposits with yield options)
+- **Supporting contracts** – Reputation (on-chain trust scores), Microloan (P2P lending), Governance (vote-weighted proposals), Yield Strategy (yield routing)
+- **Frontend** – Next.js 16 (App Router) + Tailwind + shadcn/ui, connecting to Stellar via Stellar SDK and Wallets Kit
+- **Off-chain** – Supabase (Postgres) for user metadata, pool titles, notifications, and reusable views, with Row-Level Security
+- **Safeguards** – incident response / pause-authorization flows, pool archival, and dispute resolution (see [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md))
 
-The frontend is built with Next.js and integrates with multiple Stellar wallets through the Stellar Wallets Kit.
+A full technical walkthrough — contract layer, flows, and database schema — lives in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+
+## Current Status
+
+- **On-chain:** factory + Rotational/Target/Flexible WASMs deployed to **Stellar Testnet** (see [Deployed Contracts](#deployed-contracts)). Governance, Microloan, and Yield Strategy have **no recorded deployment yet** – they are feature-gated via env vars.
+- **Frontend:** `joint-save.vercel.app` is hosted on Vercel; the project needs re-linking from the personal fork to `JointSave-org/Joint_Save` (org admin pending) before auto-deploys on `main`.
+- **CI/CD:** 4 GitHub Actions workflows – contracts build/test, frontend lint + format + build + component tests, Node unit tests, Playwright E2E (pull requests), plus a manual contract-deploy dispatcher.
+- **Known gaps under active work:** the admin emergency-withdrawal flow is still awaiting contract execution support ([#263](https://github.com/JointSave-org/Joint_Save/issues/263)); the admin incident-review UI is in progress ([#261](https://github.com/JointSave-org/Joint_Save/issues/261)).
 
 ## Technology Stack
 
@@ -59,7 +70,7 @@ The frontend is built with Next.js and integrates with multiple Stellar wallets 
 
 ### Frontend
 
-- **Next.js 14** with App Router for modern React development
+- **Next.js 16** with App Router for modern React development
 - **TypeScript** for type-safe development
 - **Tailwind CSS** for responsive, mobile-first styling
 - **shadcn/ui** for consistent component library
@@ -74,7 +85,7 @@ The frontend is built with Next.js and integrates with multiple Stellar wallets 
 
 ## Deployed Contracts
 
-All contracts are deployed on **Stellar Testnet**:
+The codebase ships an **8-contract Soroban suite**. The following are deployed/uploaded on **Stellar Testnet**:
 
 | Contract            | Address                                                            |
 | ------------------- | ------------------------------------------------------------------ |
@@ -83,7 +94,9 @@ All contracts are deployed on **Stellar Testnet**:
 | **Target WASM**     | `133a62226501fc5443e70007d79deeeb0b33fdf8c85c7fcd3cf16293bb5c7292` |
 | **Flexible WASM**   | `df6ff088fd79f13d8d03e72160434517fdb4a83b8c7bfdd887be4369805e0d6b` |
 
-_Deployed on April 16, 2026_
+_Deployed on April 16, 2026 — see [`smartcontract/deployments/stellar-testnet.json`](smartcontract/deployments/stellar-testnet.json) for the source of truth._
+
+The full suite also includes **governance**, **microloan**, **reputation**, and **yield-strategy** contracts. Reputation is deployed by [`smartcontract/scripts/deploy.sh`](smartcontract/scripts/deploy.sh); governance, microloan, and yield-strategy have no testnet deployment recorded yet. Microloan and reputation are feature-gated through the `NEXT_PUBLIC_MICROLOAN_CONTRACT_ID` / `NEXT_PUBLIC_REPUTATION_CONTRACT_ID` env vars (leave blank to disable).
 
 For complete API documentation — functions, events, storage keys, error conditions, and CLI examples — see **[docs/contract-api.md](docs/contract-api.md)**.
 
@@ -91,7 +104,7 @@ For complete API documentation — functions, events, storage keys, error condit
 
 ### Prerequisites
 
-- Node.js 18+ and npm/pnpm
+- Node.js 20+ and pnpm (the repo's `packageManager` field pins the exact pnpm version)
 - Rust toolchain with `wasm32-unknown-unknown` target
 - Stellar CLI
 - A Stellar wallet (Freighter, xBull, Albedo, or Lobstr)
@@ -101,7 +114,7 @@ For complete API documentation — functions, events, storage keys, error condit
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/Sendi0011/Joint_Save.git
+   git clone https://github.com/JointSave-org/Joint_Save.git
    cd Joint_Save
    ```
 
@@ -109,7 +122,7 @@ For complete API documentation — functions, events, storage keys, error condit
 
    ```bash
    cd frontend
-   npm install
+   pnpm install
    cp .env.example .env.local
    ```
 
@@ -128,7 +141,7 @@ For complete API documentation — functions, events, storage keys, error condit
 4. **Start the development server**
 
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
 5. **Access the application**
@@ -209,30 +222,35 @@ _Filter by date, pool, or activity type — then export to CSV_
 
 ## Roadmap
 
-### 🚀 Phase 1 - Foundation (Current)
+### 🚀 Phase 1 - Foundation (Complete)
 
 - ✅ Core savings pool functionality (Rotational, Target, Flexible)
 - ✅ Multi-wallet Stellar integration
 - ✅ Factory contract for pool discovery
 - ✅ Mobile-responsive web interface
 - ✅ Real-time on-chain state synchronization
-- ✅ Automated CI/CD pipeline
+- ✅ Automated CI/CD pipeline (contract, frontend unit, Playwright E2E)
+- ✅ Reputation system – on-chain trust scores from participation
+- ✅ Microloan marketplace – peer-to-peer lending against the pool
+- ✅ DAO-style governance voting (merged `governance` contract)
+- ✅ USDC / multi-token (SEP-41) deposits with Circle CCTP bridge
+- ✅ Flexible contribution scheduling & recurring reminders
+- ✅ Push notifications (Web Push / VAPID)
+- ✅ Pool health scoring, archival, disputes & incident-response safety rails
 
 ### 🔧 Phase 2 - Enhancement
 
-- **DeFi Integration** – Connect flexible pools to Stellar DeFi protocols for yield
-- **Mobile App** – Native iOS and Android applications
-- **Advanced Analytics** – Detailed savings insights and projections
+- **DeFi Integration** – Connect flexible pools to Stellar DeFi protocols for yield (yield-strategy contract scaffolded; wire liquidity paths)
+- **Advanced Analytics** – Protocol-wide analytics dashboard (telemetry + insights beyond per-pool health)
 - **Group Communication** – In-app messaging and notifications
-- **Reputation System** – Trust scores based on participation history
+- **Mainnet Hardening** – Deploy the 8-contract suite to Stellar mainnet (governance, microloan, yield-strategy still have no testnet deployment recorded)
+- **Admin Emergency Console** – Self-service pause/resume/emergency-withdraw UI with SEP-53 proof (backend exists; UI on the way)
 
 ### 🌍 Phase 3 - Scale
 
-- **Mainnet Deployment** – Production-ready contracts on Stellar mainnet
 - **Fiat Integration** – Direct bank transfers and credit card support
 - **Social Features** – Friend invitations and community building
-- **Microloan Marketplace** – Borrow against savings with peer-to-peer lending
-- **DAO Governance** – Community-driven protocol improvements
+- **Native Mobile App** – iOS and Android applications
 
 ## Contributing
 
@@ -240,7 +258,7 @@ We welcome contributions from the community! Here's how you can help:
 
 ### Development
 
-- 🐛 **Bug Reports** – Found an issue? [Open an issue](https://github.com/Sendi0011/Joint_Save/issues)
+- 🐛 **Bug Reports** – Found an issue? [Open an issue](https://github.com/JointSave-org/Joint_Save/issues)
 - 💡 **Feature Requests** – Have an idea? We'd love to hear it
 - 🔧 **Code Contributions** – Submit pull requests for improvements
 - 📖 **Documentation** – Help improve our docs and guides
@@ -270,8 +288,8 @@ Please refer to [SECURITY.md](SECURITY.md) for our security policy, in-scope com
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/Sendi0011/Joint_Save/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Sendi0011/Joint_Save/discussions)
+- **Issues**: [GitHub Issues](https://github.com/JointSave-org/Joint_Save/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/JointSave-org/Joint_Save/discussions)
 - **Email**: [Contact the team](mailto:support@jointsave.app)
 
 ## License
@@ -286,6 +304,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 _Powered by [Stellar](https://stellar.org) • [Soroban](https://soroban.stellar.org) • [Next.js](https://nextjs.org)_
 
-[Live Demo](https://joint-save.vercel.app) • [Watch Video](https://youtu.be/Iuy-As9im7A) • [View Code](https://github.com/Sendi0011/Joint_Save)
+[Live Demo](https://joint-save.vercel.app) • [Watch Video](https://youtu.be/Iuy-As9im7A) • [View Code](https://github.com/JointSave-org/Joint_Save)
 
 </div>
