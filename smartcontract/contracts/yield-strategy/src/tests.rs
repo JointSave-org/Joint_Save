@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use super::{YieldStrategy, YieldStrategyClient};
 use crate::types::{StrategyConfig, StrategyType};
 use soroban_sdk::{testutils::Address as _, token, Address, Env};

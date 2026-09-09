@@ -67,7 +67,7 @@ mod prop_tests {
         let r = reliability.min(1000);
         let c = completion_score.min(1000);
         let n = recency.min(1000);
-        ((r as u64 * 6 + c as u64 * 3 + n as u64 * 1) / 10) as u32
+        ((r as u64 * 6 + c as u64 * 3 + n as u64) / 10) as u32
     }
 
     fn is_provisional(total_deposits: u32) -> bool {
@@ -341,7 +341,8 @@ mod prop_tests {
                 self.pools_completed += 1;
             }
 
-            let reliability = compute_deposit_reliability(self.total_deposits, self.missed_deposits);
+            let reliability =
+                compute_deposit_reliability(self.total_deposits, self.missed_deposits);
             let completion_score = if self.pools_joined > 0 {
                 ((self.pools_completed as u64 * 1000) / self.pools_joined as u64).min(1000) as u32
             } else {
@@ -372,7 +373,7 @@ mod prop_tests {
         #[test]
         fn prop_reputation_multicall_score_always_valid(
             operations in prop::collection::vec(
-                (prop::bool::ANY, prop::bool::ANY, 0u64..=200_000u64, 1i128..=1_000_000_0000000i128),
+                (prop::bool::ANY, prop::bool::ANY, 0u64..=200_000u64, 1i128..=10_000_000_000_000i128),
                 1..=100
             ),
         ) {
@@ -382,7 +383,7 @@ mod prop_tests {
             for (deposit_success, pool_completed, time_delta, amount) in operations {
                 timestamp += time_delta;
                 member.update(deposit_success, pool_completed, timestamp, amount);
-                member.check_invariants().map_err(|e| TestCaseError::fail(e))?;
+                member.check_invariants().map_err(TestCaseError::fail)?;
             }
         }
 
@@ -391,7 +392,7 @@ mod prop_tests {
         fn prop_total_deposit_amount_no_overflow(
             amounts in prop::collection::vec(
                 prop::sample::select(std_vec![
-                    1i128, 1000i128, 1_000_000_0000000i128, i128::MAX / 2
+                    1i128, 1000i128, 10_000_000_000_000i128, i128::MAX / 2
                 ]),
                 1..=50
             ),
@@ -501,6 +502,8 @@ mod prop_tests {
             member.total_score,
         );
         // Confirm invariant holds via check_invariants as well.
-        member.check_invariants().expect("invariants failed on regression input");
+        member
+            .check_invariants()
+            .expect("invariants failed on regression input");
     }
 }

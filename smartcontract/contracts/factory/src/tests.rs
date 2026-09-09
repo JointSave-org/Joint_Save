@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use super::{JointSaveFactory, JointSaveFactoryClient};
 use soroban_sdk::testutils::storage::Persistent;
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};

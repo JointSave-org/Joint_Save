@@ -1,10 +1,5 @@
-#![cfg(test)]
-
 use super::*;
-use soroban_sdk::{
-    testutils::Address as _,
-    vec, Address, Env,
-};
+use soroban_sdk::{testutils::Address as _, vec, Address, Env};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -40,15 +35,15 @@ fn test_create_loan_request() {
     let loan_id = client.create_loan_request(
         &pool_id,
         &borrower,
-        &1_000_0000000i128, // 1000 tokens
-        &500u32,            // 5% interest
-        &30u64,             // 30 days
+        &10_000_000_000i128, // 1000 tokens
+        &500u32,             // 5% interest
+        &30u64,              // 30 days
         &pool_members,
     );
 
     let loan = client.get_loan(&loan_id);
     assert_eq!(loan.borrower, borrower);
-    assert_eq!(loan.amount, 1_000_0000000i128);
+    assert_eq!(loan.amount, 10_000_000_000i128);
     assert_eq!(loan.interest_rate_bps, 500);
     assert_eq!(loan.term_days, 30);
     assert_eq!(loan.status, LoanStatus::Pending);
@@ -70,7 +65,14 @@ fn test_create_loan_request_rate_too_high() {
     let (env, contract_id, _admin, borrower, lender, pool_id) = setup();
     let client = MicroloanContractClient::new(&env, &contract_id);
     let pool_members = members(&env, &borrower, &lender);
-    client.create_loan_request(&pool_id, &borrower, &100i128, &6000u32, &30u64, &pool_members);
+    client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &100i128,
+        &6000u32,
+        &30u64,
+        &pool_members,
+    );
 }
 
 #[test]
@@ -79,7 +81,14 @@ fn test_create_loan_request_term_too_long() {
     let (env, contract_id, _admin, borrower, lender, pool_id) = setup();
     let client = MicroloanContractClient::new(&env, &contract_id);
     let pool_members = members(&env, &borrower, &lender);
-    client.create_loan_request(&pool_id, &borrower, &100i128, &500u32, &400u64, &pool_members);
+    client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &100i128,
+        &500u32,
+        &400u64,
+        &pool_members,
+    );
 }
 
 #[test]
@@ -90,7 +99,14 @@ fn test_create_loan_request_non_member() {
     let outsider = Address::generate(&env);
     let pool_members = members(&env, &borrower, &lender);
     // outsider not in pool_members
-    client.create_loan_request(&pool_id, &outsider, &100i128, &500u32, &30u64, &pool_members);
+    client.create_loan_request(
+        &pool_id,
+        &outsider,
+        &100i128,
+        &500u32,
+        &30u64,
+        &pool_members,
+    );
 }
 
 #[test]
@@ -99,8 +115,14 @@ fn test_cancel_loan_request() {
     let client = MicroloanContractClient::new(&env, &contract_id);
     let pool_members = members(&env, &borrower, &lender);
 
-    let loan_id =
-        client.create_loan_request(&pool_id, &borrower, &100i128, &500u32, &30u64, &pool_members);
+    let loan_id = client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &100i128,
+        &500u32,
+        &30u64,
+        &pool_members,
+    );
     client.cancel_loan_request(&loan_id, &borrower);
 
     let loan = client.get_loan(&loan_id);
@@ -115,8 +137,14 @@ fn test_accept_loan_self() {
     let _token = Address::generate(&env);
     let pool_members = members(&env, &borrower, &lender);
 
-    let loan_id =
-        client.create_loan_request(&pool_id, &borrower, &100i128, &500u32, &30u64, &pool_members);
+    let loan_id = client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &100i128,
+        &500u32,
+        &30u64,
+        &pool_members,
+    );
     // borrower tries to lend to themselves
     client.accept_loan(&loan_id, &borrower, &_token, &pool_members);
 }
@@ -127,8 +155,22 @@ fn test_get_pool_loans() {
     let client = MicroloanContractClient::new(&env, &contract_id);
     let pool_members = members(&env, &borrower, &lender);
 
-    client.create_loan_request(&pool_id, &borrower, &100i128, &500u32, &30u64, &pool_members);
-    client.create_loan_request(&pool_id, &borrower, &200i128, &1000u32, &60u64, &pool_members);
+    client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &100i128,
+        &500u32,
+        &30u64,
+        &pool_members,
+    );
+    client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &200i128,
+        &1000u32,
+        &60u64,
+        &pool_members,
+    );
 
     let pool_loans = client.get_pool_loans(&pool_id);
     assert_eq!(pool_loans.len(), 2);
@@ -140,7 +182,14 @@ fn test_get_member_loans() {
     let client = MicroloanContractClient::new(&env, &contract_id);
     let pool_members = members(&env, &borrower, &lender);
 
-    client.create_loan_request(&pool_id, &borrower, &100i128, &500u32, &30u64, &pool_members);
+    client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &100i128,
+        &500u32,
+        &30u64,
+        &pool_members,
+    );
 
     let member_loans = client.get_member_loans(&borrower);
     assert_eq!(member_loans.len(), 1);
@@ -150,7 +199,7 @@ fn test_get_member_loans() {
 fn test_max_active_loans_enforced() {
     let (env, contract_id, _admin, borrower, lender, pool_id) = setup();
     let client = MicroloanContractClient::new(&env, &contract_id);
-    let token = Address::generate(&env);
+    let _token = Address::generate(&env);
 
     // We need to register a token contract for the transfer call in accept_loan.
     // For this test we only need create_loan_request to hit the MAX_ACTIVE_LOANS
@@ -162,9 +211,37 @@ fn test_max_active_loans_enforced() {
     // three PENDING requests (as pending loans are not active).
     let pool_members = members(&env, &borrower, &lender);
     // Three pending loans should succeed
-    client.create_loan_request(&pool_id, &borrower, &100i128, &500u32, &30u64, &pool_members);
-    client.create_loan_request(&pool_id, &borrower, &100i128, &500u32, &30u64, &pool_members);
-    client.create_loan_request(&pool_id, &borrower, &100i128, &500u32, &30u64, &pool_members);
+    client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &100i128,
+        &500u32,
+        &30u64,
+        &pool_members,
+    );
+    client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &100i128,
+        &500u32,
+        &30u64,
+        &pool_members,
+    );
+    client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &100i128,
+        &500u32,
+        &30u64,
+        &pool_members,
+    );
     // A fourth PENDING request also succeeds (pending ≠ active)
-    client.create_loan_request(&pool_id, &borrower, &100i128, &500u32, &30u64, &pool_members);
+    client.create_loan_request(
+        &pool_id,
+        &borrower,
+        &100i128,
+        &500u32,
+        &30u64,
+        &pool_members,
+    );
 }

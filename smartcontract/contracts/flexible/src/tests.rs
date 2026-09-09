@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use super::{FlexiblePool, FlexiblePoolClient};
 use soroban_sdk::{
     testutils::{storage::Persistent, Address as _, Ledger as _},
@@ -744,7 +742,7 @@ fn admin_can_apply_governance_proposals_directly() {
 fn unauthorized_caller_cannot_apply_proposal() {
     let env = Env::default();
     env.mock_all_auths();
-    let (client, _token, admin, _treasury, _a, _b) = setup_pool(&env, false);
+    let (client, _token, _admin, _treasury, _a, _b) = setup_pool(&env, false);
 
     let impostor = Address::generate(&env);
     client.apply_governance_proposal(

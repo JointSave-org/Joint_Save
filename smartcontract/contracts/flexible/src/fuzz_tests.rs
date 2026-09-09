@@ -18,8 +18,8 @@ mod prop_tests {
     use proptest::prelude::*;
 
     extern crate std;
-    use std::vec::Vec as StdVec;
     use std::vec;
+    use std::vec::Vec as StdVec;
 
     // ── Pure arithmetic helpers (mirrors on-chain logic) ─────────────────────
 
@@ -44,7 +44,7 @@ mod prop_tests {
         /// Invariant: fee + net == amount for all valid (amount, fee_bps) pairs.
         #[test]
         fn prop_withdrawal_fee_sums_to_amount(
-            amount in 1i128..=1_000_000_000_0000_000i128,
+            amount in 1i128..=10_000_000_000_000_000i128,
             fee_bps in 0u32..=10_000u32,
         ) {
             let (fee, net) = withdrawal_fee_split(amount, fee_bps);
@@ -56,7 +56,7 @@ mod prop_tests {
         /// Invariant: zero fee_bps means full amount is returned to member.
         #[test]
         fn prop_zero_fee_full_net(
-            amount in 1i128..=1_000_000_000_0000_000i128,
+            amount in 1i128..=10_000_000_000_000_000i128,
         ) {
             let (fee, net) = withdrawal_fee_split(amount, 0);
             prop_assert_eq!(fee, 0);
@@ -66,7 +66,7 @@ mod prop_tests {
         /// Invariant: 10_000 bps (100%) fee means net == 0.
         #[test]
         fn prop_max_fee_zero_net(
-            amount in 1i128..=1_000_000_000_0000_000i128,
+            amount in 1i128..=10_000_000_000_000_000i128,
         ) {
             let (fee, net) = withdrawal_fee_split(amount, 10_000);
             prop_assert_eq!(net, 0, "100% fee should yield 0 net");
@@ -76,7 +76,7 @@ mod prop_tests {
         /// Invariant: fee is monotonically non-decreasing with fee_bps.
         #[test]
         fn prop_fee_monotone_in_bps(
-            amount in 1i128..=1_000_000_000_0000_000i128,
+            amount in 1i128..=10_000_000_000_000_000i128,
             low_bps in 0u32..=5_000u32,
             high_offset in 0u32..=5_000u32,
         ) {
@@ -93,7 +93,7 @@ mod prop_tests {
         /// Invariant: net never exceeds amount.
         #[test]
         fn prop_net_never_exceeds_amount(
-            amount in 1i128..=1_000_000_000_0000_000i128,
+            amount in 1i128..=10_000_000_000_000_000i128,
             fee_bps in 0u32..=10_000u32,
         ) {
             let (_, net) = withdrawal_fee_split(amount, fee_bps);
@@ -109,8 +109,8 @@ mod prop_tests {
         /// Invariant: sum of all member shares ≤ yield_amount (truncation dust only).
         #[test]
         fn prop_yield_distribution_no_over_distribution(
-            yield_amount in 1i128..=1_000_000_0000_000i128,
-            balances in prop::collection::vec(1i128..=100_000_0000_000i128, 1..=20),
+            yield_amount in 1i128..=10_000_000_000_000i128,
+            balances in prop::collection::vec(1i128..=1_000_000_000_000i128, 1..=20),
         ) {
             let total_balance: i128 = balances.iter().sum();
             prop_assume!(total_balance > 0);
@@ -138,9 +138,9 @@ mod prop_tests {
         /// Invariant: each member's share is non-negative.
         #[test]
         fn prop_member_yield_always_non_negative(
-            yield_amount in 1i128..=1_000_000_0000_000i128,
-            member_balance in 0i128..=100_000_0000_000i128,
-            total_balance in 1i128..=100_000_0000_000i128,
+            yield_amount in 1i128..=10_000_000_000_000i128,
+            member_balance in 0i128..=1_000_000_000_000i128,
+            total_balance in 1i128..=1_000_000_000_000i128,
         ) {
             let share = member_yield_share(yield_amount, member_balance, total_balance);
             prop_assert!(share >= 0, "negative member yield share: {}", share);
@@ -149,8 +149,8 @@ mod prop_tests {
         /// Invariant: member with zero balance receives zero yield.
         #[test]
         fn prop_zero_balance_zero_yield(
-            yield_amount in 1i128..=1_000_000_0000_000i128,
-            total_balance in 1i128..=100_000_0000_000i128,
+            yield_amount in 1i128..=10_000_000_000_000i128,
+            total_balance in 1i128..=1_000_000_000_000i128,
         ) {
             let share = member_yield_share(yield_amount, 0, total_balance);
             prop_assert_eq!(share, 0);
@@ -188,24 +188,25 @@ mod prop_tests {
         total_balance: i128,
         /// Tracks truncation dust accumulated across all yield distributions.
         yield_dust: i128,
-        fee_bps: u32,
         min_deposit: i128,
     }
 
     impl PoolSim {
-        fn new(members: StdVec<u32>, fee_bps: u32, min_deposit: i128) -> Self {
+        fn new(members: StdVec<u32>, min_deposit: i128) -> Self {
             let balances = members.iter().map(|&id| (id, 0i128)).collect();
             PoolSim {
                 balances,
                 total_balance: 0,
                 yield_dust: 0,
-                fee_bps,
                 min_deposit,
             }
         }
 
         fn get_balance(&self, member: u32) -> Option<i128> {
-            self.balances.iter().find(|&&(id, _)| id == member).map(|&(_, b)| b)
+            self.balances
+                .iter()
+                .find(|&&(id, _)| id == member)
+                .map(|&(_, b)| b)
         }
 
         fn set_balance(&mut self, member: u32, new_balance: i128) {
@@ -283,7 +284,6 @@ mod prop_tests {
         /// balance invariants or create/destroy funds.
         #[test]
         fn prop_flexible_multicall_balance_invariants(
-            fee_bps in 0u32..=10_000u32,
             min_deposit in 1i128..=1_000i128,
             member_count in 2u32..=10u32,
             operations in prop::collection::vec(
@@ -292,7 +292,7 @@ mod prop_tests {
             ),
         ) {
             let members: StdVec<u32> = (0..member_count).collect();
-            let mut pool = PoolSim::new(members, fee_bps, min_deposit);
+            let mut pool = PoolSim::new(members, min_deposit);
 
             // Seed each member with some balance.
             for id in 0..member_count {
@@ -321,11 +321,10 @@ mod prop_tests {
         /// Invariant: a member can never withdraw more than their balance.
         #[test]
         fn prop_withdrawal_capped_by_balance(
-            fee_bps in 0u32..=10_000u32,
             deposit_amount in 1i128..=1_000_000i128,
             withdraw_attempt in 1i128..=2_000_000i128,
         ) {
-            let mut pool = PoolSim::new(vec![0, 1], fee_bps, 1);
+            let mut pool = PoolSim::new(vec![0, 1], 1);
             pool.deposit(0, deposit_amount);
 
             let balance_before = pool.get_balance(0).unwrap();
@@ -346,7 +345,7 @@ mod prop_tests {
             min_deposit in 1i128..=10_000i128,
             deposit_attempt in 0i128..=10_001i128,
         ) {
-            let mut pool = PoolSim::new(vec![0, 1], 0, min_deposit);
+            let mut pool = PoolSim::new(vec![0, 1], min_deposit);
             let success = pool.deposit(0, deposit_attempt);
 
             if deposit_attempt < min_deposit {
@@ -368,7 +367,7 @@ mod prop_tests {
         fn prop_fee_arithmetic_boundary_no_overflow(
             amount in prop::sample::select(vec![
                 1i128, 2i128, 9_999i128, 10_000i128, 10_001i128,
-                1_000_000_000_0000_000i128,
+                10_000_000_000_000_000i128,
                 i128::MAX / 10_001,
             ]),
             fee_bps in prop::sample::select(vec![

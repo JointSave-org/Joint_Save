@@ -102,7 +102,8 @@ pub struct Loan {
 impl Loan {
     /// Total amount owed = principal + interest.
     pub fn total_owed(&self) -> i128 {
-        let interest = (self.amount as i128)
+        let interest = self
+            .amount
             .checked_mul(self.interest_rate_bps as i128)
             .unwrap_or(0)
             / 10_000_i128;
@@ -189,7 +190,10 @@ impl MicroloanContract {
             "interest_rate_bps exceeds maximum (5000)"
         );
         assert!(term_days >= 1, "term_days must be >= 1");
-        assert!(term_days <= MAX_TERM_DAYS, "term_days exceeds maximum (365)");
+        assert!(
+            term_days <= MAX_TERM_DAYS,
+            "term_days exceeds maximum (365)"
+        );
 
         // Verify borrower is a pool member
         assert!(
@@ -306,7 +310,10 @@ impl MicroloanContract {
         assert!(loan.borrower == borrower, "caller is not the borrower");
 
         let remaining = loan.remaining();
-        assert!(repay_amount <= remaining, "repay_amount exceeds remaining balance");
+        assert!(
+            repay_amount <= remaining,
+            "repay_amount exceeds remaining balance"
+        );
 
         let lender = loan.lender.clone().expect("active loan must have a lender");
 
@@ -381,7 +388,11 @@ impl MicroloanContract {
         }
 
         env.events().publish(
-            (symbol_short!("ln_def"), loan.pool_id.clone(), loan.borrower.clone()),
+            (
+                symbol_short!("ln_def"),
+                loan.pool_id.clone(),
+                loan.borrower.clone(),
+            ),
             loan_id,
         );
     }
@@ -444,7 +455,11 @@ impl MicroloanContract {
     fn save_loan(env: &Env, loan: &Loan) {
         let storage = env.storage().persistent();
         storage.set(&DataKey::Loan(loan.id.clone()), loan);
-        storage.extend_ttl(&DataKey::Loan(loan.id.clone()), LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(
+            &DataKey::Loan(loan.id.clone()),
+            LEDGER_THRESHOLD,
+            LEDGER_BUMP,
+        );
     }
 
     /// Append a loan ID to a pool's loan list, deduplicating.
@@ -565,11 +580,7 @@ impl MicroloanContract {
         env.invoke_contract::<()>(
             &tracker,
             &soroban_sdk::Symbol::new(env, "record_missed_round"),
-            soroban_sdk::vec![
-                env,
-                pool.into_val(env),
-                member.into_val(env),
-            ],
+            soroban_sdk::vec![env, pool.into_val(env), member.into_val(env),],
         );
         let _ = pool_id;
     }

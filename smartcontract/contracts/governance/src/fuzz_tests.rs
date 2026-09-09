@@ -19,8 +19,8 @@ mod prop_tests {
 
     // In test binaries the standard library is always available even in no_std crates.
     extern crate std;
-    use std::vec::Vec as StdVec;
-    use std::vec; // bring in the vec![] macro
+    use std::vec;
+    use std::vec::Vec as StdVec; // bring in the vec![] macro
 
     // ── Pure arithmetic helpers mirroring the on-chain implementation ────────
 

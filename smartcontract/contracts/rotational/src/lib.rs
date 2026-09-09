@@ -1,7 +1,9 @@
 #![no_std]
+#![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, Map, Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, Map, Symbol,
+    Vec,
 };
 
 #[contracttype]
@@ -230,7 +232,8 @@ impl RotationalPool {
                 .publish((symbol_short!("complete"),), Symbol::new(&env, "pool_done"));
         } else {
             storage.set(&DataKey::CurrentRound, &next_round);
-            let custom_deadlines_opt: Option<Map<u32, u64>> = storage.get(&DataKey::CustomDeadlines);
+            let custom_deadlines_opt: Option<Map<u32, u64>> =
+                storage.get(&DataKey::CustomDeadlines);
             let next_payout = if let Some(cd) = custom_deadlines_opt {
                 if let Some(custom_dl) = cd.get(next_round) {
                     custom_dl
@@ -401,7 +404,7 @@ impl RotationalPool {
         Self::bump_config_state_internal(&env);
 
         env.events()
-            .publish((symbol_short!("sup_tok"), admin), tokens.len() as u32);
+            .publish((symbol_short!("sup_tok"), admin), tokens.len());
     }
 
     pub fn emergency_withdraw(env: Env, admin: Address, recipient: Address) {
@@ -500,7 +503,7 @@ impl RotationalPool {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         let gov: Option<Address> = storage.get(&DataKey::GovernanceContract);
         assert!(
-            caller == stored_admin || gov.map_or(false, |g| g == caller),
+            caller == stored_admin || gov.is_some_and(|g| g == caller),
             "not authorized"
         );
 
@@ -516,7 +519,7 @@ impl RotationalPool {
             assert!(new_value > 0, "round duration must be > 0");
             storage.set(&DataKey::RoundDuration, &(new_value as u64));
         } else if proposal_type == add_penalty {
-            assert!(new_value >= 0 && new_value <= 100, "penalty must be 0-100");
+            assert!((0..=100).contains(&new_value), "penalty must be 0-100");
             storage.set(&DataKey::PenaltyPercentage, &(new_value as u32));
         } else if proposal_type == remove_penalty {
             storage.set(&DataKey::PenaltyPercentage, &0u32);
@@ -590,15 +593,13 @@ impl RotationalPool {
         assert!(!paused, "pool paused");
 
         assert!(
-            new_round_duration >= 86_400 && new_round_duration <= 31_536_000,
+            (86_400..=31_536_000).contains(&new_round_duration),
             "round_duration must be between 1 day and 365 days"
         );
 
         storage.set(&DataKey::RoundDuration, &new_round_duration);
-        env.events().publish(
-            (symbol_short!("upd_sched"), admin),
-            new_round_duration,
-        );
+        env.events()
+            .publish((symbol_short!("upd_sched"), admin), new_round_duration);
         Self::bump_config_state_internal(&env);
     }
 
@@ -625,10 +626,8 @@ impl RotationalPool {
             storage.set(&DataKey::NextPayoutTime, &deadline);
         }
 
-        env.events().publish(
-            (symbol_short!("cst_dead"), round),
-            deadline,
-        );
+        env.events()
+            .publish((symbol_short!("cst_dead"), round), deadline);
         Self::bump_config_state_internal(&env);
     }
 
@@ -776,7 +775,7 @@ impl RotationalPool {
             .persistent()
             .get(&DataKey::SupportedTokens)
             .unwrap_or(Vec::new(env));
-        if supported.len() > 0 {
+        if !supported.is_empty() {
             let mut found = false;
             for t in supported.iter() {
                 if t == *token {
@@ -804,12 +803,10 @@ impl RotationalPool {
     }
 
     fn member_index(members: &Vec<Address>, who: &Address) -> Option<u32> {
-        let mut index = 0u32;
-        for m in members.iter() {
+        for (index, m) in members.iter().enumerate() {
             if m == *who {
-                return Some(index);
+                return Some(index as u32);
             }
-            index += 1;
         }
         None
     }

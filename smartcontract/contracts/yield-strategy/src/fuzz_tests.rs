@@ -172,10 +172,16 @@ mod prop_tests {
         }
 
         fn assert_invariants(&self) {
-            assert!(self.deployed_amount >= 0,
-                "deployed_amount {} is negative", self.deployed_amount);
-            assert!(self.total_harvested >= 0,
-                "total_harvested {} is negative", self.total_harvested);
+            assert!(
+                self.deployed_amount >= 0,
+                "deployed_amount {} is negative",
+                self.deployed_amount
+            );
+            assert!(
+                self.total_harvested >= 0,
+                "total_harvested {} is negative",
+                self.total_harvested
+            );
         }
     }
 
@@ -231,7 +237,7 @@ mod prop_tests {
 
             let mut prev_harvested = 0i128;
             for ratio in ratios {
-                if let Some(_) = sim.harvest(ratio) {
+                if sim.harvest(ratio).is_some() {
                     prop_assert!(sim.total_harvested >= prev_harvested,
                         "total_harvested decreased: {} → {}", prev_harvested, sim.total_harvested);
                     prev_harvested = sim.total_harvested;
@@ -277,7 +283,7 @@ mod prop_tests {
             deploy_amount in prop::sample::select(std_vec![
                 1i128,
                 1_000i128,
-                1_000_000_0000000i128,
+                10_000_000_000_000i128,
                 i128::MAX / 50_001,
                 i128::MAX / 2,
             ]),

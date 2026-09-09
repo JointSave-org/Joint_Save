@@ -138,7 +138,7 @@ mod prop_tests {
             if interest_rate_bps > MAX_INTEREST_RATE_BPS {
                 return None;
             }
-            if term_days < 1 || term_days > MAX_TERM_DAYS {
+            if !(1..=MAX_TERM_DAYS).contains(&term_days) {
                 return None;
             }
             if !members.contains(&borrower) {
@@ -272,12 +272,7 @@ mod prop_tests {
                     loan.id,
                     loan.interest_rate_bps
                 );
-                assert!(
-                    rem >= 0,
-                    "remaining {} is negative (id={})",
-                    rem,
-                    loan.id
-                );
+                assert!(rem >= 0, "remaining {} is negative (id={})", rem, loan.id);
                 assert!(
                     loan.repaid_amount >= 0,
                     "repaid_amount {} is negative (id={})",
@@ -294,11 +289,7 @@ mod prop_tests {
 
                 match loan.status {
                     SimStatus::Pending => {
-                        assert!(
-                            loan.lender.is_none(),
-                            "PENDING loan {} has lender",
-                            loan.id
-                        );
+                        assert!(loan.lender.is_none(), "PENDING loan {} has lender", loan.id);
                         assert_eq!(
                             loan.repaid_amount, 0,
                             "PENDING loan {} has repayments",
@@ -311,11 +302,7 @@ mod prop_tests {
                             "ACTIVE loan {} missing lender",
                             loan.id
                         );
-                        assert!(
-                            loan.due_ts > 0,
-                            "ACTIVE loan {} missing due_ts",
-                            loan.id
-                        );
+                        assert!(loan.due_ts > 0, "ACTIVE loan {} missing due_ts", loan.id);
                     }
                     SimStatus::Repaid => {
                         assert_eq!(
@@ -426,7 +413,7 @@ mod prop_tests {
             principal in prop::sample::select(std_vec![
                 1i128,
                 1_000i128,
-                1_000_000_0000000i128,
+                10_000_000_000_000i128,
                 i128::MAX / 10_001,
                 i128::MAX / 10_000,
             ]),
@@ -462,7 +449,7 @@ mod prop_tests {
 
             for (op, member_offset, amount, rate_bps, term_days) in operations {
                 let borrower = member_offset % member_count;
-                let lender   = ((member_offset + 1) % member_count).max(0);
+                let lender   = (member_offset + 1) % member_count;
 
                 match op {
                     0 => {

@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use super::{TargetPool, TargetPoolClient};
 use soroban_sdk::{
     testutils::{Address as _, Ledger as _},

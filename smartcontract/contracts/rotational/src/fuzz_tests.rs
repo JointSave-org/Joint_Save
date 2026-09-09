@@ -21,7 +21,7 @@ mod prop_tests {
 
         #[test]
         fn prop_fee_split_sums_to_total(
-            total_collected in 1i128..=1_000_000_000_0000_000i128,
+            total_collected in 1i128..=10_000_000_000_000_000i128,
             treasury_fee_bps in 0u32..=5000u32,
             relayer_fee_bps in 0u32..=5000u32,
         ) {
@@ -48,7 +48,7 @@ mod prop_tests {
 
         #[test]
         fn prop_zero_fees_full_payout(
-            total_collected in 1i128..=1_000_000_000_0000_000i128,
+            total_collected in 1i128..=10_000_000_000_000_000i128,
         ) {
             let (treasury_cut, relayer_cut, payout) = compute_fee_split(total_collected, 0, 0);
             prop_assert!(treasury_cut == 0);
@@ -58,7 +58,7 @@ mod prop_tests {
 
         #[test]
         fn prop_max_fees_sum_holds(
-            total_collected in 1i128..=1_000_000_000_0000_000i128,
+            total_collected in 1i128..=10_000_000_000_000_000i128,
             treasury_fee_bps in 0u32..=10_000u32,
         ) {
             let relayer_fee_bps = 10_000 - treasury_fee_bps;

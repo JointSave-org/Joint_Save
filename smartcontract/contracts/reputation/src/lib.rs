@@ -147,13 +147,13 @@ impl ReputationTracker {
 
         // Always track pool membership correctly using a dedicated seen flag
         let seen_key = DataKey::DepositsMade(pool.clone()); // reused as "pool seen by member"
-        // We store pool-member pairings in a different way: we check whether the
-        // combination already has any deposits/misses recorded.
-        // Since Soroban DataKey can't be a tuple without an Address, we use
-        // a dedicated approach: track pools_joined by comparing current sum
-        // against a stored "last known joins" counter via pools_joined itself.
-        // The cleanest approach is: on first-ever event for a member, pools_joined=1.
-        // On subsequent events, we detect a new pool by tracking a per-pool flag.
+                                                            // We store pool-member pairings in a different way: we check whether the
+                                                            // combination already has any deposits/misses recorded.
+                                                            // Since Soroban DataKey can't be a tuple without an Address, we use
+                                                            // a dedicated approach: track pools_joined by comparing current sum
+                                                            // against a stored "last known joins" counter via pools_joined itself.
+                                                            // The cleanest approach is: on first-ever event for a member, pools_joined=1.
+                                                            // On subsequent events, we detect a new pool by tracking a per-pool flag.
         let pool_seen_key_exists = storage.has(&DataKey::RoundsTracked(pool.clone()));
         if !pool_seen_key_exists {
             // First time this specific pool reports for this member
@@ -166,7 +166,11 @@ impl ReputationTracker {
             }
             // Mark this pool as "seen" for this member
             storage.set(&DataKey::RoundsTracked(pool.clone()), &true);
-            storage.extend_ttl(&DataKey::RoundsTracked(pool.clone()), LEDGER_THRESHOLD, LEDGER_BUMP);
+            storage.extend_ttl(
+                &DataKey::RoundsTracked(pool.clone()),
+                LEDGER_THRESHOLD,
+                LEDGER_BUMP,
+            );
         }
         drop(seen_key);
 
@@ -184,10 +188,8 @@ impl ReputationTracker {
         data.last_activity = now;
 
         // Recompute score — recency uses `now` directly since we just recorded activity
-        data.deposit_reliability = Self::compute_deposit_reliability(
-            data.total_deposits,
-            data.missed_deposits,
-        );
+        data.deposit_reliability =
+            Self::compute_deposit_reliability(data.total_deposits, data.missed_deposits);
         let recency = Self::compute_recency_bonus(now, now);
         let pools_completed_ratio_score = if data.pools_joined > 0 {
             let ratio = (data.pools_completed as u64 * 1000) / data.pools_joined as u64;
@@ -203,13 +205,19 @@ impl ReputationTracker {
         data.score_updated_at = now;
 
         storage.set(&DataKey::MemberData(member.clone()), &data);
-        storage.extend_ttl(&DataKey::MemberData(member.clone()), LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(
+            &DataKey::MemberData(member.clone()),
+            LEDGER_THRESHOLD,
+            LEDGER_BUMP,
+        );
 
         // Keep legacy score in sync for backward-compatible reads
         Self::sync_legacy_score(&env, &member, &data);
 
-        env.events()
-            .publish((symbol_short!("rep_upd"), pool, member.clone()), data.total_score);
+        env.events().publish(
+            (symbol_short!("rep_upd"), pool, member.clone()),
+            data.total_score,
+        );
 
         Self::bump_member_ttl(&env, &member);
     }
@@ -234,7 +242,11 @@ impl ReputationTracker {
                 data.pools_joined = 1;
             }
             storage.set(&DataKey::RoundsTracked(pool.clone()), &true);
-            storage.extend_ttl(&DataKey::RoundsTracked(pool.clone()), LEDGER_THRESHOLD, LEDGER_BUMP);
+            storage.extend_ttl(
+                &DataKey::RoundsTracked(pool.clone()),
+                LEDGER_THRESHOLD,
+                LEDGER_BUMP,
+            );
         }
 
         data.total_deposits += 1;
@@ -242,10 +254,8 @@ impl ReputationTracker {
         data.last_activity = now;
 
         // Recompute
-        data.deposit_reliability = Self::compute_deposit_reliability(
-            data.total_deposits,
-            data.missed_deposits,
-        );
+        data.deposit_reliability =
+            Self::compute_deposit_reliability(data.total_deposits, data.missed_deposits);
         let recency = Self::compute_recency_bonus(now, now); // just deposited → max recency
         let pcs = if data.pools_joined > 0 {
             ((data.pools_completed as u64 * 1000) / data.pools_joined as u64).min(1000) as u32
@@ -256,7 +266,11 @@ impl ReputationTracker {
         data.score_updated_at = now;
 
         storage.set(&DataKey::MemberData(member.clone()), &data);
-        storage.extend_ttl(&DataKey::MemberData(member.clone()), LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(
+            &DataKey::MemberData(member.clone()),
+            LEDGER_THRESHOLD,
+            LEDGER_BUMP,
+        );
         Self::sync_legacy_score(&env, &member, &data);
 
         env.events()
@@ -286,7 +300,11 @@ impl ReputationTracker {
         data.score_updated_at = now;
 
         storage.set(&DataKey::MemberData(member.clone()), &data);
-        storage.extend_ttl(&DataKey::MemberData(member.clone()), LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(
+            &DataKey::MemberData(member.clone()),
+            LEDGER_THRESHOLD,
+            LEDGER_BUMP,
+        );
         Self::sync_legacy_score(&env, &member, &data);
 
         env.events()
@@ -312,16 +330,18 @@ impl ReputationTracker {
                 data.pools_joined = 1;
             }
             storage.set(&DataKey::RoundsTracked(pool.clone()), &true);
-            storage.extend_ttl(&DataKey::RoundsTracked(pool.clone()), LEDGER_THRESHOLD, LEDGER_BUMP);
+            storage.extend_ttl(
+                &DataKey::RoundsTracked(pool.clone()),
+                LEDGER_THRESHOLD,
+                LEDGER_BUMP,
+            );
         }
 
         data.missed_deposits += 1;
         data.last_activity = now;
 
-        data.deposit_reliability = Self::compute_deposit_reliability(
-            data.total_deposits,
-            data.missed_deposits,
-        );
+        data.deposit_reliability =
+            Self::compute_deposit_reliability(data.total_deposits, data.missed_deposits);
         let recency = Self::compute_recency_bonus(now, now);
         let pcs = if data.pools_joined > 0 {
             ((data.pools_completed as u64 * 1000) / data.pools_joined as u64).min(1000) as u32
@@ -332,7 +352,11 @@ impl ReputationTracker {
         data.score_updated_at = now;
 
         storage.set(&DataKey::MemberData(member.clone()), &data);
-        storage.extend_ttl(&DataKey::MemberData(member.clone()), LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(
+            &DataKey::MemberData(member.clone()),
+            LEDGER_THRESHOLD,
+            LEDGER_BUMP,
+        );
         Self::sync_legacy_score(&env, &member, &data);
 
         env.events()
@@ -465,7 +489,7 @@ impl ReputationTracker {
     /// Recency bonus based on seconds elapsed since last_activity.
     /// When called with last_activity == now (fresh event), elapsed is 0 → max bonus.
     fn compute_recency_bonus(now: u64, last_activity: u64) -> u32 {
-        let elapsed_secs = if now > last_activity { now - last_activity } else { 0 };
+        let elapsed_secs = now.saturating_sub(last_activity);
         let days = elapsed_secs / SECS_PER_DAY;
         if days < 30 {
             1000
@@ -483,10 +507,7 @@ impl ReputationTracker {
     fn compute_total_score(deposit_reliability: u32, pcs: u32, recency: u32) -> u32 {
         // Use integer arithmetic: multiply by 10 then divide by 10 to get
         // one-decimal precision without floats.
-        let score = (deposit_reliability as u64 * 6
-            + pcs as u64 * 3
-            + recency as u64 * 1)
-            / 10;
+        let score = (deposit_reliability as u64 * 6 + pcs as u64 * 3 + recency as u64) / 10;
         score.min(1000) as u32
     }
 
@@ -546,7 +567,11 @@ impl ReputationTracker {
         };
         let storage = env.storage().persistent();
         storage.set(&DataKey::Score(member.clone()), &legacy);
-        storage.extend_ttl(&DataKey::Score(member.clone()), LEDGER_THRESHOLD, LEDGER_BUMP);
+        storage.extend_ttl(
+            &DataKey::Score(member.clone()),
+            LEDGER_THRESHOLD,
+            LEDGER_BUMP,
+        );
         // Legacy counters
         storage.set(&DataKey::DepositsMade(member.clone()), &data.total_deposits);
         storage.extend_ttl(

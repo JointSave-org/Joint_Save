@@ -3,7 +3,7 @@ use soroban_sdk::{
     Address, Env,
 };
 
-use crate::{ReputationData, ReputationScore, ReputationTracker, ReputationTrackerClient};
+use crate::{ReputationTracker, ReputationTrackerClient};
 
 fn setup<'a>(env: &Env) -> (ReputationTrackerClient<'a>, Address, Address) {
     let contract_id = env.register_contract(None, ReputationTracker);
@@ -129,8 +129,8 @@ fn update_score_successful_deposit_raises_score() {
     assert_eq!(data.total_deposits, 1);
     assert_eq!(data.missed_deposits, 0);
     assert_eq!(data.deposit_reliability, 1000); // 1/1 = 100%
-    // pools_joined=1, pools_completed=0 → pcs=0; recency=1000 (just happened)
-    // score = (1000*6 + 0*3 + 1000*1)/10 = 7000/10 = 700
+                                                // pools_joined=1, pools_completed=0 → pcs=0; recency=1000 (just happened)
+                                                // score = (1000*6 + 0*3 + 1000*1)/10 = 7000/10 = 700
     assert_eq!(data.total_score, 700);
     assert_eq!(data.pools_joined, 1);
 }
@@ -192,7 +192,8 @@ fn get_members_scores_batch() {
     client.update_score(&pool, &member_a, &true, &false);
     client.update_score(&pool, &member_b, &false, &false);
 
-    let scores = client.get_members_scores(&soroban_sdk::vec![&env, member_a.clone(), member_b.clone()]);
+    let scores =
+        client.get_members_scores(&soroban_sdk::vec![&env, member_a.clone(), member_b.clone()]);
     assert_eq!(scores.len(), 2);
     let score_a = scores.get(0).unwrap();
     let score_b = scores.get(1).unwrap();
@@ -227,7 +228,11 @@ fn leaderboard_returns_top_members_sorted_by_score() {
     // First entry should be highest score (member_a)
     let (top_addr, top_data) = board.get(0).unwrap();
     assert_eq!(top_addr, member_a);
-    assert!(top_data.total_score >= 900, "expected high score, got {}", top_data.total_score);
+    assert!(
+        top_data.total_score >= 900,
+        "expected high score, got {}",
+        top_data.total_score
+    );
 }
 
 #[test]

@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, Symbol, Vec,
@@ -337,7 +338,7 @@ impl FlexiblePool {
         Self::bump_config_state_internal(&env);
 
         env.events()
-            .publish((symbol_short!("sup_tok"), admin), tokens.len() as u32);
+            .publish((symbol_short!("sup_tok"), admin), tokens.len());
     }
 
     pub fn emergency_withdraw(env: Env, admin: Address, recipient: Address) {
@@ -577,7 +578,7 @@ impl FlexiblePool {
         let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
         let gov: Option<Address> = storage.get(&DataKey::GovernanceContract);
         assert!(
-            caller == stored_admin || gov.map_or(false, |g| g == caller),
+            caller == stored_admin || gov.is_some_and(|g| g == caller),
             "not authorized"
         );
 
@@ -589,7 +590,7 @@ impl FlexiblePool {
             assert!(new_value > 0, "minimum must be > 0");
             storage.set(&DataKey::MinimumDeposit, &new_value);
         } else if proposal_type == add_penalty {
-            assert!(new_value >= 0 && new_value <= 100, "penalty must be 0-100");
+            assert!((0..=100).contains(&new_value), "penalty must be 0-100");
             storage.set(&DataKey::PenaltyPercentage, &(new_value as u32));
         } else if proposal_type == remove_penalty {
             storage.set(&DataKey::PenaltyPercentage, &0u32);
@@ -714,7 +715,7 @@ impl FlexiblePool {
             .persistent()
             .get(&DataKey::SupportedTokens)
             .unwrap_or(Vec::new(env));
-        if supported.len() > 0 {
+        if !supported.is_empty() {
             let mut found = false;
             for t in supported.iter() {
                 if t == *token {

@@ -1,9 +1,7 @@
-#![cfg(test)]
-
 use super::{RotationalPool, RotationalPoolClient};
 use soroban_sdk::{
     testutils::{Address as _, Ledger as _},
-    token, Address, Env, Symbol, Vec,
+    token, Address, Env, Vec,
 };
 
 #[test]

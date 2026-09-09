@@ -19,8 +19,8 @@ mod prop_tests {
     use proptest::prelude::*;
 
     extern crate std;
-    use std::vec::Vec as StdVec;
     use std::vec;
+    use std::vec::Vec as StdVec;
 
     // ── Pure simulation ───────────────────────────────────────────────────────
     //
@@ -60,7 +60,10 @@ mod prop_tests {
         }
 
         fn get_balance(&self, member: u32) -> Option<i128> {
-            self.balances.iter().find(|&&(id, _)| id == member).map(|&(_, b)| b)
+            self.balances
+                .iter()
+                .find(|&&(id, _)| id == member)
+                .map(|&(_, b)| b)
         }
 
         fn set_balance(&mut self, member: u32, val: i128) {
@@ -74,11 +77,21 @@ mod prop_tests {
         }
 
         fn deposit(&mut self, member: u32, amount: i128) -> Result<i128, &'static str> {
-            if !self.active { return Err("pool inactive"); }
-            if self.unlocked { return Err("pool already unlocked"); }
-            if self.get_balance(member).is_none() { return Err("not a member"); }
-            if amount <= 0 { return Err("amount must be > 0"); }
-            if self.current_sequence > self.deadline { return Err("deadline passed"); }
+            if !self.active {
+                return Err("pool inactive");
+            }
+            if self.unlocked {
+                return Err("pool already unlocked");
+            }
+            if self.get_balance(member).is_none() {
+                return Err("not a member");
+            }
+            if amount <= 0 {
+                return Err("amount must be > 0");
+            }
+            if self.current_sequence > self.deadline {
+                return Err("deadline passed");
+            }
 
             let prev = self.get_balance(member).unwrap();
             self.set_balance(member, prev + amount);
@@ -94,17 +107,25 @@ mod prop_tests {
         }
 
         fn withdraw(&mut self, member: u32) -> Result<i128, &'static str> {
-            if !self.unlocked { return Err("target not reached yet"); }
+            if !self.unlocked {
+                return Err("target not reached yet");
+            }
             let balance = self.get_balance(member).unwrap_or(0);
-            if balance <= 0 { return Err("nothing to withdraw"); }
+            if balance <= 0 {
+                return Err("nothing to withdraw");
+            }
             self.set_balance(member, 0);
             self.total_deposited -= balance;
             Ok(balance)
         }
 
         fn refund(&mut self) -> Result<StdVec<(u32, i128)>, &'static str> {
-            if self.unlocked { return Err("target reached, use withdraw"); }
-            if self.current_sequence <= self.deadline { return Err("deadline not passed"); }
+            if self.unlocked {
+                return Err("target reached, use withdraw");
+            }
+            if self.current_sequence <= self.deadline {
+                return Err("deadline not passed");
+            }
 
             let mut refunds = StdVec::new();
             for entry in self.balances.iter_mut() {
@@ -189,10 +210,10 @@ mod prop_tests {
                     _ => {}
                 }
 
-                sim.check_reconciliation().map_err(|e| TestCaseError::fail(e))?;
-                sim.check_no_negatives().map_err(|e| TestCaseError::fail(e))?;
-                sim.check_unlock_sticky(was_unlocked).map_err(|e| TestCaseError::fail(e))?;
-                sim.check_unlock_threshold().map_err(|e| TestCaseError::fail(e))?;
+                sim.check_reconciliation().map_err(TestCaseError::fail)?;
+                sim.check_no_negatives().map_err(TestCaseError::fail)?;
+                sim.check_unlock_sticky(was_unlocked).map_err(TestCaseError::fail)?;
+                sim.check_unlock_threshold().map_err(TestCaseError::fail)?;
             }
         }
 
@@ -308,7 +329,7 @@ mod prop_tests {
             let _ = sim.deposit(0, 1);
             prop_assert!(sim.unlocked);
             prop_assert_eq!(sim.total_deposited, 1);
-            sim.check_reconciliation().map_err(|e| TestCaseError::fail(e))?;
+            sim.check_reconciliation().map_err(TestCaseError::fail)?;
         }
 
         /// Boundary: zero-amount deposit is always rejected.
@@ -340,12 +361,9 @@ mod prop_tests {
         ) {
             let mut sim = TargetSim::new(vec![0, 1], target, 1000);
             let result = sim.deposit(0, deposit);
-            match result {
-                Ok(new_total) => {
-                    prop_assert!(new_total >= deposit);
-                    prop_assert!(new_total >= 0);
-                }
-                Err(_) => {}
+            if let Ok(new_total) = result {
+                prop_assert!(new_total >= deposit);
+                prop_assert!(new_total >= 0);
             }
             prop_assert!(sim.total_deposited >= 0);
         }
