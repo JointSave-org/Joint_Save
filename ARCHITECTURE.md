@@ -868,9 +868,10 @@ GitHub Actions workflows:
 
 1. Test Workflow (`.github/workflows/test.yml`):
    - Triggers on push/PR
-   - Builds all 4 Soroban contracts
+   - Builds all 5 core Soroban contracts
    - Verifies WASM artifacts
-   - Runs contract tests
+   - Runs contract unit tests, formatting checks, and clippy linting
+   - Runs a deterministic (fixed-seed) proptest fuzz suite across 7 of the 8 contracts
 
 2. Deploy Workflow (`.github/workflows/deploy.yml`):
    - Manual trigger only
