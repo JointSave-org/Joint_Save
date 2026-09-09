@@ -11,6 +11,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import {
+  buildPlan,
+  isHandledActivity,
+  shouldSendEmail,
+  type UserProfile,
+} from "./_logic.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const RESEND_FROM =
@@ -38,30 +44,7 @@ interface WebhookPayload {
   record: ActivityRecord;
 }
 
-interface NotificationPreferences {
-  email_on_payout: boolean;
-  email_on_deposit: boolean;
-  email_on_round: boolean;
-  email_on_target: boolean;
-}
-
-interface UserProfile {
-  wallet_address: string;
-  email: string | null;
-  notification_preferences: NotificationPreferences;
-  muted_pools: string[] | null;
-}
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function shortAddress(addr: string): string {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
-
-function xlmFromStroops(stroops: number | null): string {
-  if (stroops == null) return "?";
-  return (stroops / 10_000_000).toFixed(2);
-}
 
 async function sendEmail(
   to: string,
@@ -82,19 +65,6 @@ async function sendEmail(
   }
 }
 
-function emailHtml(bodyContent: string): string {
-  return `
-    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
-      <h2 style="color:#6d28d9;margin-bottom:8px">JointSave</h2>
-      ${bodyContent}
-      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"/>
-      <p style="font-size:12px;color:#9ca3af">
-        You're receiving this because you're a member of a JointSave pool.
-        Manage preferences in your profile settings.
-      </p>
-    </div>`;
-}
-
 // ── Main handler ─────────────────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -105,8 +75,7 @@ serve(async (req) => {
     const act = payload.record;
     const { activity_type, pool_id, user_address, amount } = act;
 
-    const HANDLED = ["payout", "deposit", "round_advance", "target_reached"];
-    if (!HANDLED.includes(activity_type)) {
+    if (!isHandledActivity(activity_type)) {
       return new Response("ok", { status: 200 });
     }
 
@@ -136,93 +105,41 @@ serve(async (req) => {
       (profiles ?? []).map((p: UserProfile) => [p.wallet_address, p]),
     );
 
-    const poolName = pool.name;
-    const xlm = xlmFromStroops(amount);
-    const senderShort = user_address ? shortAddress(user_address) : "A member";
-
-    // Determine recipients, preference key, message content
-    let recipients: string[] = [];
-    let prefKey: keyof NotificationPreferences = "email_on_deposit";
-    let subject = "";
-    let inAppMsg = "";
-    let bodyHtml = "";
-
-    if (activity_type === "payout") {
-      recipients = user_address ? [user_address] : [];
-      prefKey = "email_on_payout";
-      subject = `You received ${xlm} XLM from ${poolName}`;
-      inAppMsg = subject;
-      bodyHtml = emailHtml(
-        `<p>Great news! You received <strong>${xlm} XLM</strong> from your savings pool <strong>${poolName}</strong>.</p>
-         <p>Log in to view your updated balance.</p>`,
-      );
-    } else if (activity_type === "deposit") {
-      recipients = allMembers.filter((a) => a !== user_address);
-      prefKey = "email_on_deposit";
-      subject = `${senderShort} deposited to ${poolName}`;
-      inAppMsg = subject;
-      bodyHtml = emailHtml(
-        `<p><strong>${senderShort}</strong> made a deposit of <strong>${xlm} XLM</strong> to <strong>${poolName}</strong>.</p>`,
-      );
-    } else if (activity_type === "round_advance") {
-      recipients = allMembers;
-      prefKey = "email_on_round";
-      const nextMember = act.description ?? "the next member";
-      subject = `Round complete in ${poolName} — ${nextMember} is next`;
-      inAppMsg = subject;
-      bodyHtml = emailHtml(
-        `<p>A round is complete in <strong>${poolName}</strong>.</p>
-         <p>The next beneficiary is <strong>${nextMember}</strong>.</p>`,
-      );
-    } else if (activity_type === "target_reached") {
-      recipients = allMembers;
-      prefKey = "email_on_target";
-      subject = `${poolName} reached its target! You can now withdraw.`;
-      inAppMsg = subject;
-      bodyHtml = emailHtml(
-        `<p>Your savings pool <strong>${poolName}</strong> has reached its savings target!</p>
-         <p>You are now eligible to withdraw your funds. Log in to proceed.</p>`,
-      );
-    }
+    const plan = buildPlan({
+      activity_type,
+      poolName: pool.name,
+      amount,
+      user_address,
+      allMembers,
+      description: act.description,
+    });
+    if (!plan) return new Response("ok", { status: 200 });
 
     // Write in-app notifications for all recipients
-    if (recipients.length > 0) {
+    if (plan.recipients.length > 0) {
       await sb.from("notifications").insert(
-        recipients.map((addr) => ({
+        plan.recipients.map((addr) => ({
           wallet_address: addr,
           pool_id,
           activity_type,
-          message: inAppMsg,
+          message: plan.inAppMsg,
         })),
       );
     }
 
     // Send emails, respecting global preferences AND per-pool mute.
     await Promise.all(
-      recipients.map(async (addr) => {
+      plan.recipients.map(async (addr) => {
         const profile = profileMap.get(addr);
+        if (!shouldSendEmail(profile, plan.prefKey, pool_id)) return;
         if (!profile?.email) return;
 
-        const isMutedForThisPool = (profile.muted_pools ?? []).includes(
-          pool_id,
-        );
-        if (isMutedForThisPool) return;
-
-        const prefs: NotificationPreferences = {
-          email_on_payout: true,
-          email_on_deposit: true,
-          email_on_round: true,
-          email_on_target: true,
-          ...(profile.notification_preferences ?? {}),
-        };
-        if (!prefs[prefKey]) return;
-
-        await sendEmail(profile.email, subject, bodyHtml);
+        await sendEmail(profile.email, plan.subject, plan.bodyHtml);
       }),
     );
 
     return new Response(
-      JSON.stringify({ ok: true, notified: recipients.length }),
+      JSON.stringify({ ok: true, notified: plan.recipients.length }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (err) {

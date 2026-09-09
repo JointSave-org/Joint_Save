@@ -21,6 +21,12 @@
 //   MAX_TRIGGERS_PER_RUN        - defaults to 10 (relayer fee-saturation guard)
 //   MIN_RELAYER_BALANCE_XLM     - defaults to 10 (low-balance warning threshold)
 
+import {
+  isInBackoff,
+  makeRetryDecision,
+  RETRY_BACKOFF_MINUTES,
+  scValToBigInt,
+} from "./_logic.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
@@ -55,8 +61,6 @@ const TX_TIMEOUT = 300;
 // Cron runs every 15 minutes, so these backoff windows are enforced across
 // runs (a "retry" row's next_retry_at gates re-attempts), not via in-process
 // sleeps — an Edge Function invocation can't block for 15 minutes.
-const RETRY_BACKOFF_MINUTES = [1, 5, 15];
-const MAX_RETRIES = RETRY_BACKOFF_MINUTES.length;
 // Placeholder read-only account used only to build simulation transactions —
 // never funded, never signs anything. Same technique the frontend's
 // `viewCall` helper uses for on-chain reads.
@@ -89,14 +93,6 @@ interface CronLogFields {
 const normalizeId = (id: string) => id.toUpperCase();
 const addressVal = (addr: string) =>
   nativeToScVal(addr.toUpperCase(), { type: "address" });
-
-// deno-lint-ignore no-explicit-any
-function scValToBigInt(val: any): bigint {
-  const name = val.switch().name;
-  if (name === "scvU64") return BigInt(val.u64().toString());
-  if (name === "scvI64") return BigInt(val.i64().toString());
-  return 0n;
-}
 
 async function logCronEvent(fields: CronLogFields): Promise<void> {
   const { error } = await sb.from("cron_job_logs").insert({
@@ -255,10 +251,7 @@ async function processPool(
   const retryState = await getRetryState(pool.id);
   let attemptNumber = 0;
   if (retryState?.status === "retry") {
-    if (
-      retryState.next_retry_at &&
-      new Date(retryState.next_retry_at) > new Date()
-    ) {
+    if (isInBackoff(retryState.next_retry_at, new Date())) {
       return { attempted: false, skipped: "backoff" };
     }
     attemptNumber = retryState.retry_count;
@@ -319,25 +312,23 @@ async function processPool(
 
     return { attempted: true, succeeded: true };
   } catch (err) {
-    const nextAttempt = attemptNumber + 1;
     const message = err instanceof Error ? err.message : String(err);
+    const decision = makeRetryDecision(attemptNumber, RETRY_BACKOFF_MINUTES, new Date());
 
-    if (nextAttempt > MAX_RETRIES) {
+    if (decision.exhausted) {
       await logCronEvent({
         pool_id: pool.id,
         status: "failed",
         error_message: message,
-        retry_count: nextAttempt,
+        retry_count: attemptNumber + 1,
       });
     } else {
-      const backoffMin = RETRY_BACKOFF_MINUTES[nextAttempt - 1];
-      const nextRetryAt = new Date(Date.now() + backoffMin * 60_000);
       await logCronEvent({
         pool_id: pool.id,
         status: "retry",
         error_message: message,
-        retry_count: nextAttempt,
-        next_retry_at: nextRetryAt.toISOString(),
+        retry_count: attemptNumber + 1,
+        next_retry_at: decision.nextRetryAt ?? undefined,
       });
     }
     return { attempted: true, succeeded: false };
