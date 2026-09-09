@@ -104,7 +104,7 @@ For complete API documentation — functions, events, storage keys, error condit
 
 ### Prerequisites
 
-- Node.js 20+ and pnpm (the repo's `packageManager` field pins the exact pnpm version)
+- Node.js 22+ (required for the test runner's glob patterns) and pnpm (the repo's `packageManager` field pins the exact pnpm version)
 - Rust toolchain with `wasm32-unknown-unknown` target
 - Stellar CLI
 - A Stellar wallet (Freighter, xBull, Albedo, or Lobstr)
