@@ -109,6 +109,10 @@ jobs:
         working-directory: smartcontract
         run: cargo test
 
+      - name: Install rustfmt and clippy
+        working-directory: smartcontract
+        run: rustup component add rustfmt clippy
+
       - name: Check formatting
         working-directory: smartcontract
         run: cargo fmt --check
