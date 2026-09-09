@@ -19,7 +19,7 @@ The platform supports three distinct savings models:
           │
           ▼
 ┌─────────────────────────────────────────────────────────┐
-│                   Frontend  ·  Next.js 14               │
+│                   Frontend  ·  Next.js 16               │
 │                                                         │
 │   Landing Page   │   Dashboard   │   Group Detail       │
 │   ─────────────────────────────────────────────         │
@@ -68,7 +68,7 @@ The platform supports three distinct savings models:
 
 Frontend:
 
-- Next.js 14 (App Router)
+- Next.js 16 (App Router)
 - React 19
 - TypeScript
 - Tailwind CSS
@@ -1405,8 +1405,8 @@ Community:
 
 Prerequisites:
 
-- Node.js 18+
-- Rust 1.70+
+- Node.js 22+
+- Rust 1.85+
 - Stellar CLI
 - Freighter wallet (or other Stellar wallet)
 
