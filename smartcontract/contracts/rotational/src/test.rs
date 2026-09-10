@@ -195,8 +195,7 @@ fn test_beneficiary_rotation_across_full_lifecycle() {
     let pot = DEPOSIT_AMOUNT * 3; // 300
     let treas_cut = pot * 10 / 100; // 30
     let relay_cut = pot * 5 / 100; // 15
-    let payout = pot - treas_cut - relay_cut; // 255
-                                              // m_a: 1000 - 100 + 255 = 1155
+                                   // m_a: 1000 - 100 + 255 = 1155
     assert_eq!(ti.balance(&m_a), 1155);
     assert_eq!(ti.balance(&m_b), 900);
     assert_eq!(ti.balance(&m_c), 900);
@@ -279,7 +278,6 @@ fn test_different_relayers_receive_cut_per_round() {
     let pot = DEPOSIT_AMOUNT * 2; // 200
     let treas_cut = pot * 20 / 100; // 40
     let relay_cut = pot * 10 / 100; // 20
-    let payout = pot - treas_cut - relay_cut; // 140
 
     // m_a: 1000 - 100 + 140 = 1040, m_b: 1000 - 100 = 900
     assert_eq!(ti.balance(&m_a), 1040);
@@ -416,7 +414,7 @@ fn test_trigger_payout_rejects_non_authorized_relayer() {
         &env,
         m_a.clone().into_val(&env),
         pool_id.clone().into_val(&env),
-        (DEPOSIT_AMOUNT as i128).into_val(&env)
+        DEPOSIT_AMOUNT.into_val(&env)
     ];
     let deposit_args_b: soroban_sdk::Vec<soroban_sdk::Val> =
         soroban_sdk::vec![&env, m_b.clone().into_val(&env)];
@@ -424,7 +422,7 @@ fn test_trigger_payout_rejects_non_authorized_relayer() {
         &env,
         m_b.clone().into_val(&env),
         pool_id.clone().into_val(&env),
-        (DEPOSIT_AMOUNT as i128).into_val(&env)
+        DEPOSIT_AMOUNT.into_val(&env)
     ];
 
     // Authorize relayer_a to call trigger_payout
@@ -493,7 +491,7 @@ fn test_trigger_payout_rejects_non_authorized_relayer() {
         &env,
         m_a.clone().into_val(&env),
         pool_id.clone().into_val(&env),
-        (DEPOSIT_AMOUNT as i128).into_val(&env)
+        DEPOSIT_AMOUNT.into_val(&env)
     ];
     let deposit_args_b2: soroban_sdk::Vec<soroban_sdk::Val> =
         soroban_sdk::vec![&env, m_b.clone().into_val(&env)];
@@ -501,7 +499,7 @@ fn test_trigger_payout_rejects_non_authorized_relayer() {
         &env,
         m_b.clone().into_val(&env),
         pool_id.clone().into_val(&env),
-        (DEPOSIT_AMOUNT as i128).into_val(&env)
+        DEPOSIT_AMOUNT.into_val(&env)
     ];
 
     env.set_auths(&[
