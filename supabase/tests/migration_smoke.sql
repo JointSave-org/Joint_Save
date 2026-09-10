@@ -85,9 +85,15 @@ declare
   tbl text;
   col text;
   missing text := '';
+  rec record;
+  col_rec record;
 begin
-  for tbl, cols in select key, value from jsonb_each(expected) loop
-    for col in select e from jsonb_array_elements_text(cols::jsonb) e loop
+  for rec in select key, value from jsonb_each(expected) loop
+    tbl := rec.key;
+    for col_rec in
+      select elem::text as c from jsonb_array_elements_text(rec.value::jsonb) elem
+    loop
+      col := col_rec.c;
       if to_regclass(format('%I.%I', 'public', tbl)) is null then
         continue;
       end if;
