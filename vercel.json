@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/deadline-warnings",
-      "schedule": "0 * * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/disputes/expire",

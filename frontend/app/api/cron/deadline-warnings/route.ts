@@ -7,7 +7,8 @@ const PUSH_API_URL = process.env.NEXT_PUBLIC_APP_URL
   : null
 
 // ─── GET /api/cron/deadline-warnings ─────────────────────────────────────────
-// Vercel Cron job (runs hourly via vercel.json crons config).
+// Vercel Cron job (runs daily at 09:00 UTC via vercel.json crons config — Hobby
+// plans are limited to one run per day).
 //
 // Finds active rotational pools where next_payout is within the next 24 hours,
 // then for each such pool finds members who haven't deposited in the current
