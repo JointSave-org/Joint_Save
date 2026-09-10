@@ -22,7 +22,13 @@ grant usage on schema public to anon, authenticated, service_role;
 grant select on public.pools, public.pool_members, public.pool_activity,
   public.join_requests, public.notifications, public.user_profiles,
   public.pool_daily_metrics, public.pool_health_scores, public.deposit_reminders
-  to anon, authenticated, service_role;
+  to anon, authenticated;
+-- service_role mirrors Supabase: full table privileges + BYPASSRLS. RLS is
+-- bypassed (BYPASSRLS role attribute), but table privileges are still checked.
+grant all on public.pools, public.pool_members, public.pool_activity,
+  public.join_requests, public.notifications, public.user_profiles,
+  public.pool_daily_metrics, public.pool_health_scores, public.deposit_reminders
+  to service_role;
 grant execute on function public.is_pool_member(uuid, text)
   to anon, authenticated, service_role;
 
