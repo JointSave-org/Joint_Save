@@ -12,25 +12,11 @@
 -- exception handlers run in an implicit subtransaction, so failed INSERTs are
 -- rolled back automatically and no explicit savepoints are needed.
 
--- ── Test roles (mirror Supabase's anon/authenticated/service_role) ─────────
-create role anon nologin;
-create role authenticated nologin;
-create role service_role nologin bypassrls;
-
--- `auth.jwt()` is a Supabase platform function referenced by the
--- pool_messages and pool_templates policies. Stub it to read the JWT claims
--- GUC the same way the platform does, so the policies evaluate in tests.
-create schema if not exists auth;
-create or replace function auth.jwt()
-returns jsonb
-language sql
-stable
-as $$
-  select coalesce(
-    nullif(current_setting('request.jwt.claims', true), ''),
-    '{}'
-  )::jsonb;
-$$;
+-- ── Test roles ───────────────────────────────────────────────────────────────
+-- anon / authenticated / service_role and the auth.jwt() stub are created by
+-- fixtures/base_schema.sql (they are Supabase platform pieces, present in prod
+-- before any migration runs). Here we only mirror the table-level grants the
+-- platform applies so that RLS — not table privileges — is the enforcement gate.
 
 grant usage on schema public to anon, authenticated, service_role;
 grant select on public.pools, public.pool_members, public.pool_activity,

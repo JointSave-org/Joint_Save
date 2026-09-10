@@ -15,6 +15,33 @@
 
 -- `gen_random_uuid()` is core since PostgreSQL 13; no extension needed.
 
+-- ── Supabase platform pieces the migrations depend on ────────────────────────
+-- A real Supabase project always ships these before any migration runs:
+--
+--   * the `auth` schema + `auth.jwt()` used by the pool_messages /
+--     pool_templates RLS policies (CREATE POLICY resolves the function
+--     eagerly, so it must exist before those migrations apply);
+--   * the `anon` / `authenticated` / `service_role` platform roles.
+--
+-- Recreated here so the fixtures are faithful to prod.
+
+create schema if not exists auth;
+
+create or replace function auth.jwt()
+returns jsonb
+language sql
+stable
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claims', true), ''),
+    '{}'
+  )::jsonb;
+$$;
+
+create role anon nologin;
+create role authenticated nologin;
+create role service_role nologin bypassrls;
+
 create table public.pools (
   id                     uuid primary key default gen_random_uuid(),
   name                   text not null,
