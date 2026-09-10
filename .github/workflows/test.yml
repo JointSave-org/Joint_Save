@@ -230,6 +230,59 @@ jobs:
           path: /tmp/fuzz-*.log
           retention-days: 30
 
+  edge-functions-unit:
+    name: Edge Functions – Deno Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run edge function unit tests
+        working-directory: supabase/functions
+        run: deno task test
+
+  supabase-migrations:
+    name: Supabase – Migration & RLS Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        # Health check copied from the official CI examples.
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGROOT_DB: postgres
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install postgresql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run migration + RLS harness
+        working-directory: supabase/tests
+        run: ./run-tests.sh
+
   component-tests:
     name: Run React Component Tests
     runs-on: ubuntu-latest
