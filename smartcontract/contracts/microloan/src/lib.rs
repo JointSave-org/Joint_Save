@@ -590,4 +590,7 @@ impl MicroloanContract {
 mod tests;
 
 #[cfg(test)]
+mod adversarial_tests;
+
+#[cfg(test)]
 mod fuzz_tests;
