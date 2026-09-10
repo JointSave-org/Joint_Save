@@ -12,7 +12,7 @@ A decentralized community savings platform built on Stellar, enabling trusted gr
 
 ## Live Demo
 
-🚀 **[https://joint-save.vercel.app](https://joint-save.vercel.app)**
+🚀 **[https://joint-save-y4yx.vercel.app](https://joint-save-y4yx.vercel.app)**
 
 📹 **Demo Video:** [Watch Full MVP Functionality](https://youtu.be/Iuy-As9im7A)
 
@@ -56,7 +56,7 @@ A full technical walkthrough — contract layer, flows, and database schema — 
 ## Current Status
 
 - **On-chain:** factory + Rotational/Target/Flexible WASMs deployed to **Stellar Testnet** (see [Deployed Contracts](#deployed-contracts)). Governance, Microloan, and Yield Strategy have **no recorded deployment yet** – they are feature-gated via env vars.
-- **Frontend:** `joint-save.vercel.app` is hosted on Vercel; the project needs re-linking from the personal fork to `JointSave-org/Joint_Save` (org admin pending) before auto-deploys on `main`.
+- **Frontend:** `joint-save-y4yx.vercel.app` is hosted on Vercel, linked to `JointSave-org/Joint_Save` (root directory `frontend`) — pushes to `main` auto-deploy to Production.
 - **CI/CD:** 4 GitHub Actions workflows – contracts build/test, frontend lint + format + build + component tests, Node unit tests, Playwright E2E (pull requests), plus a manual contract-deploy dispatcher.
 - **Known gaps under active work:** the admin emergency-withdrawal flow is still awaiting contract execution support ([#263](https://github.com/JointSave-org/Joint_Save/issues/263)); the admin incident-review UI is in progress ([#261](https://github.com/JointSave-org/Joint_Save/issues/261)).
 
@@ -304,6 +304,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 _Powered by [Stellar](https://stellar.org) • [Soroban](https://soroban.stellar.org) • [Next.js](https://nextjs.org)_
 
-[Live Demo](https://joint-save.vercel.app) • [Watch Video](https://youtu.be/Iuy-As9im7A) • [View Code](https://github.com/JointSave-org/Joint_Save)
+[Live Demo](https://joint-save-y4yx.vercel.app) • [Watch Video](https://youtu.be/Iuy-As9im7A) • [View Code](https://github.com/JointSave-org/Joint_Save)
 
 </div>
