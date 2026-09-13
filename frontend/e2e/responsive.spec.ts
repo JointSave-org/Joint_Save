@@ -60,7 +60,7 @@ for (const vp of VIEWPORTS) {
     await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
     await poolsResponse
     await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
-    await expect(page.getByText(/Responsive Pool/i)).toBeVisible()
+    await expect(page.getByRole("heading", { name: /Responsive Pool/i })).toBeVisible()
     await expectNoHorizontalOverflow(page)
   })
 
