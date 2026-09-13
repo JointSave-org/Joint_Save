@@ -83,6 +83,6 @@ for (const c of cases) {
     await page.goto(localePath("/dashboard"), { waitUntil: "networkidle" })
     await poolsResponse
     await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
-    await expect(page.getByText(c.name)).toBeVisible()
+    await expect(page.getByRole("heading", { name: c.name })).toBeVisible()
   })
 }

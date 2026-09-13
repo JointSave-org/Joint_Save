@@ -43,7 +43,7 @@ test("My Groups tab is default and shows pool list", async ({ page }) => {
   await poolsResponse
 
   await expect(page.getByRole("heading", { name: /My Groups/i })).toBeVisible()
-  await expect(page.getByText(/Tab Pool/i)).toBeVisible()
+  await expect(page.getByRole("heading", { name: /Tab Pool/i })).toBeVisible()
 })
 
 test("Explore tab shows explore content", async ({ page }) => {
