@@ -1,0 +1,33 @@
+type Protocol @entity {
+  id: ID! # Single instance "1"
+  totalValueLockedUSD: BigDecimal!
+  totalVolumeUSD: BigDecimal!
+  activePoolsCount: BigInt!
+  totalMembers: BigInt!
+}
+
+type ProtocolDayData @entity {
+  id: ID! # Timestamp / 86400
+  date: Int!
+  tvlUSD: BigDecimal!
+  dailyVolumeUSD: BigDecimal!
+  totalMembers: BigInt!
+}
+
+type Pool @entity {
+  id: ID! # Pool contract address
+  token0: Bytes!
+  token1: Bytes!
+  reserve0: BigInt!
+  reserve1: BigInt!
+  totalValueLockedUSD: BigDecimal!
+  volumeUSD: BigDecimal!
+  isActive: Boolean!
+  createdAtTimestamp: BigInt!
+}
+
+type Member @entity {
+  id: ID! # Wallet address
+  joinedTimestamp: BigInt!
+  txCount: BigInt!
+}
