@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/dashboard/empty-state"
 import { FirstPoolTooltip } from "@/components/dashboard/first-pool-tooltip"
 import { PoolCard, PoolCardSkeleton, type Pool } from "@/components/dashboard/pool-card"
 import { BatchDepositPanel } from "@/components/dashboard/batch-deposit-panel"
+import { PoolHealthWidget } from "@/components/dashboard/pool-health-widget"
 import { DepositCalendar } from "@/components/dashboard/deposit-calendar/DepositCalendar"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { ArchivedPoolCard, type ArchivedPool } from "@/components/shared/archived-pool-card"
@@ -146,6 +147,7 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
       className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
       aria-label={t("loadingLabel")}
     >
+      <PoolHealthWidget pools={[]} loading={true} />
       {Array.from({ length: PAGE_SIZE }).map((_, i) => (
         <PoolCardSkeleton key={i} />
       ))}
@@ -156,6 +158,8 @@ export function MyGroups({ onCreateClick }: MyGroupsProps) {
     </Card>
   ) : (
     <div className="space-y-6">
+      {/* Pool health score widget — hidden when no pools are loaded */}
+      {pools.length > 0 && <PoolHealthWidget pools={pools} loading={false} />}
       {/* Deposits owed across every pool the wallet belongs to. Renders
           nothing when there is nothing outstanding. */}
       <BatchDepositPanel onDepositsComplete={() => loadPools(page)} />
