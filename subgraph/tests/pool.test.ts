@@ -7,7 +7,7 @@ import { Protocol } from "../generated/schema";
 describe("Pool Unit Tests", () => {
   test("Should increment unique total members on MemberJoined event", () => {
     // Setup initial protocol state
-    let protocol = new Protocol("1");
+    const protocol = new Protocol("1");
     protocol.totalValueLockedUSD = BigInt.fromI32(0).toBigDecimal();
     protocol.totalVolumeUSD = BigInt.fromI32(0).toBigDecimal();
     protocol.activePoolsCount = BigInt.fromI32(0);
@@ -15,13 +15,13 @@ describe("Pool Unit Tests", () => {
     protocol.save();
 
     // Create mock MemberJoined event
-    let mockEvent = newMockEvent();
-    let memberAddress = Address.fromString("0x0000000000000000000000000000000000000001");
+    const mockEvent = newMockEvent();
+    const memberAddress = Address.fromString("0x0000000000000000000000000000000000000001");
     
-    let memberParam = new ethereum.EventParam("member", ethereum.Value.fromAddress(memberAddress));
+    const memberParam = new ethereum.EventParam("member", ethereum.Value.fromAddress(memberAddress));
     mockEvent.parameters = [memberParam];
 
-    let memberJoinedEvent = new MemberJoined(
+    const memberJoinedEvent = new MemberJoined(
       mockEvent.address,
       mockEvent.logIndex,
       mockEvent.transactionLogIndex,

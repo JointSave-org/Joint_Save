@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server"
 
-const SUBGRAPH_URL = process.env.NEXT_PUBLIC_SUBGRAPH_URL || "https://api.thegraph.com/subgraphs/name/protocol/analytics";
+const SUBGRAPH_URL =
+  process.env.NEXT_PUBLIC_SUBGRAPH_URL ||
+  "https://api.thegraph.com/subgraphs/name/protocol/analytics"
 
 const QUERY = `
   query GetProtocolSummary {
@@ -22,25 +24,23 @@ const QUERY = `
       isActive
     }
   }
-`;
+`
 
 export async function GET() {
   try {
     const res = await fetch(SUBGRAPH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: QUERY }),
-      next: { revalidate: 60 } // Cache payload for 60 seconds
-    });
+      next: { revalidate: 60 }, // Cache payload for 60 seconds
+    })
 
-    const { data, errors } = await res.json();
-    if (errors) throw new Error(JSON.stringify(errors));
+    const { data, errors } = await res.json()
+    if (errors) throw new Error(JSON.stringify(errors))
 
-    return NextResponse.json({ success: true, data }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to fetch protocol analytics" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, data }, { status: 200 })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to fetch protocol analytics"
+    return NextResponse.json({ success: false, error: message }, { status: 500 })
   }
 }
