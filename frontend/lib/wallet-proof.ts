@@ -1,65 +1,110 @@
 /**
- * The message a wallet signs to prove it controls an address.
- *
- * Shared by the browser, which asks the wallet to sign it, and the server, which
- * rebuilds it byte for byte and checks the signature. It lives in its own module
- * so neither side can drift from the other, and so the server never has to
- * import anything that touches a wallet.
+ * SEP-53 Wallet Signature Proof
+ * 
+ * Client-side utilities for signing messages with user's wallet to prove ownership.
+ * Used for admin actions (pause, unpause, emergency_withdraw) to prevent spoofing.
  */
 
-/**
- * How far a proof's timestamp may be from the server's clock.
- *
- * Short enough that a captured proof stops working quickly, wide enough to
- * survive an unsynchronised laptop clock and a slow signature.
- */
-export const PROOF_MAX_AGE_MS = 5 * 60 * 1000
+import { StellarWalletsKit } from '@creit.tech/stellar-wallets-kit'
 
-/**
- * The exact text signed to revoke a pause authorization.
- *
- * It names the action and the specific authorization, so a proof captured for
- * one revocation cannot be replayed against another, and carries a timestamp so
- * it stops being useful within minutes. Replaying it against the *same*
- * authorization achieves nothing: revoking an already revoked entry is a no-op.
- */
-export function revokePauseAuthorizationMessage(authorizationId: string, signedAt: number): string {
-  return [
-    "JointSave: revoke pause authorization",
-    `authorization: ${authorizationId}`,
-    `at: ${signedAt}`,
-    "Signing this does not move funds.",
-  ].join("\n")
+export interface WalletProofMessage {
+  action: 'pause' | 'unpause' | 'emergency_withdraw'
+  poolId: string
+  poolAddress: string
+  adminAddress: string
+  timestamp: number
+  reason?: string
+  recipient?: string
+}
+
+export interface SignedWalletProof {
+  message: WalletProofMessage
+  signature: string
+  publicKey: string
 }
 
 /**
- * The exact text signed to archive a pool, and to bring one back.
- *
- * Archiving is an admin action that changes what every member sees, so it is
- * proved the same way a pause authorization is. The two messages differ by more
- * than the pool id so a proof gathered to archive cannot be turned around and
- * replayed to unarchive, and each carries a timestamp so it expires in minutes.
+ * Generate a deterministic message string from the proof message
  */
-export function archivePoolMessage(poolId: string, signedAt: number): string {
-  return [
-    "JointSave: archive pool",
-    `pool: ${poolId}`,
-    `at: ${signedAt}`,
-    "Signing this does not move funds.",
-  ].join("\n")
+export function generateProofMessage(msg: WalletProofMessage): string {
+  const parts = [
+    `JointSave Admin Action`,
+    `Action: ${msg.action}`,
+    `Pool: ${msg.poolId}`,
+    `Contract: ${msg.poolAddress}`,
+    `Admin: ${msg.adminAddress}`,
+    `Timestamp: ${msg.timestamp}`,
+  ]
+  
+  if (msg.reason) {
+    parts.push(`Reason: ${msg.reason}`)
+  }
+  
+  if (msg.recipient) {
+    parts.push(`Recipient: ${msg.recipient}`)
+  }
+  
+  return parts.join('\n')
 }
 
-export function unarchivePoolMessage(poolId: string, signedAt: number): string {
-  return [
-    "JointSave: unarchive pool",
-    `pool: ${poolId}`,
-    `at: ${signedAt}`,
-    "Signing this does not move funds.",
-  ].join("\n")
+/**
+ * Sign a wallet proof message using the connected wallet
+ */
+export async function signWalletProof(
+  kit: StellarWalletsKit,
+  message: WalletProofMessage
+): Promise<SignedWalletProof> {
+  const messageStr = generateProofMessage(message)
+  
+  try {
+    const { signedMessage, signerAddress } = await kit.signMessage(messageStr)
+    
+    if (!signedMessage || !signerAddress) {
+      throw new Error('Failed to sign message')
+    }
+    
+    // Verify the signer matches the admin address
+    if (signerAddress.toLowerCase() !== message.adminAddress.toLowerCase()) {
+      throw new Error('Signer address does not match admin address')
+    }
+    
+    return {
+      message,
+      signature: signedMessage,
+      publicKey: signerAddress,
+    }
+  } catch (error) {
+    console.error('Wallet proof signing error:', error)
+    throw new Error(`Failed to sign wallet proof: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
 
-/** True while a proof's timestamp is close enough to now to be accepted. */
-export function proofIsFresh(signedAt: number, now: number = Date.now()): boolean {
-  if (!Number.isFinite(signedAt)) return false
-  return Math.abs(now - signedAt) <= PROOF_MAX_AGE_MS
+/**
+ * Create a timestamp for the proof (current time in seconds)
+ */
+export function createProofTimestamp(): number {
+  return Math.floor(Date.now() / 1000)
+}
+
+/**
+ * Check if a timestamp is still valid (within 5 minutes)
+ */
+export function isTimestampValid(timestamp: number): boolean {
+  const now = Math.floor(Date.now() / 1000)
+  const fiveMinutes = 5 * 60
+  return Math.abs(now - timestamp) <= fiveMinutes
+}
+
+/**
+ * Generate the message for revoking a pause authorization
+ */
+export function revokePauseAuthorizationMessage(
+  authorizationId: string,
+  signedAt: number
+): string {
+  return [
+    `JointSave Revoke Pause Authorization`,
+    `Authorization ID: ${authorizationId}`,
+    `Signed At: ${signedAt}`,
+  ].join('\n')
 }

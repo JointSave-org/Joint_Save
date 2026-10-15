@@ -6,9 +6,12 @@ import { GroupDetails } from "@/components/group/group-details"
 import { GroupMembers } from "@/components/group/group-members"
 import { GroupActivity } from "@/components/group/group-activity"
 import { GroupActions } from "@/components/group/group-actions"
+import { AdminEmergencyControls } from "@/components/group/admin-emergency-controls"
+import { PausedPoolBanner } from "@/components/group/paused-pool-banner"
 import { RotationalTimelineContainer } from "@/components/group/rotational-timeline-container"
 import { PoolChat } from "@/components/group/pool-chat"
 import { DisputesPanel } from "@/components/disputes/disputes-panel"
+import { GovernancePanel } from "@/components/governance/governance-panel"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -20,8 +23,11 @@ interface Pool {
   id: string
   name: string
   type: "rotational" | "target" | "flexible"
+  status?: string
   contract_address: string
   token_address: string
+  pause_reason?: string | null
+  paused_at?: string | null
   pool_members?: { member_address: string }[]
   governance_contract_id?: string | null
 }
@@ -102,6 +108,8 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
     (pool.pool_members?.some((m) => m.member_address.toLowerCase() === address.toLowerCase()) ??
       false)
 
+  const isAdmin = !!address && !!poolAdmin && address.toLowerCase() === poolAdmin.toLowerCase()
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
@@ -113,9 +121,30 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
           </Link>
         </Button>
 
+        {/* Paused Pool Banner - shown to all members */}
+        {pool.status === "paused" && pool.paused_at && (
+          <PausedPoolBanner
+            groupId={id}
+            pausedAt={pool.paused_at}
+            pauseReason={pool.pause_reason || null}
+            isAdmin={isAdmin}
+          />
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* ── Left column: details + timeline + activity + chat ───────── */}
           <div className="lg:col-span-2 space-y-6">
+            {isAdmin && (
+              <AdminEmergencyControls
+                poolId={id}
+                poolAddress={pool.contract_address}
+                poolType={pool.type}
+                isPaused={isPaused}
+                isAdmin={isAdmin}
+                creatorAddress={poolAdmin || ""}
+                onStatusChange={refreshPoolState}
+              />
+            )}
             <GroupDetails groupId={id} contractAddress={cacheKey} poolAdmin={poolAdmin} />
             {pool.type === "rotational" && (
               <RotationalTimelineContainer groupId={id} contractAddress={cacheKey} />
@@ -128,9 +157,7 @@ export default function GroupClient({ params }: { params: Promise<{ id: string }
                 governanceContractId={pool.governance_contract_id}
                 poolContractAddress={pool.contract_address}
                 poolType={pool.type}
-                isAdmin={
-                  !!address && !!poolAdmin && address.toLowerCase() === poolAdmin.toLowerCase()
-                }
+                isAdmin={isAdmin}
                 isMember={isMember}
               />
             )}
