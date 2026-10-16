@@ -748,6 +748,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jointsave-yield-vault"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"

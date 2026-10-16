@@ -178,7 +178,7 @@ unchanged. Existing deployed governance contracts are upgraded with `migrate()`.
   balances before any token/CPI transfer.
 - **Reentrancy**: no external call happens before internal state is consistent; vault
   calls are treated as untrusted.
-- **Events** for every fund movement: `ya_alloc`, `ya_dealloc`, `ya_sync`, `ya_bufset`,
+- **Events** for every fund movement: `ya_alloc`, `ya_deall`, `ya_sync`, `ya_bufset`,
   `ya_locked`.
 
 ## 9. Risks (documented, not hidden)
