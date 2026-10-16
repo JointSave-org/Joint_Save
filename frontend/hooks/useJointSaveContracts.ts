@@ -1994,6 +1994,201 @@ export function useGovernanceVote(govContractId: string) {
   return { vote, isLoading }
 }
 
+
+export async function fetchYieldAllocationState(
+  contractId: string,
+): Promise<YieldAllocationState> {
+  const [vaultVal, sharesVal, costVal, bufVal, lockedVal, posVal, unrealVal, maxVal] =
+    await Promise.all([
+      viewCall(contractId, "yield_vault"),
+      viewCall(contractId, "yield_shares"),
+      viewCall(contractId, "yield_cost_basis"),
+      viewCall(contractId, "yield_buffer_bps"),
+      viewCall(contractId, "yield_locked"),
+      viewCall(contractId, "yield_position"),
+      viewCall(contractId, "unrealised_yield"),
+      viewCall(contractId, "max_allocatable_amount"),
+    ])
+
+  const vault = vaultVal.switch().name === "scvAddress" ? vaultVal.address().toString() : null
+  const locked = lockedVal.switch().name === "scvBool" ? lockedVal.b() : false
+  const bufferBps = bufVal.switch().name === "scvU32" ? Number(bufVal.u32()) : 2000
+
+  return {
+    vault,
+    shares: scValToBigInt(sharesVal),
+    costBasis: scValToBigInt(costVal),
+    bufferBps,
+    locked,
+    position: scValToBigInt(posVal),
+    unrealised: scValToBigInt(unrealVal),
+    maxAllocatable: scValToBigInt(maxVal),
+  }
+}
+
+export interface YieldAllocationState {
+  vault: string | null
+  shares: bigint
+  costBasis: bigint
+  bufferBps: number
+  locked: boolean
+  position: bigint
+  unrealised: bigint
+  maxAllocatable: bigint
+}
+
+export function useApplyYieldAllocation(contractId: string) {
+  const { address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const applyAllocation = async (vaultId: string, amount: bigint): Promise<string | undefined> => {
+    if (!address || !contractId || !vaultId) return
+    setIsLoading(true)
+    try {
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call(
+              "apply_yield_allocation",
+              addressVal(address),
+              addressVal(vaultId),
+              i128Val(amount),
+            ),
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build(),
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { applyAllocation, isLoading }
+}
+
+export function useDeallocateYield(contractId: string) {
+  const { address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const deallocate = async (amount: bigint): Promise<string | undefined> => {
+    if (!address || !contractId) return
+    setIsLoading(true)
+    try {
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call(
+              "apply_yield_deallocation",
+              addressVal(address),
+              i128Val(amount),
+            ),
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build(),
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { deallocate, isLoading }
+}
+
+export function useSyncYield(contractId: string) {
+  const { address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const sync = async (): Promise<string | undefined> => {
+    if (!address || !contractId) return
+    setIsLoading(true)
+    try {
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call("sync_yield", addressVal(address)),
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build(),
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { sync, isLoading }
+}
+
+export function useSetYieldBuffer(contractId: string) {
+  const { address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const setBuffer = async (bps: number): Promise<string | undefined> => {
+    if (!address || !contractId) return
+    setIsLoading(true)
+    try {
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call(
+              "set_yield_buffer",
+              addressVal(address),
+              xdr.ScVal.scvU32(bps),
+            ),
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build(),
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { setBuffer, isLoading }
+}
+
+export function useSetYieldLocked(contractId: string) {
+  const { address } = useStellar()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const setLocked = async (locked: boolean): Promise<string | undefined> => {
+    if (!address || !contractId) return
+    setIsLoading(true)
+    try {
+      return await submitTx(address, (account) =>
+        new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+        })
+          .addOperation(
+            new Contract(normalizeId(contractId)).call(
+              "set_yield_locked",
+              addressVal(address),
+              xdr.ScVal.scvBool(locked),
+            ),
+          )
+          .setTimeout(TX_TIMEOUT)
+          .build(),
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return { setLocked, isLoading }
+}
+
 export function useExecuteProposal(govContractId: string) {
   const { address } = useStellar()
   const [isLoading, setIsLoading] = useState(false)
