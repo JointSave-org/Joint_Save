@@ -1112,3 +1112,59 @@ fn stranger_cannot_sync_yield() {
     let stranger = Address::generate(&env);
     pool.sync_yield(&stranger);
 }
+
+#[test]
+#[should_panic(expected = "pool paused")]
+fn allocation_respects_paused_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (pool, token_addr, admin, _treasury, member_a, _b) = setup_pool(&env, true);
+    let vault_id = env.register_contract(None, MockVault);
+    MockVaultClient::new(&env, &vault_id).initialize(&admin, &token_addr);
+    token::StellarAssetClient::new(&env, &token_addr).mint(&member_a, &100i128);
+    pool.deposit(&member_a, &100i128);
+    pool.pause(&admin);
+    pool.apply_yield_allocation(&admin, &vault_id, &10i128);
+}
+
+#[test]
+#[should_panic(expected = "amount must be > 0")]
+fn allocation_rejects_zero_amount() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool.apply_yield_allocation(&c.admin, &c.vault_id, &0i128);
+}
+
+#[test]
+#[should_panic(expected = "amount must be > 0")]
+fn deallocation_rejects_zero_amount() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (pool, _token, _vault, _admin, a, _b) = setup_two_members_allocated(&env);
+    pool.apply_yield_deallocation(&a, &0i128);
+}
+
+#[test]
+fn deallocation_on_fully_illiquid_returns_zero() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (pool, token_addr, vault_id, admin, a, _b) = setup_two_members_allocated(&env);
+    MockVaultClient::new(&env, &vault_id).set_locked_assets(&admin, &160i128);
+    let received = pool.apply_yield_deallocation(&a, &100i128);
+    assert_eq!(received, 0i128);
+}
+
+#[test]
+fn set_yield_buffer_zero_forces_full_liquidity() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (pool, _token, vault_id, admin, a, _b) = setup_two_members_allocated(&env);
+    pool.set_yield_buffer(&admin, &0u32);
+    assert_eq!(pool.yield_buffer_bps(), 0u32);
+    // 200 pot, 0% buffer -> 200 allocatable, but headroom is 200 (liquid at start 200).
+    let head = pool.max_allocatable_amount();
+    assert!(head > 0);
+    pool.apply_yield_deallocation(&a, &160i128);
+    assert!(pool.yield_shares() <= 0);
+}
