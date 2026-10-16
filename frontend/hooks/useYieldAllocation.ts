@@ -9,7 +9,7 @@ import {
   useSetYieldLocked,
   useSyncYield,
 } from "@/hooks/useJointSaveContracts"
-import { computeMaxAllocatable, type YieldAllocationState } from "@/lib/yield-allocation"
+import { type YieldAllocationState } from "@/lib/yield-allocation"
 
 export interface UseYieldAllocationResult {
   state: YieldAllocationState | null
@@ -33,7 +33,6 @@ export function useYieldAllocation(poolContractId: string | null): UseYieldAlloc
   const [state, setState] = useState<YieldAllocationState | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [totalBalance, setTotalBalance] = useState<bigint>(0n)
 
   const { applyAllocation: chainApply } = useApplyYieldAllocation(poolContractId ?? "")
   const { deallocate: chainDeallocate } = useDeallocateYield(poolContractId ?? "")
@@ -51,9 +50,6 @@ export function useYieldAllocation(poolContractId: string | null): UseYieldAlloc
     try {
       const next = await fetchYieldAllocationState(poolContractId)
       setState(next)
-      // `position + idle` is not tracked here; the contract reports the live
-      // max allocatable, so we only need the total for the progress display.
-      setTotalBalance(next.costBasis + next.maxAllocatable)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load yield state")
       setState(null)
@@ -66,9 +62,7 @@ export function useYieldAllocation(poolContractId: string | null): UseYieldAlloc
     refresh()
   }, [refresh])
 
-  const maxAllocatable = state
-    ? computeMaxAllocatable(totalBalance, state.costBasis, state.bufferBps)
-    : 0n
+  const maxAllocatable = state?.maxAllocatable ?? 0n
 
   const applyAllocation = useCallback(
     async (vaultId: string, amount: bigint): Promise<boolean> => {
