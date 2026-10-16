@@ -546,10 +546,7 @@ impl Governance {
                 );
                 format_result(env, "penalty", 0)
             }
-            ProposalType::Custom => {
-                let len = proposal.parameters.len();
-                format_result(env, "custom", len as i128)
-            }
+            ProposalType::Custom => Self::dispatch_custom(env, proposal),
             _ => {
                 let value = Self::require_i128(env, &raw_value);
                 let type_symbol = match proposal.proposal_type {
@@ -576,6 +573,64 @@ impl Governance {
                 );
                 format_result(env, type_symbol, value)
             }
+        }
+    }
+
+    /// Route a `Custom` proposal. Yield-allocation actions are recognised by an
+    /// `action` parameter and are forwarded to the pool; any other `Custom`
+    /// proposal keeps the original "record and report" behaviour so existing
+    /// groups are unaffected.
+    fn dispatch_custom(env: &Env, proposal: &Proposal) -> Bytes {
+        let action_key = String::from_str(env, "action");
+        let action_bytes = match proposal.parameters.get(action_key) {
+            Some(bytes) => bytes,
+            // No `action` parameter: not a yield-allocation proposal.
+            None => return format_result(env, "custom", proposal.parameters.len() as i128),
+        };
+
+        let gov = env.current_contract_address();
+        let pool: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PoolContract)
+            .unwrap();
+
+        if action_bytes == Bytes::from_slice(env, b"alloc") {
+            let amount = Self::require_i128(
+                env,
+                &proposal.parameters.get(String::from_str(env, "amount")),
+            );
+            let vault_bytes = proposal
+                .parameters
+                .get(String::from_str(env, "vault"))
+                .expect("missing vault");
+            let vault = Address::from_string_bytes(&vault_bytes);
+
+            let _: () = env.invoke_contract(
+                &pool,
+                &Symbol::new(env, "apply_yield_allocation"),
+                soroban_sdk::vec![
+                    env,
+                    gov.into_val(env),
+                    vault.into_val(env),
+                    amount.into_val(env),
+                ],
+            );
+            format_result(env, "yield_alloc", amount)
+        } else if action_bytes == Bytes::from_slice(env, b"dealloc") {
+            let amount = Self::require_i128(
+                env,
+                &proposal.parameters.get(String::from_str(env, "amount")),
+            );
+
+            let _: () = env.invoke_contract(
+                &pool,
+                &Symbol::new(env, "apply_yield_deallocation"),
+                soroban_sdk::vec![env, gov.into_val(env), amount.into_val(env)],
+            );
+            format_result(env, "yield_dealc", amount)
+        } else {
+            format_result(env, "custom", proposal.parameters.len() as i128)
         }
     }
 
