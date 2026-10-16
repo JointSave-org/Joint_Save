@@ -7,6 +7,8 @@ import {
   buildYieldAllocationParams,
   isValidContractId,
   parseAmountToBaseUnits,
+  decodeYieldAllocationParams,
+  formatBaseUnits,
   formatTimeRemaining,
   meetsQuorum,
   mergeProposals,
@@ -132,4 +134,34 @@ test("parseAmountToBaseUnits", () => {
   assert.equal(parseAmountToBaseUnits("0.0000001", 7), 1n)
   assert.equal(parseAmountToBaseUnits("2.123456789", 7), 21_234_567n)
   assert.throws(() => parseAmountToBaseUnits("abc", 7), /invalid amount/)
+})
+
+test("decodeYieldAllocationParams - round-trips an allocation", () => {
+  const vault = "C" + "B".repeat(55)
+  const encoded = buildYieldAllocationParams({ action: "alloc", vault, amountBaseUnits: 1_500_000n })
+  const decoded = decodeYieldAllocationParams(encoded)
+  assert.deepStrictEqual(decoded, { action: "alloc", vault, amountBaseUnits: 1_500_000n })
+})
+
+test("decodeYieldAllocationParams - round-trips a de-allocation without vault", () => {
+  const encoded = buildYieldAllocationParams({ action: "dealloc", amountBaseUnits: 7n })
+  const decoded = decodeYieldAllocationParams(encoded)
+  assert.deepStrictEqual(decoded, { action: "dealloc", vault: undefined, amountBaseUnits: 7n })
+})
+
+test("decodeYieldAllocationParams - rejects non-yield params", () => {
+  assert.equal(decodeYieldAllocationParams(undefined), null)
+  assert.equal(decodeYieldAllocationParams({}), null)
+  assert.equal(decodeYieldAllocationParams({ action: "616c6c6f63" }), null)
+  assert.equal(decodeYieldAllocationParams({ action: "6e6f7065", amount: "0".repeat(32) }), null)
+  assert.equal(decodeYieldAllocationParams({ action: "616c6c6f63", amount: "00" }), null)
+})
+
+test("formatBaseUnits", () => {
+  assert.equal(formatBaseUnits(15_000_000n, 7), "1.5")
+  assert.equal(formatBaseUnits(10_000_000n, 7), "1")
+  assert.equal(formatBaseUnits(1n, 7), "0.0000001")
+  assert.equal(formatBaseUnits(0n, 7), "0")
+  assert.equal(formatBaseUnits(-2_500_000n, 7), "-0.25")
+  assert.equal(formatBaseUnits(21_234_567n, 7), "2.1234567")
 })

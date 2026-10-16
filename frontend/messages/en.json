@@ -1955,7 +1955,8 @@
       "dealloc": "De-allocate from vault",
       "actionLabel": "Action",
       "vaultLabel": "Vault contract ID",
-      "amountLabel": "Amount"
+      "amountLabel": "Amount",
+      "detailsLabel": "Yield allocation"
     }
   }
 }

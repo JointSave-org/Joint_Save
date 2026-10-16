@@ -28,6 +28,14 @@ import { mapSorobanEvent } from "@/lib/soroban-event-mapping"
 import { isContractVersionUnknown } from "@/lib/contract-version"
 export { isContractVersionUnknown }
 
+import type {
+  GovernanceProposal,
+  GovernanceProposalStatus,
+  GovernanceProposalType,
+} from "@/lib/governance"
+
+export type { GovernanceProposal, GovernanceProposalStatus, GovernanceProposalType }
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const FACTORY_ID = process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID!
@@ -1811,28 +1819,6 @@ export function useBumpPoolState(contractId: string) {
 
 // ── DAO governance (issue #207) ───────────────────────────────────────────────
 
-export type GovernanceProposalStatus = "Active" | "Passed" | "Executed" | "Expired" | "Rejected"
-
-export type GovernanceProposalType =
-  | "ChangeDepositAmount"
-  | "ExtendDeadline"
-  | "AddPenalty"
-  | "RemovePenalty"
-  | "ChangeQuorum"
-  | "Custom"
-
-export interface GovernanceProposal {
-  id: string
-  proposer: string
-  proposalType: GovernanceProposalType
-  description: string
-  votesFor: string[]
-  votesAgainst: string[]
-  status: GovernanceProposalStatus
-  createdAt: number
-  expiresAt: number
-}
-
 const PROPOSAL_STATUSES = new Set(["Active", "Passed", "Executed", "Expired", "Rejected"])
 
 /** Build the scvBytes value for a BytesN<32> proposal id from hex. */
@@ -1873,6 +1859,19 @@ function parseProposal(val: xdr.ScVal): GovernanceProposal | null {
     const statusRaw = scValToText(field("status") ?? xdr.ScVal.scvVoid())
     const typeRaw = scValToText(field("proposal_type") ?? xdr.ScVal.scvVoid())
 
+    const paramsSc = field("parameters")
+    let parameters: Record<string, string> | undefined
+    if (paramsSc && paramsSc.switch().name === "scvMap") {
+      parameters = {}
+      for (const entry of paramsSc.map() ?? []) {
+        const key = entry.key()
+        const val = entry.val()
+        if (key.switch().name === "scvString" && val.switch().name === "scvBytes") {
+          parameters[key.str().toString()] = (val.bytes() as Buffer).toString("hex")
+        }
+      }
+    }
+
     return {
       id: idBuf.toString("hex"),
       proposer: scValToString(field("proposer") ?? xdr.ScVal.scvVoid()),
@@ -1886,6 +1885,7 @@ function parseProposal(val: xdr.ScVal): GovernanceProposal | null {
       status: (PROPOSAL_STATUSES.has(statusRaw) ? statusRaw : "Active") as GovernanceProposalStatus,
       createdAt: Number(scValToBigInt(field("created_at") ?? xdr.ScVal.scvU64(0))),
       expiresAt: Number(scValToBigInt(field("expires_at") ?? xdr.ScVal.scvU64(0))),
+      parameters,
     }
   } catch {
     return null

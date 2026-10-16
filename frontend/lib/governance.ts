@@ -22,6 +22,8 @@ export interface GovernanceProposal {
   status: GovernanceProposalStatus
   createdAt: number
   expiresAt: number
+  /** Raw parameter map (hex-encoded Bytes values), when present on-chain. */
+  parameters?: Record<string, string>
 }
 
 /** Metadata driving the create-proposal dialog's dynamic form fields. */
@@ -116,6 +118,51 @@ export function parseAmountToBaseUnits(amount: string, decimals: number): bigint
   const [whole, frac = ""] = trimmed.split(".")
   const padded = (frac + "0".repeat(decimals)).slice(0, decimals)
   return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(padded || "0")
+}
+
+interface DecodedYieldParams {
+  action: YieldAllocationAction
+  vault?: string
+  amountBaseUnits: bigint
+}
+
+/**
+ * Decode a proposal's raw hex parameter map back into yield-allocation fields,
+ * or `null` when it is not a recognised yield-allocation proposal. Inverse of
+ * `buildYieldAllocationParams`.
+ */
+export function decodeYieldAllocationParams(
+  params: Record<string, string> | undefined
+): DecodedYieldParams | null {
+  if (!params || !params.action || !params.amount) return null
+  let action: string
+  try {
+    action = Buffer.from(params.action, "hex").toString("utf8")
+  } catch {
+    return null
+  }
+  if (action !== "alloc" && action !== "dealloc") return null
+  if (params.amount.length !== 32) return null
+  let vault: string | undefined
+  if (params.vault) {
+    vault = Buffer.from(params.vault, "hex").toString("utf8")
+  }
+  return {
+    action,
+    vault,
+    amountBaseUnits: BigInt("0x" + params.amount),
+  }
+}
+
+/** Format token base units as a plain decimal string (e.g. 15000000 -> "1.5"). */
+export function formatBaseUnits(amount: bigint, decimals: number): string {
+  const negative = amount < 0n
+  const abs = negative ? -amount : amount
+  const base = 10n ** BigInt(decimals)
+  const whole = abs / base
+  const frac = (abs % base).toString().padStart(decimals, "0").replace(/0+$/, "")
+  const rendered = frac ? `${whole}.${frac}` : `${whole}`
+  return negative ? `-${rendered}` : rendered
 }
 
 /**

@@ -1963,7 +1963,8 @@
       "dealloc": "Retirar de la bóveda",
       "actionLabel": "Acción",
       "vaultLabel": "ID del contrato de la bóveda",
-      "amountLabel": "Cantidad"
+      "amountLabel": "Cantidad",
+      "detailsLabel": "Asignación de rendimiento"
     }
   }
 }
