@@ -1149,7 +1149,7 @@ fn deallocation_rejects_zero_amount() {
 fn deallocation_on_fully_illiquid_returns_zero() {
     let env = Env::default();
     env.mock_all_auths();
-    let (pool, token_addr, vault_id, admin, a, _b) = setup_two_members_allocated(&env);
+    let (pool, _token_addr, vault_id, admin, a, _b) = setup_two_members_allocated(&env);
     MockVaultClient::new(&env, &vault_id).set_locked_assets(&admin, &160i128);
     let received = pool.apply_yield_deallocation(&a, &100i128);
     assert_eq!(received, 0i128);
@@ -1159,7 +1159,7 @@ fn deallocation_on_fully_illiquid_returns_zero() {
 fn set_yield_buffer_zero_forces_full_liquidity() {
     let env = Env::default();
     env.mock_all_auths();
-    let (pool, _token, vault_id, admin, a, _b) = setup_two_members_allocated(&env);
+    let (pool, _token, _vault_id, admin, a, _b) = setup_two_members_allocated(&env);
     pool.set_yield_buffer(&admin, &0u32);
     assert_eq!(pool.yield_buffer_bps(), 0u32);
     // 200 pot, 0% buffer -> 200 allocatable, but headroom is 200 (liquid at start 200).
