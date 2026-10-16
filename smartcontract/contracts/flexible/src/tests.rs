@@ -905,3 +905,127 @@ fn yield_buffer_above_100_percent_rejected() {
     let c = setup(&env);
     c.pool.set_yield_buffer(&c.admin, &10_001u32);
 }
+
+#[test]
+fn deallocation_recovers_capital() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool
+        .apply_yield_allocation(&c.admin, &c.vault_id, &80i128);
+
+    let received = c.pool.apply_yield_deallocation(&c.admin, &30i128);
+    assert_eq!(received, 30i128);
+    assert_eq!(c.pool.yield_shares(), 50i128);
+    assert_eq!(c.pool.yield_cost_basis(), 50i128);
+
+    // 50 remains in the vault.
+    let vault_balance = token::Client::new(&env, &c.token_addr).balance(&c.vault_id);
+    assert_eq!(vault_balance, 50i128);
+}
+
+#[test]
+fn member_can_deallocate_without_vote() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool
+        .apply_yield_allocation(&c.admin, &c.vault_id, &80i128);
+
+    let received = c.pool.apply_yield_deallocation(&c.member_a, &20i128);
+    assert_eq!(received, 20i128);
+    assert_eq!(c.pool.yield_shares(), 60i128);
+}
+
+#[test]
+#[should_panic(expected = "not authorized")]
+fn stranger_cannot_deallocate() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool
+        .apply_yield_allocation(&c.admin, &c.vault_id, &80i128);
+    let stranger = Address::generate(&env);
+    c.pool.apply_yield_deallocation(&stranger, &10i128);
+}
+
+#[test]
+fn withdraw_auto_deallocates_when_liquid_short() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    // Deploy everything above the buffer: 20 stays liquid, 80 in the vault.
+    c.pool
+        .apply_yield_allocation(&c.admin, &c.vault_id, &80i128);
+
+    // Withdrawing 50 needs 30 more than the 20 liquid.
+    c.pool.withdraw(&c.member_a, &50i128);
+    assert_eq!(c.pool.balance_of(&c.member_a), 50i128);
+    // 30 shares were redeemed to cover the shortfall.
+    assert_eq!(c.pool.yield_shares(), 50i128);
+}
+
+#[test]
+#[should_panic(expected = "vault illiquid")]
+fn withdraw_reverts_when_vault_cannot_cover() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool
+        .apply_yield_allocation(&c.admin, &c.vault_id, &80i128);
+
+    // Simulate the vault's assets being fully locked up.
+    MockVaultClient::new(&env, &c.vault_id).set_locked_assets(&c.admin, &80i128);
+
+    c.pool.withdraw(&c.member_a, &50i128);
+}
+
+#[test]
+fn deallocation_returns_partial_when_illiquid() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool
+        .apply_yield_allocation(&c.admin, &c.vault_id, &80i128);
+    MockVaultClient::new(&env, &c.vault_id).set_locked_assets(&c.admin, &40i128);
+
+    // Only 40 of the 80 is liquid, so a 100 request returns 40 (no revert).
+    let received = c.pool.apply_yield_deallocation(&c.admin, &100i128);
+    assert_eq!(received, 40i128);
+    assert_eq!(c.pool.yield_shares(), 40i128);
+}
+
+#[test]
+#[should_panic(expected = "yield locked")]
+fn locked_blocks_new_allocation() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool.set_yield_locked(&c.admin, &true);
+    assert!(c.pool.yield_locked());
+    c.pool
+        .apply_yield_allocation(&c.admin, &c.vault_id, &10i128);
+}
+
+#[test]
+fn locked_still_allows_deallocation() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool
+        .apply_yield_allocation(&c.admin, &c.vault_id, &80i128);
+    c.pool.set_yield_locked(&c.admin, &true);
+
+    let received = c.pool.apply_yield_deallocation(&c.admin, &80i128);
+    assert_eq!(received, 80i128);
+    assert_eq!(c.pool.yield_shares(), 0i128);
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn non_admin_cannot_lock() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool.set_yield_locked(&c.member_a, &true);
+}

@@ -5,7 +5,7 @@ use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, Symbol, Vec,
 };
 
-use jointsave_yield_vault::{VaultClient, BPS_DENOMINATOR, DEFAULT_BUFFER_BPS};
+use jointsave_yield_vault::{VaultClient, BPS_DENOMINATOR, DEFAULT_BUFFER_BPS, SHARE_SCALE};
 
 const VERSION: u32 = 1;
 
@@ -156,6 +156,17 @@ impl FlexiblePool {
         let token_addr: Address = storage.get(&DataKey::Token).unwrap();
         let treasury: Address = storage.get(&DataKey::Treasury).unwrap();
         let token_client = token::Client::new(&env, &token_addr);
+
+        // If capital is deployed to the vault, pull back just enough to cover
+        // this withdrawal. A partially-filled redemption still counts; only if
+        // the pot is left genuinely short do we revert, so funds are never
+        // trapped but members can always withdraw what the vault can return.
+        let liquid = token_client.balance(&env.current_contract_address());
+        if liquid < net {
+            Self::deallocate_internal(&env, net - liquid);
+            let liquid_after = token_client.balance(&env.current_contract_address());
+            assert!(liquid_after >= net, "vault illiquid");
+        }
 
         if fee > 0 {
             token_client.transfer(&env.current_contract_address(), &treasury, &fee);
@@ -623,6 +634,90 @@ impl FlexiblePool {
         Self::bump_config_state_internal(&env);
 
         jointsave_yield_vault::allocated(&env, &vault, amount, shares);
+    }
+
+    /// Pull capital back out of the vault. Callable by the pool admin, the
+    /// registered governance contract, or any pool member: increasing the pot's
+    /// liquidity can only help, so no vote is required.
+    ///
+    /// Returns the assets actually recovered. If the vault cannot honour the
+    /// full request it degrades to a partial redemption rather than reverting;
+    /// the caller can see how much came back.
+    pub fn apply_yield_deallocation(env: Env, caller: Address, amount: i128) -> i128 {
+        caller.require_auth();
+
+        let storage = env.storage().persistent();
+        let admin: Address = storage.get(&DataKey::Admin).unwrap();
+        let gov: Option<Address> = storage.get(&DataKey::GovernanceContract);
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(
+            caller == admin
+                || gov.is_some_and(|g| g == caller)
+                || Self::is_member(&members, &caller),
+            "not authorized"
+        );
+
+        assert!(amount > 0, "amount must be > 0");
+
+        let received = Self::deallocate_internal(&env, amount);
+        Self::bump_config_state_internal(&env);
+        received
+    }
+
+    /// Emergency control: when locked, no new allocation is permitted (existing
+    /// capital can still be de-allocated).
+    pub fn set_yield_locked(env: Env, admin: Address, locked: bool) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        storage.set(&DataKey::YieldLocked, &locked);
+        Self::bump_config_state_internal(&env);
+        jointsave_yield_vault::lock_set(&env, locked);
+    }
+
+    /// Redeem up to `amount` assets from the vault. Returns the assets actually
+    /// received (which may be less than `amount` if the vault is illiquid or the
+    /// pool holds too few shares). Never reverts on a shortfall.
+    fn deallocate_internal(env: &Env, amount: i128) -> i128 {
+        let storage = env.storage().persistent();
+        let vault: Option<Address> = storage.get(&DataKey::YieldVault);
+        let shares: i128 = storage.get(&DataKey::YieldShares).unwrap_or(0);
+        let Some(vault) = vault else {
+            return 0;
+        };
+        if shares <= 0 || amount <= 0 {
+            return 0;
+        }
+
+        let client = VaultClient::new(env, &vault);
+        let price = client.share_price();
+        if price <= 0 {
+            return 0;
+        }
+
+        // Shares needed to raise `amount`, rounded up so we never under-pull.
+        let needed = mul_div_ceil(amount, SHARE_SCALE, price);
+        let mut to_redeem = if needed < shares { needed } else { shares };
+        let redeemable = client.max_redeemable();
+        if to_redeem > redeemable {
+            to_redeem = redeemable;
+        }
+        if to_redeem <= 0 {
+            // Fully illiquid right now: recover nothing rather than reverting.
+            return 0;
+        }
+
+        let received = client.withdraw(&env.current_contract_address(), &to_redeem);
+
+        // Burn redeemed shares and remove their proportional cost basis.
+        let cost_basis: i128 = storage.get(&DataKey::YieldCostBasis).unwrap_or(0);
+        let removed_cost = cost_basis * to_redeem / shares;
+        storage.set(&DataKey::YieldShares, &(shares - to_redeem));
+        storage.set(&DataKey::YieldCostBasis, &(cost_basis - removed_cost));
+
+        jointsave_yield_vault::deallocated(env, amount, received, to_redeem);
+        received
     }
 
     /// Set the minimum liquid share of the pot, in basis points (0-10000).
