@@ -871,7 +871,7 @@ GitHub Actions workflows:
    - Builds all 5 core Soroban contracts
    - Verifies WASM artifacts
    - Runs contract unit tests, formatting checks, and clippy linting
-   - Runs a deterministic (fixed-seed) proptest fuzz suite across 7 of the 8 contracts
+   - Runs a deterministic (fixed-seed) proptest fuzz suite across 7 of the 9 contracts
 
 2. Deploy Workflow (`.github/workflows/deploy.yml`):
    - Manual trigger only

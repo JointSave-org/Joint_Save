@@ -10,6 +10,11 @@
     },
     "RotationalWasmHash": "d350a325d8734263a3d7150c875555d8956e13a527fb3497d5141b8b3f3d2c74",
     "TargetWasmHash": "133a62226501fc5443e70007d79deeeb0b33fdf8c85c7fcd3cf16293bb5c7292",
-    "FlexibleWasmHash": "df6ff088fd79f13d8d03e72160434517fdb4a83b8c7bfdd887be4369805e0d6b"
+    "FlexibleWasmHash": "df6ff088fd79f13d8d03e72160434517fdb4a83b8c7bfdd887be4369805e0d6b",
+    "YieldVaultWasmHash": null,
+    "YieldVaultContractId": null
+  },
+  "notes": {
+    "YieldVault": "Mock VaultAdapter implementation, built with the `mock` cargo feature. Both fields are populated by smartcontract/scripts/deploy.sh; null until a mock vault is deployed to testnet."
   }
 }

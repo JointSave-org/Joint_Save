@@ -51,6 +51,29 @@ FLEXIBLE_WASM_HASH=$(stellar contract upload \
 echo "Flexible wasm hash: $FLEXIBLE_WASM_HASH"
 
 echo ""
+echo "Building Yield Vault (mock feature)..."
+# The mock vault implements the VaultAdapter interface and is only intended for
+# testnet demos. Production groups point at a real external vault instead.
+cargo build --release --target wasm32v1-none \
+  --manifest-path=contracts/yield-vault/Cargo.toml --features mock
+
+echo ""
+echo "Uploading Yield Vault (mock) wasm..."
+YIELD_VAULT_WASM_HASH=$(stellar contract upload \
+  --wasm target/wasm32v1-none/release/jointsave_yield_vault.wasm \
+  --source "$SOURCE" \
+  --network "$NETWORK")
+echo "Yield vault wasm hash: $YIELD_VAULT_WASM_HASH"
+
+echo ""
+echo "Deploying Yield Vault (mock)..."
+YIELD_VAULT_ID=$(stellar contract deploy \
+  --wasm target/wasm32v1-none/release/jointsave_yield_vault.wasm \
+  --source "$SOURCE" \
+  --network "$NETWORK")
+echo "Yield vault contract ID: $YIELD_VAULT_ID"
+
+echo ""
 echo "Initializing factory..."
 # XLM native token contract on Stellar testnet
 NATIVE_TOKEN="CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
@@ -66,9 +89,22 @@ stellar contract invoke \
 echo "Factory initialized."
 
 echo ""
+echo "Initializing Yield Vault (mock)..."
+stellar contract invoke \
+  --id "$YIELD_VAULT_ID" \
+  --source "$SOURCE" \
+  --network "$NETWORK" \
+  -- initialize \
+  --admin "$DEPLOYER_ADDRESS" \
+  --token "$NATIVE_TOKEN"
+echo "Yield vault initialized."
+
+echo ""
 echo "Deployment complete. Update your .env with:"
 echo "NEXT_PUBLIC_FACTORY_CONTRACT_ID=$FACTORY_ID"
 echo "NEXT_PUBLIC_REPUTATION_CONTRACT_ID=$REPUTATION_ID"
 echo "NEXT_PUBLIC_ROTATIONAL_WASM_HASH=$ROTATIONAL_WASM_HASH"
 echo "NEXT_PUBLIC_TARGET_WASM_HASH=$TARGET_WASM_HASH"
 echo "NEXT_PUBLIC_FLEXIBLE_WASM_HASH=$FLEXIBLE_WASM_HASH"
+echo "NEXT_PUBLIC_YIELD_VAULT_WASM_HASH=$YIELD_VAULT_WASM_HASH"
+echo "NEXT_PUBLIC_YIELD_VAULT_ID=$YIELD_VAULT_ID"
