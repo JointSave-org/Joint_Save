@@ -46,6 +46,8 @@ import { validateStellarAddress } from "@/lib/form-validation"
 import { getTokenBySymbol, getTokenBalance, formatUsdApprox } from "@/lib/token-utils"
 import { useOptimisticTransactions } from "@/hooks/useOptimisticTransactions"
 import { toastManager } from "@/lib/toast"
+import { useYieldAllocation } from "@/hooks/useYieldAllocation"
+import { formatBaseUnits } from "@/lib/governance"
 import {
   Dialog,
   DialogContent,
@@ -801,6 +803,8 @@ export function GroupActions({
   const isRotational = poolType === "rotational"
   const isTarget = poolType === "target"
   const isFlexible = poolType === "flexible"
+
+  const yieldAlloc = useYieldAllocation(isFlexible && !isPending ? poolAddress : null)
   const actionsDisabled = isPaused || isPending || !address
   const formatAddress = (addr: string) =>
     addr.length > 18 ? `${addr.slice(0, 8)}...${addr.slice(-8)}` : addr
@@ -830,6 +834,14 @@ export function GroupActions({
       {isPending && !isPaused && (
         <div className="p-3 rounded-lg bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 mb-4 text-sm">
           {t("contractPendingBanner")}
+        </div>
+      )}
+
+      {isFlexible && yieldAlloc.state?.locked && (yieldAlloc.state?.shares ?? 0n) > 0n && (
+        <div className="p-3 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 mb-4 text-sm">
+          {t("vaultIlliquidBanner", {
+            amount: formatBaseUnits(yieldAlloc.state.shares, 7),
+          })}
         </div>
       )}
 

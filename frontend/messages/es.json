@@ -421,7 +421,11 @@
           "rotational": {
             "title": "Ahorro Rotativo",
             "description": "El círculo de ahorro tradicional, en la blockchain. Los miembros se turnan para recibir los pagos automáticamente.",
-            "features": ["Monto de aporte fijo", "Pagos programados", "Sistema por turnos"],
+            "features": [
+              "Monto de aporte fijo",
+              "Pagos programados",
+              "Sistema por turnos"
+            ],
             "guideLabel": "Rotativo:",
             "guideDescription": "Ideal para grupos con ingresos regulares que buscan pagos predecibles"
           },
@@ -1088,7 +1092,9 @@
         "admin_archived": "Archivado por el administrador del grupo.",
         "emergency_withdrawn": "Archivado tras un retiro de emergencia."
       }
-    }
+    },
+    "flexibleWithdrawHint": "Retira en cualquier momento. Se descontará la comisión de salida. Los retiros en la cadena desasignan automáticamente de las bóvedas cuando es posible.",
+    "vaultIlliquidBanner": "La bóveda está bloqueada con {amount} participaciones asignadas — el retiro completo puede estar limitado hasta que se desasigne o se desbloquee."
   },
   "explore": {
     "explorePools": "Explorar Tandas",
