@@ -10,6 +10,7 @@ export type GovernanceProposalType =
   | "RemovePenalty"
   | "ChangeQuorum"
   | "Custom"
+  | "YieldAllocation"
 
 export interface GovernanceProposal {
   id: string
@@ -60,9 +61,62 @@ export const PROPOSAL_TYPES: Array<{
     paramKey: "quorum",
     paramLabel: "New quorum percentage (1-100)",
   },
+  {
+    value: "YieldAllocation",
+    label: "Allocate / De-allocate Yield",
+    paramKey: "",
+    paramLabel: "",
+  },
 ]
 
 export const GOVERNANCE_DESCRIPTION_MAX = 500
+
+export type YieldAllocationAction = "alloc" | "dealloc"
+
+export interface YieldProposalInput {
+  action: YieldAllocationAction
+  /** Vault contract id — required for allocation, ignored for de-allocation. */
+  vault?: string
+  amountBaseUnits: bigint
+}
+
+/**
+ * Encode the parameter map the governance contract routes to the pool for a
+ * `Custom` yield-allocation proposal:
+ *   * `action` — utf8 bytes of b"alloc" / b"dealloc",
+ *   * `vault`  — utf8 bytes of the vault strkey (allocation only),
+ *   * `amount` — 16-byte big-endian i128.
+ * `buildYieldAllocationParams` is submitted under the on-chain `Custom` type.
+ */
+export function buildYieldAllocationParams(
+  input: YieldProposalInput
+): Record<string, string> {
+  const utf8Hex = (value: string) => Buffer.from(value, "utf8").toString("hex")
+  const params: Record<string, string> = {
+    action: utf8Hex(input.action),
+    amount: encodeParamHex(input.amountBaseUnits),
+  }
+  if (input.action === "alloc") {
+    if (!input.vault) throw new Error("vault required for allocation")
+    if (!isValidContractId(input.vault)) throw new Error("invalid vault contract id")
+    params.vault = utf8Hex(input.vault)
+  }
+  return params
+}
+
+/** A Stellar contract strkey: 56 chars, begins with `C`, base32 alphabet. */
+export function isValidContractId(id: string): boolean {
+  return /^C[A-Z2-7]{55}$/.test(id)
+}
+
+/** Parse a human decimal amount (e.g. "12.50") into token base units. */
+export function parseAmountToBaseUnits(amount: string, decimals: number): bigint {
+  const trimmed = amount.trim().replace(/,/g, "")
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) throw new Error("invalid amount")
+  const [whole, frac = ""] = trimmed.split(".")
+  const padded = (frac + "0".repeat(decimals)).slice(0, decimals)
+  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(padded || "0")
+}
 
 /**
  * Minimum "for" votes required to meet the quorum percentage of the pool.

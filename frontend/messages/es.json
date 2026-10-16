@@ -1955,7 +1955,15 @@
       "AddPenalty": "Agregar penalización",
       "RemovePenalty": "Quitar penalización",
       "ChangeQuorum": "Cambiar quórum",
-      "Custom": "Personalizada"
+      "Custom": "Personalizada",
+      "YieldAllocation": "Asignar / Retirar Rendimiento"
+    },
+    "yield": {
+      "alloc": "Asignar a la bóveda",
+      "dealloc": "Retirar de la bóveda",
+      "actionLabel": "Acción",
+      "vaultLabel": "ID del contrato de la bóveda",
+      "amountLabel": "Cantidad"
     }
   }
 }

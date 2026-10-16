@@ -4,6 +4,9 @@ import assert from "node:assert"
 import {
   decodeExecutionResult,
   encodeParamHex,
+  buildYieldAllocationParams,
+  isValidContractId,
+  parseAmountToBaseUnits,
   formatTimeRemaining,
   meetsQuorum,
   mergeProposals,
@@ -90,4 +93,43 @@ test("mergeProposals - dedupes by id and orders active before terminal states", 
     merged.map((p) => p.id),
     ["aaa", "ddd", "bbb", "ccc", "eee"]
   )
+})
+
+test("buildYieldAllocationParams - allocation encodes action, vault and amount", () => {
+  const vault = "C" + "A".repeat(55)
+  const params = buildYieldAllocationParams({ action: "alloc", vault, amountBaseUnits: 1_500_000n })
+  assert.equal(Buffer.from(params.action, "hex").toString("utf8"), "alloc")
+  assert.equal(Buffer.from(params.vault, "hex").toString("utf8"), vault)
+  assert.equal(params.amount.length, 32)
+  assert.equal(BigInt("0x" + params.amount), 1_500_000n)
+})
+
+test("buildYieldAllocationParams - de-allocation omits vault", () => {
+  const params = buildYieldAllocationParams({ action: "dealloc", amountBaseUnits: 42n })
+  assert.equal(Buffer.from(params.action, "hex").toString("utf8"), "dealloc")
+  assert.equal(params.vault, undefined)
+  assert.equal(BigInt("0x" + params.amount), 42n)
+})
+
+test("buildYieldAllocationParams - allocation requires a valid vault", () => {
+  assert.throws(() => buildYieldAllocationParams({ action: "alloc", amountBaseUnits: 1n }), /vault required/)
+  assert.throws(
+    () => buildYieldAllocationParams({ action: "alloc", vault: "nope", amountBaseUnits: 1n }),
+    /invalid vault/
+  )
+})
+
+test("isValidContractId", () => {
+  assert.equal(isValidContractId("C" + "A".repeat(55)), true)
+  assert.equal(isValidContractId("G" + "A".repeat(55)), false)
+  assert.equal(isValidContractId("Cshort"), false)
+})
+
+test("parseAmountToBaseUnits", () => {
+  assert.equal(parseAmountToBaseUnits("1", 7), 10_000_000n)
+  assert.equal(parseAmountToBaseUnits("1.5", 7), 15_000_000n)
+  assert.equal(parseAmountToBaseUnits("1,000.25", 7), 10_002_500_000n)
+  assert.equal(parseAmountToBaseUnits("0.0000001", 7), 1n)
+  assert.equal(parseAmountToBaseUnits("2.123456789", 7), 21_234_567n)
+  assert.throws(() => parseAmountToBaseUnits("abc", 7), /invalid amount/)
 })

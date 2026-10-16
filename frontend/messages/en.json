@@ -1947,7 +1947,15 @@
       "AddPenalty": "Add Penalty",
       "RemovePenalty": "Remove Penalty",
       "ChangeQuorum": "Change Quorum",
-      "Custom": "Custom"
+      "Custom": "Custom",
+      "YieldAllocation": "Allocate / De-allocate Yield"
+    },
+    "yield": {
+      "alloc": "Allocate to vault",
+      "dealloc": "De-allocate from vault",
+      "actionLabel": "Action",
+      "vaultLabel": "Vault contract ID",
+      "amountLabel": "Amount"
     }
   }
 }
