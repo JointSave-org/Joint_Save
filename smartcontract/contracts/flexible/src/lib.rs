@@ -5,6 +5,8 @@ use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, token, Address, Env, IntoVal, Symbol, Vec,
 };
 
+use jointsave_yield_vault::{VaultClient, BPS_DENOMINATOR, DEFAULT_BUFFER_BPS};
+
 const VERSION: u32 = 1;
 
 #[contracttype]
@@ -33,6 +35,16 @@ pub enum DataKey {
     GovernanceContract,
     /// Late/missed-deposit penalty percentage governable by the DAO (0-100).
     PenaltyPercentage,
+    /// Address of the yield vault holding this pool's allocated capital.
+    YieldVault,
+    /// Shares the pool holds in the yield vault.
+    YieldShares,
+    /// Assets the pool has deposited into the vault (cost basis).
+    YieldCostBasis,
+    /// Minimum liquid share of the pot, in basis points (default 2000 = 20%).
+    YieldBufferBps,
+    /// When true, no new allocation is permitted (de-allocation only).
+    YieldLocked,
 }
 
 const LEDGER_THRESHOLD: u32 = 518400;
@@ -530,6 +542,17 @@ impl FlexiblePool {
         if storage.has(&DataKey::PenaltyPercentage) {
             storage.extend_ttl(&DataKey::PenaltyPercentage, LEDGER_THRESHOLD, LEDGER_BUMP);
         }
+        if storage.has(&DataKey::YieldVault) {
+            storage.extend_ttl(&DataKey::YieldVault, LEDGER_THRESHOLD, LEDGER_BUMP);
+            storage.extend_ttl(&DataKey::YieldShares, LEDGER_THRESHOLD, LEDGER_BUMP);
+            storage.extend_ttl(&DataKey::YieldCostBasis, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::YieldBufferBps) {
+            storage.extend_ttl(&DataKey::YieldBufferBps, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
+        if storage.has(&DataKey::YieldLocked) {
+            storage.extend_ttl(&DataKey::YieldLocked, LEDGER_THRESHOLD, LEDGER_BUMP);
+        }
     }
 
     /// Point this pool at a deployed ReputationTracker contract so deposits
@@ -542,6 +565,95 @@ impl FlexiblePool {
         assert!(Self::is_member(&members, &caller), "not a member");
         storage.set(&DataKey::ReputationTracker, &tracker);
         Self::bump_config_state_internal(&env);
+    }
+
+    // ── Yield vault allocation ────────────────────────────────────────────
+
+    /// Move idle pot capital into a vault. Callable by the pool admin or by the
+    /// registered governance contract (via an approved `Custom` proposal).
+    ///
+    /// A configurable share of the pot (`YieldBufferBps`, 20% by default) always
+    /// stays liquid, so ordinary member withdrawals keep working. The amount is
+    /// capped by that buffer; larger requests revert rather than illiquidating
+    /// the pool.
+    pub fn apply_yield_allocation(env: Env, caller: Address, vault: Address, amount: i128) {
+        caller.require_auth();
+
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        let gov: Option<Address> = storage.get(&DataKey::GovernanceContract);
+        assert!(
+            caller == stored_admin || gov.is_some_and(|g| g == caller),
+            "not authorized"
+        );
+
+        let yield_enabled: bool = storage.get(&DataKey::YieldEnabled).unwrap_or(false);
+        assert!(yield_enabled, "yield disabled");
+
+        let paused: bool = storage.get(&DataKey::Paused).unwrap_or(false);
+        assert!(!paused, "pool paused");
+
+        let locked: bool = storage.get(&DataKey::YieldLocked).unwrap_or(false);
+        assert!(!locked, "yield locked");
+
+        assert!(amount > 0, "amount must be > 0");
+
+        let headroom = Self::max_allocatable(&env);
+        assert!(amount <= headroom, "buffer would be violated");
+
+        // Effects: record the vault and our share position before interacting.
+        storage.set(&DataKey::YieldVault, &vault);
+
+        // Interactions: move the underlying asset in, then mint shares.
+        let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+        token::Client::new(&env, &token_addr).transfer(
+            &env.current_contract_address(),
+            &vault,
+            &amount,
+        );
+        let shares =
+            VaultClient::new(&env, &vault).deposit(&env.current_contract_address(), &amount);
+        assert!(shares > 0, "no shares minted");
+
+        let prev_shares: i128 = storage.get(&DataKey::YieldShares).unwrap_or(0);
+        storage.set(&DataKey::YieldShares, &(prev_shares + shares));
+        let prev_cost: i128 = storage.get(&DataKey::YieldCostBasis).unwrap_or(0);
+        storage.set(&DataKey::YieldCostBasis, &(prev_cost + amount));
+
+        Self::bump_config_state_internal(&env);
+
+        jointsave_yield_vault::allocated(&env, &vault, amount, shares);
+    }
+
+    /// Set the minimum liquid share of the pot, in basis points (0-10000).
+    pub fn set_yield_buffer(env: Env, admin: Address, bps: u32) {
+        admin.require_auth();
+        let storage = env.storage().persistent();
+        let stored_admin: Address = storage.get(&DataKey::Admin).unwrap();
+        assert!(admin == stored_admin, "not admin");
+        assert!(bps <= BPS_DENOMINATOR, "buffer must be <= 10000");
+        storage.set(&DataKey::YieldBufferBps, &bps);
+        Self::bump_config_state_internal(&env);
+        jointsave_yield_vault::buffer_set(&env, bps);
+    }
+
+    /// How much idle capital can currently be allocated without breaching the
+    /// liquidity buffer.
+    fn max_allocatable(env: &Env) -> i128 {
+        let storage = env.storage().persistent();
+        let total: i128 = storage.get(&DataKey::TotalBalance).unwrap_or(0);
+        let buffer_bps: u32 = storage
+            .get(&DataKey::YieldBufferBps)
+            .unwrap_or(DEFAULT_BUFFER_BPS);
+        let token_addr: Address = storage.get(&DataKey::Token).unwrap();
+        let liquid = token::Client::new(env, &token_addr).balance(&env.current_contract_address());
+
+        let target_liquid = mul_div_ceil(total, buffer_bps as i128, BPS_DENOMINATOR as i128);
+        if liquid > target_liquid {
+            liquid - target_liquid
+        } else {
+            0
+        }
     }
 
     // ── DAO governance ────────────────────────────────────────────────────
@@ -705,6 +817,48 @@ impl FlexiblePool {
             .unwrap_or(0)
     }
 
+    /// Address of the vault holding the pool's allocated capital, if any.
+    pub fn yield_vault(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::YieldVault)
+    }
+
+    /// Shares the pool holds in the yield vault.
+    pub fn yield_shares(env: Env) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::YieldShares)
+            .unwrap_or(0)
+    }
+
+    /// Assets the pool has deposited into the vault (cost basis).
+    pub fn yield_cost_basis(env: Env) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::YieldCostBasis)
+            .unwrap_or(0)
+    }
+
+    /// Minimum liquid share of the pot, in basis points.
+    pub fn yield_buffer_bps(env: Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::YieldBufferBps)
+            .unwrap_or(DEFAULT_BUFFER_BPS)
+    }
+
+    /// Whether new allocations are currently blocked.
+    pub fn yield_locked(env: Env) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::YieldLocked)
+            .unwrap_or(false)
+    }
+
+    /// Idle capital that can be allocated right now without breaching the buffer.
+    pub fn max_allocatable_amount(env: Env) -> i128 {
+        Self::max_allocatable(&env)
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     /// If a supported-token allowlist has been configured, require `token` to
@@ -784,3 +938,10 @@ mod tests;
 
 #[cfg(test)]
 mod fuzz_tests;
+
+/// `ceil(a * b / d)` with checked integer math. Used for the liquidity buffer
+/// so the required liquid floor is never under-estimated.
+fn mul_div_ceil(a: i128, b: i128, d: i128) -> i128 {
+    let product = a.checked_mul(b).expect("math overflow");
+    product.checked_add(d - 1).expect("math overflow") / d
+}

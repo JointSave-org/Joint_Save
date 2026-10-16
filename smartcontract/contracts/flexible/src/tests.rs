@@ -1,4 +1,5 @@
 use super::{FlexiblePool, FlexiblePoolClient};
+use jointsave_yield_vault::mock::{MockVault, MockVaultClient};
 use soroban_sdk::{
     testutils::{storage::Persistent, Address as _, Ledger as _},
     token, Address, Env, Symbol, Vec,
@@ -760,4 +761,147 @@ fn non_admin_cannot_register_governance_contract() {
     let (client, _token, _admin, _treasury, member_a, _b) = setup_pool(&env, false);
 
     client.set_governance_contract(&member_a, &Address::generate(&env));
+}
+
+// ── Yield vault allocation ───────────────────────────────────────────────────
+
+mod yield_fixture {
+    use super::setup_pool;
+    use jointsave_yield_vault::mock::MockVault;
+    use jointsave_yield_vault::mock::MockVaultClient;
+    use soroban_sdk::{token, Address, Env};
+
+    pub struct YieldCtx {
+        pub pool: super::FlexiblePoolClient<'static>,
+        pub vault_id: Address,
+        pub token_addr: Address,
+        pub admin: Address,
+        pub member_a: Address,
+    }
+
+    /// A yield-enabled pool with 100 units deposited by member_a and a fresh
+    /// mock vault wired as the allocation target.
+    pub fn setup(env: &Env) -> YieldCtx {
+        let (pool, token_addr, admin, _treasury, member_a, _member_b) = setup_pool(env, true);
+
+        let vault_id = env.register_contract(None, MockVault);
+        MockVaultClient::new(env, &vault_id).initialize(&admin, &token_addr);
+
+        let token_admin = token::StellarAssetClient::new(env, &token_addr);
+        token_admin.mint(&member_a, &100i128);
+        pool.deposit(&member_a, &100i128);
+
+        YieldCtx {
+            pool,
+            vault_id,
+            token_addr,
+            admin,
+            member_a,
+        }
+    }
+}
+
+use yield_fixture::{setup, YieldCtx};
+
+#[test]
+fn allocation_moves_idle_capital_into_vault() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c: YieldCtx = setup(&env);
+
+    assert_eq!(c.pool.yield_buffer_bps(), 2000u32);
+    // 100 pot, 20% buffer -> 80 allocatable.
+    assert_eq!(c.pool.max_allocatable_amount(), 80i128);
+
+    c.pool
+        .apply_yield_allocation(&c.admin, &c.vault_id, &80i128);
+
+    assert_eq!(c.pool.yield_vault(), Some(c.vault_id.clone()));
+    assert_eq!(c.pool.yield_shares(), 80i128);
+    assert_eq!(c.pool.yield_cost_basis(), 80i128);
+
+    // Pot total is unchanged; only the liquid/illiquid split moved.
+    assert_eq!(c.pool.total_balance(), 100i128);
+    let vault_balance = token::Client::new(&env, &c.token_addr).balance(&c.vault_id);
+    assert_eq!(vault_balance, 80i128);
+
+    // Nothing more is allocatable while the pot total is unchanged.
+    assert_eq!(c.pool.max_allocatable_amount(), 0i128);
+}
+
+#[test]
+#[should_panic(expected = "buffer would be violated")]
+fn allocation_respects_liquidity_buffer() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool
+        .apply_yield_allocation(&c.admin, &c.vault_id, &81i128);
+}
+
+#[test]
+#[should_panic(expected = "yield disabled")]
+fn allocation_requires_yield_enabled() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (pool, token_addr, admin, _treasury, member_a, _b) = setup_pool(&env, false);
+    let vault_id = env.register_contract(None, MockVault);
+    MockVaultClient::new(&env, &vault_id).initialize(&admin, &token_addr);
+    token::StellarAssetClient::new(&env, &token_addr).mint(&member_a, &100i128);
+    pool.deposit(&member_a, &100i128);
+
+    pool.apply_yield_allocation(&admin, &vault_id, &10i128);
+}
+
+#[test]
+#[should_panic(expected = "not authorized")]
+fn stranger_cannot_allocate() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    let stranger = Address::generate(&env);
+    c.pool
+        .apply_yield_allocation(&stranger, &c.vault_id, &10i128);
+}
+
+#[test]
+fn governance_contract_can_allocate() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    let gov = Address::generate(&env);
+    c.pool.set_governance_contract(&c.admin, &gov);
+
+    c.pool.apply_yield_allocation(&gov, &c.vault_id, &80i128);
+    assert_eq!(c.pool.yield_shares(), 80i128);
+}
+
+#[test]
+fn set_yield_buffer_changes_headroom() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+
+    c.pool.set_yield_buffer(&c.admin, &5000u32);
+    assert_eq!(c.pool.yield_buffer_bps(), 5000u32);
+    // 50% of 100 stays liquid -> 50 allocatable.
+    assert_eq!(c.pool.max_allocatable_amount(), 50i128);
+}
+
+#[test]
+#[should_panic(expected = "not admin")]
+fn non_admin_cannot_set_yield_buffer() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool.set_yield_buffer(&c.member_a, &5000u32);
+}
+
+#[test]
+#[should_panic(expected = "buffer must be <= 10000")]
+fn yield_buffer_above_100_percent_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = setup(&env);
+    c.pool.set_yield_buffer(&c.admin, &10_001u32);
 }

@@ -3,6 +3,7 @@
 pub mod adapter;
 mod errors;
 mod events;
+#[cfg(any(test, feature = "mock"))]
 pub mod mock;
 mod types;
 
