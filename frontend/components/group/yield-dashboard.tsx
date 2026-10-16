@@ -22,8 +22,17 @@ import {
   Transaction,
 } from "@stellar/stellar-sdk"
 import { getRpc } from "@/hooks/useJointSaveContracts"
+import { useYieldAllocation } from "@/hooks/useYieldAllocation"
+import { parseAmountToBaseUnits, formatBaseUnits } from "@/lib/governance"
+import { formatSharePrice } from "@/lib/yield-allocation"
 import { submitWithRetry } from "@/lib/tx-retry"
 import { TX_TIMEOUT } from "@/lib/constants"
+
+const YIELD_DECIMALS = 7
+
+function shorten(addr: string, head = 6, tail = 4): string {
+  return addr.length > head + tail + 1 ? `${addr.slice(0, head)}…${addr.slice(-tail)}` : addr
+}
 
 function addressVal(addr: string): xdr.ScVal {
   return nativeToScVal(addr.toUpperCase(), { type: "address" })
@@ -81,6 +90,14 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   const isPending = !poolAddress || poolAddress === "pending_deployment"
+
+  // Vault-based allocation (share-based, buffer-safe). Distinct from the legacy
+  // yield-strategy flow above and only active for flexible pools.
+  const allocation = useYieldAllocation(isPending ? null : poolAddress)
+  const [vaultInput, setVaultInput] = useState("")
+  const [allocAmount, setAllocAmount] = useState("")
+  const [deallocAmount, setDeallocAmount] = useState("")
+  const [bufferInput, setBufferInput] = useState("")
 
   const loadState = useCallback(async () => {
     if (isPending) return
@@ -232,7 +249,63 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
 
   if (isPending) return null
 
+  const runAllocationAction = async (
+    action: () => Promise<boolean>,
+    successKey: string,
+    onSuccess?: () => void
+  ) => {
+    setBusy(true)
+    setMsg(null)
+    try {
+      const ok = await action()
+      if (ok) {
+        setMsg({ type: "success", text: t(successKey) })
+        onSuccess?.()
+      } else {
+        setMsg({ type: "error", text: t("vaultError") })
+      }
+    } catch (e: unknown) {
+      setMsg({ type: "error", text: (e as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleAllocate = () =>
+    runAllocationAction(
+      () => allocation.applyAllocation(vaultInput.trim(), parseAmountToBaseUnits(allocAmount, YIELD_DECIMALS)),
+      "vaultAllocated",
+      () => {
+        setAllocAmount("")
+      }
+    )
+
+  const handleDeallocate = () =>
+    runAllocationAction(
+      () => allocation.deallocate(parseAmountToBaseUnits(deallocAmount, YIELD_DECIMALS)),
+      "vaultDeallocated",
+      () => setDeallocAmount("")
+    )
+
+  const handleSync = () => runAllocationAction(() => allocation.sync(), "vaultSynced")
+
+  const handleSetBuffer = () =>
+    runAllocationAction(
+      () => allocation.setBuffer(Math.trunc(Number(bufferInput))),
+      "vaultBufferSet",
+      () => setBufferInput("")
+    )
+
+  const toggleLock = () =>
+    runAllocationAction(
+      () => allocation.setLocked(!(allocation.state?.locked ?? false)),
+      allocation.state?.locked ? "vaultUnlockedSuccess" : "vaultLockedSuccess"
+    )
+
   const fmtXlm = (stroops: bigint) => (Number(stroops) / 10_000_000).toFixed(4)
+
+  const yState = allocation.state
+  const sharePriceText = yState ? formatSharePrice(yState.position, yState.shares, 4) : null
 
   return (
     <Card className="p-6 space-y-6">
@@ -359,6 +432,156 @@ export function YieldDashboard({ poolAddress }: YieldDashboardProps) {
           <p className="text-xs text-muted-foreground mt-2 text-center">{t("harvestHint")}</p>
         </div>
       )}
+
+      {/* Vault allocation (share-based, buffer-safe) */}
+      <div className="border-t border-border pt-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">{t("vaultTitle")}</p>
+          {yState?.locked && (
+            <Badge className="bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs">
+              {t("vaultIlliquid")}
+            </Badge>
+          )}
+        </div>
+
+        {allocation.loading && !yState ? (
+          <p className="text-sm text-muted-foreground">{t("processing")}</p>
+        ) : allocation.error ? (
+          <p className="text-sm text-destructive">{allocation.error}</p>
+        ) : !yState?.vault ? (
+          <p className="text-sm text-muted-foreground">{t("vaultEmpty")}</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-lg bg-muted/30">
+              <p className="text-xs text-muted-foreground mb-1">{t("vaultPosition")}</p>
+              <p className="text-lg font-bold">
+                {formatBaseUnits(yState.position, YIELD_DECIMALS)}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted/30">
+              <p className="text-xs text-muted-foreground mb-1">{t("vaultUnrealised")}</p>
+              <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                {formatBaseUnits(yState.unrealised, YIELD_DECIMALS)}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted/30">
+              <p className="text-xs text-muted-foreground mb-1">{t("vaultSharePrice")}</p>
+              <p className="text-lg font-bold">{sharePriceText ?? "—"}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted/30">
+              <p className="text-xs text-muted-foreground mb-1">{t("vaultMaxAllocatable")}</p>
+              <p className="text-lg font-bold">
+                {formatBaseUnits(allocation.maxAllocatable, YIELD_DECIMALS)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {yState?.vault && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{t("vaultContract")}</span>
+            <Badge variant="secondary" className="font-mono text-xs">
+              {shorten(yState.vault)}
+            </Badge>
+            <span className="ml-auto">
+              {t("vaultBuffer")}: {(yState.bufferBps / 100).toFixed(2)}%
+            </span>
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* Allocate */}
+          <div className="space-y-2">
+            <Label htmlFor="alloc-vault">{t("allocateLabel")}</Label>
+            <Input
+              id="alloc-vault"
+              placeholder={t("vaultPlaceholder")}
+              value={vaultInput}
+              onChange={(e) => setVaultInput(e.target.value)}
+              disabled={busy}
+              className="font-mono text-xs"
+            />
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                step="0.01"
+                placeholder={t("amountPlaceholder")}
+                value={allocAmount}
+                onChange={(e) => setAllocAmount(e.target.value)}
+                disabled={busy}
+              />
+              <Button
+                onClick={handleAllocate}
+                disabled={busy || !vaultInput || !allocAmount || !address}
+              >
+                <Zap className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* De-allocate + buffer */}
+          <div className="space-y-2">
+            <Label htmlFor="dealloc-amount">{t("deallocateLabel")}</Label>
+            <div className="flex gap-2">
+              <Input
+                id="dealloc-amount"
+                type="number"
+                step="0.01"
+                placeholder={t("amountPlaceholder")}
+                value={deallocAmount}
+                onChange={(e) => setDeallocAmount(e.target.value)}
+                disabled={busy}
+              />
+              <Button
+                variant="outline"
+                onClick={handleDeallocate}
+                disabled={busy || !deallocAmount || !address}
+              >
+                {t("deallocate")}
+              </Button>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Input
+                type="number"
+                min="0"
+                max="10000"
+                placeholder={t("vaultBufferPlaceholder")}
+                value={bufferInput}
+                onChange={(e) => setBufferInput(e.target.value)}
+                disabled={busy}
+              />
+              <Button
+                variant="outline"
+                onClick={handleSetBuffer}
+                disabled={busy || !bufferInput || !address}
+              >
+                {t("set")}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={handleSync}
+            disabled={busy || !address}
+          >
+            <TrendingUp className="mr-2 h-4 w-4" />
+            {t("vaultSync")}
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={toggleLock}
+            disabled={busy || !address}
+          >
+            {yState?.locked ? t("vaultUnlock") : t("vaultLock")}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground text-center">{t("vaultHint")}</p>
+      </div>
     </Card>
   )
 }

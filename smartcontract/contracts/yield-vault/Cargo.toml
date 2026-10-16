@@ -1,0 +1,20 @@
+[package]
+name = "jointsave-yield-vault"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# The mock vault is only needed for tests and testnet demos; keeping it behind
+# a feature stops it from being linked into consumers' wasm.
+mock = []
+
+[dependencies]
+soroban-sdk = { version = "21.0.0", features = ["alloc"] }
+
+[dev-dependencies]
+soroban-sdk = { version = "21.0.0", features = ["testutils", "alloc"] }
+proptest = "1.4"

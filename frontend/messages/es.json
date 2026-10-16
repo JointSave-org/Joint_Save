@@ -421,7 +421,11 @@
           "rotational": {
             "title": "Ahorro Rotativo",
             "description": "El círculo de ahorro tradicional, en la blockchain. Los miembros se turnan para recibir los pagos automáticamente.",
-            "features": ["Monto de aporte fijo", "Pagos programados", "Sistema por turnos"],
+            "features": [
+              "Monto de aporte fijo",
+              "Pagos programados",
+              "Sistema por turnos"
+            ],
             "guideLabel": "Rotativo:",
             "guideDescription": "Ideal para grupos con ingresos regulares que buscan pagos predecibles"
           },
@@ -952,7 +956,32 @@
       "deploy": "Colocar",
       "processing": "Procesando...",
       "harvestAndDistribute": "Cosechar y Distribuir Rendimiento",
-      "harvestHint": "Cosecha el rendimiento acumulado del protocolo y lo distribuye proporcionalmente entre todos los miembros."
+      "harvestHint": "Cosecha el rendimiento acumulado del protocolo y lo distribuye proporcionalmente entre todos los miembros.",
+      "vaultTitle": "Asignación a la Bóveda",
+      "vaultEmpty": "Aún no hay capital asignado a una bóveda.",
+      "vaultPosition": "Valor de la posición",
+      "vaultUnrealised": "Rendimiento no realizado",
+      "vaultSharePrice": "Precio de participación",
+      "vaultMaxAllocatable": "Disponible para asignar",
+      "vaultBuffer": "Reserva de liquidez",
+      "vaultContract": "Bóveda:",
+      "vaultIlliquid": "Bóveda bloqueada",
+      "allocateLabel": "Asignar a la bóveda",
+      "vaultPlaceholder": "C... contrato de la bóveda",
+      "deallocateLabel": "Retirar de la bóveda",
+      "deallocate": "Retirar",
+      "vaultBufferPlaceholder": "Reserva (pbs)",
+      "vaultSync": "Sincronizar rendimiento",
+      "vaultLock": "Bloquear bóveda",
+      "vaultUnlock": "Desbloquear bóveda",
+      "vaultHint": "La asignación y el retiro se deciden por votos de los miembros; sincronizar realiza el rendimiento de la bóveda y lo distribuye proporcionalmente.",
+      "vaultAllocated": "Capital asignado a la bóveda.",
+      "vaultDeallocated": "Capital recuperado de la bóveda.",
+      "vaultSynced": "Rendimiento de la bóveda sincronizado y distribuido.",
+      "vaultBufferSet": "Reserva de liquidez actualizada.",
+      "vaultLockedSuccess": "Bóveda bloqueada.",
+      "vaultUnlockedSuccess": "Bóveda desbloqueada.",
+      "vaultError": "La transacción falló. Inténtalo de nuevo."
     },
     "chat": {
       "justNow": "justo ahora",
@@ -1063,7 +1092,9 @@
         "admin_archived": "Archivado por el administrador del grupo.",
         "emergency_withdrawn": "Archivado tras un retiro de emergencia."
       }
-    }
+    },
+    "flexibleWithdrawHint": "Retira en cualquier momento. Se descontará la comisión de salida. Los retiros en la cadena desasignan automáticamente de las bóvedas cuando es posible.",
+    "vaultIlliquidBanner": "La bóveda está bloqueada con {amount} participaciones asignadas — el retiro completo puede estar limitado hasta que se desasigne o se desbloquee."
   },
   "explore": {
     "explorePools": "Explorar Tandas",
@@ -1955,7 +1986,16 @@
       "AddPenalty": "Agregar penalización",
       "RemovePenalty": "Quitar penalización",
       "ChangeQuorum": "Cambiar quórum",
-      "Custom": "Personalizada"
+      "Custom": "Personalizada",
+      "YieldAllocation": "Asignar / Retirar Rendimiento"
+    },
+    "yield": {
+      "alloc": "Asignar a la bóveda",
+      "dealloc": "Retirar de la bóveda",
+      "actionLabel": "Acción",
+      "vaultLabel": "ID del contrato de la bóveda",
+      "amountLabel": "Cantidad",
+      "detailsLabel": "Asignación de rendimiento"
     }
   }
 }

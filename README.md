@@ -31,6 +31,7 @@ Across the world, millions of people rely on informal savings groups to pool mon
 - **🔄 Rotational Mode** – Members take turns receiving the full pool payout
 - **🎯 Target Pool Mode** – Groups save toward a shared goal with automatic unlock
 - **💰 Flexible Pool Mode** – Members deposit anytime with optional yield distribution
+- **🏦 Vault-Backed Yield** – Flexible pools can opt in to allocating idle capital to an external yield vault through governance, behind a liquidity buffer
 
 ### Core Capabilities
 
@@ -46,7 +47,7 @@ JointSave uses a light on-chain / off-chain split:
 
 - **Factory contract** – trusted registry that spawns pools and installs them by WASM hash
 - **Pool contracts** – Rotational (fixed deposits, rotating payouts), Target (goal + deadline), Flexible (variable deposits with yield options)
-- **Supporting contracts** – Reputation (on-chain trust scores), Microloan (P2P lending), Governance (vote-weighted proposals), Yield Strategy (yield routing)
+- **Supporting contracts** – Reputation (on-chain trust scores), Microloan (P2P lending), Governance (vote-weighted proposals), Yield Strategy (yield routing), Yield Vault (vault adapter + mock vault for vault-backed yield allocation)
 - **Frontend** – Next.js 16 (App Router) + Tailwind + shadcn/ui, connecting to Stellar via Stellar SDK and Wallets Kit
 - **Off-chain** – Supabase (Postgres) for user metadata, pool titles, notifications, and reusable views, with Row-Level Security
 - **Safeguards** – incident response / pause-authorization flows, pool archival, and dispute resolution (see [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md))
@@ -55,7 +56,7 @@ A full technical walkthrough — contract layer, flows, and database schema — 
 
 ## Current Status
 
-- **On-chain:** factory + Rotational/Target/Flexible WASMs deployed to **Stellar Testnet** (see [Deployed Contracts](#deployed-contracts)). Governance, Microloan, and Yield Strategy have **no recorded deployment yet** – they are feature-gated via env vars.
+- **On-chain:** factory + Rotational/Target/Flexible WASMs deployed to **Stellar Testnet** (see [Deployed Contracts](#deployed-contracts)). Governance, Microloan, Yield Strategy, and the Yield Vault have **no recorded deployment yet** – they are feature-gated via env vars.
 - **Frontend:** `joint-save-y4yx.vercel.app` is hosted on Vercel, linked to `JointSave-org/Joint_Save` (root directory `frontend`) — pushes to `main` auto-deploy to Production.
 - **CI/CD:** 4 GitHub Actions workflows – contracts build/test, frontend lint + format + build + component tests, Node unit tests, Playwright E2E (pull requests), plus a manual contract-deploy dispatcher.
 - **Known gaps under active work:** the admin emergency-withdrawal flow is still awaiting contract execution support ([#263](https://github.com/JointSave-org/Joint_Save/issues/263)); the admin incident-review UI is in progress ([#261](https://github.com/JointSave-org/Joint_Save/issues/261)).
@@ -85,7 +86,7 @@ A full technical walkthrough — contract layer, flows, and database schema — 
 
 ## Deployed Contracts
 
-The codebase ships an **8-contract Soroban suite**. The following are deployed/uploaded on **Stellar Testnet**:
+The codebase ships a **9-contract Soroban suite**. The following are deployed/uploaded on **Stellar Testnet**:
 
 | Contract            | Address                                                            |
 | ------------------- | ------------------------------------------------------------------ |
@@ -96,7 +97,7 @@ The codebase ships an **8-contract Soroban suite**. The following are deployed/u
 
 _Deployed on April 16, 2026 — see [`smartcontract/deployments/stellar-testnet.json`](smartcontract/deployments/stellar-testnet.json) for the source of truth._
 
-The full suite also includes **governance**, **microloan**, **reputation**, and **yield-strategy** contracts. Reputation is deployed by [`smartcontract/scripts/deploy.sh`](smartcontract/scripts/deploy.sh); governance, microloan, and yield-strategy have no testnet deployment recorded yet. Microloan and reputation are feature-gated through the `NEXT_PUBLIC_MICROLOAN_CONTRACT_ID` / `NEXT_PUBLIC_REPUTATION_CONTRACT_ID` env vars (leave blank to disable).
+The full suite also includes **governance**, **microloan**, **reputation**, **yield-strategy**, and **yield-vault** contracts. Reputation and the mock yield-vault are deployed by [`smartcontract/scripts/deploy.sh`](smartcontract/scripts/deploy.sh); governance, microloan, yield-strategy, and the yield-vault have no testnet deployment recorded yet. Microloan and reputation are feature-gated through the `NEXT_PUBLIC_MICROLOAN_CONTRACT_ID` / `NEXT_PUBLIC_REPUTATION_CONTRACT_ID` env vars (leave blank to disable).
 
 For complete API documentation — functions, events, storage keys, error conditions, and CLI examples — see **[docs/contract-api.md](docs/contract-api.md)**.
 
@@ -243,7 +244,7 @@ _Filter by date, pool, or activity type — then export to CSV_
 - **DeFi Integration** – Connect flexible pools to Stellar DeFi protocols for yield (yield-strategy contract scaffolded; wire liquidity paths)
 - **Advanced Analytics** – Protocol-wide analytics dashboard (telemetry + insights beyond per-pool health)
 - **Group Communication** – In-app messaging and notifications
-- **Mainnet Hardening** – Deploy the 8-contract suite to Stellar mainnet (governance, microloan, yield-strategy still have no testnet deployment recorded)
+- **Mainnet Hardening** – Deploy the 9-contract suite to Stellar mainnet (governance, microloan, yield-strategy, and the yield vault still have no testnet deployment recorded)
 - **Admin Emergency Console** – Self-service pause/resume/emergency-withdraw UI with SEP-53 proof (backend exists; UI on the way)
 
 ### 🌍 Phase 3 - Scale
@@ -279,6 +280,7 @@ We welcome contributions from the community! Here's how you can help:
 
 - **[Architecture Guide](ARCHITECTURE.md)** – Detailed technical documentation
 - **[Smart Contract API](smartcontract/README.md)** – Contract interfaces and usage
+- **[Yield Allocation Threat Model](docs/security/yield-allocation-threat-model.md)** – Risks and mitigations for vault-backed yield
 - **[Deployment Guide](smartcontract/scripts/deploy.sh)** – How to deploy contracts
 - **[Frontend Setup](frontend/README.md)** – Development environment setup
 

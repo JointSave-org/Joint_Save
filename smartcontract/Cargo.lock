@@ -686,6 +686,7 @@ dependencies = [
 name = "jointsave-flexible"
 version = "0.1.0"
 dependencies = [
+ "jointsave-yield-vault",
  "proptest",
  "soroban-sdk",
 ]
@@ -741,6 +742,14 @@ dependencies = [
 
 [[package]]
 name = "jointsave-yield-strategy"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "jointsave-yield-vault"
 version = "0.1.0"
 dependencies = [
  "proptest",

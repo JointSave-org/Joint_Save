@@ -207,3 +207,41 @@ export const useBumpPoolState = vi.fn().mockReturnValue({
   bumpPoolState: vi.fn().mockResolvedValue("tx_hash_bump"),
   isLoading: false,
 })
+
+// ── Yield allocation (vault) ────────────────────────────────────────────────
+
+export const fetchYieldAllocationState = vi.fn().mockResolvedValue({
+  vault: "C_MOCK_VAULT_ADDRESS",
+  shares: 1000000000n,
+  costBasis: 1000000000n,
+  bufferBps: 2000,
+  locked: false,
+  position: 1100000000n,
+  unrealised: 100000000n,
+  maxAllocatable: 500000000n,
+})
+
+export const useApplyYieldAllocation = vi.fn().mockReturnValue({
+  applyAllocation: vi.fn().mockResolvedValue("tx_hash_allocate"),
+  isLoading: false,
+})
+
+export const useDeallocateYield = vi.fn().mockReturnValue({
+  deallocate: vi.fn().mockResolvedValue("tx_hash_deallocate"),
+  isLoading: false,
+})
+
+export const useSyncYield = vi.fn().mockReturnValue({
+  sync: vi.fn().mockResolvedValue("tx_hash_sync"),
+  isLoading: false,
+})
+
+export const useSetYieldBuffer = vi.fn().mockReturnValue({
+  setBuffer: vi.fn().mockResolvedValue("tx_hash_set_buffer"),
+  isLoading: false,
+})
+
+export const useSetYieldLocked = vi.fn().mockReturnValue({
+  setLocked: vi.fn().mockResolvedValue("tx_hash_set_locked"),
+  isLoading: false,
+})

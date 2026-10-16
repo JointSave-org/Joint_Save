@@ -8,11 +8,15 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import {
+  decodeYieldAllocationParams,
+  formatBaseUnits,
   formatTimeRemaining,
   type GovernanceProposal,
   type GovernanceProposalStatus,
 } from "@/lib/governance"
 import { PROPOSAL_TYPES } from "@/lib/governance"
+
+const YIELD_DECIMALS = 7
 
 const STATUS_BADGE: Record<GovernanceProposalStatus, string> = {
   Active: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
@@ -57,6 +61,8 @@ export function VoteCard({
 }: VoteCardProps) {
   const t = useTranslations("governance")
 
+  const yieldParams = decodeYieldAllocationParams(proposal.parameters)
+
   const forCount = proposal.votesFor.length
   const againstCount = proposal.votesAgainst.length
   const progressTarget = Math.max(votesNeeded, 1)
@@ -84,6 +90,30 @@ export function VoteCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm whitespace-pre-wrap">{proposal.description}</p>
+
+        {yieldParams && (
+          <div className="rounded-md border bg-muted/40 p-3 text-xs">
+            <p className="mb-1 font-medium">{t("yield.detailsLabel")}</p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
+              <span>
+                {t("yield.actionLabel")}:{" "}
+                <span className="font-medium text-foreground">
+                  {yieldParams.action === "alloc" ? t("yield.alloc") : t("yield.dealloc")}
+                </span>
+              </span>
+              <span>
+                {t("yield.amountLabel")}:{" "}
+                <span className="font-mono text-foreground">
+                  {formatBaseUnits(yieldParams.amountBaseUnits, YIELD_DECIMALS)}
+                </span>
+              </span>
+              {yieldParams.vault && (
+                <span className="font-mono">{shortenAddress(yieldParams.vault)}</span>
+              )}
+            </div>
+          </div>
+        )}
+
         <p className="text-xs text-muted-foreground">
           by <span className="font-mono">{shortenAddress(proposal.proposer)}</span>
           {isProposer ? " (you)" : ""}

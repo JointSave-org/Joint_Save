@@ -99,6 +99,10 @@ jobs:
         working-directory: smartcontract
         run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/governance/Cargo.toml
 
+      - name: Build Yield Vault contract
+        working-directory: smartcontract
+        run: cargo build --target wasm32-unknown-unknown --release --features mock --manifest-path=contracts/yield-vault/Cargo.toml
+
       - name: Verify WASM artifacts
         working-directory: smartcontract
         run: |

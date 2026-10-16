@@ -421,21 +421,33 @@
           "rotational": {
             "title": "Rotational Savings",
             "description": "Traditional savings circle onchain. Members take turns receiving payouts automatically.",
-            "features": ["Fixed contribution amount", "Scheduled payouts", "Turn-based system"],
+            "features": [
+              "Fixed contribution amount",
+              "Scheduled payouts",
+              "Turn-based system"
+            ],
             "guideLabel": "Rotational:",
             "guideDescription": "Best for regular income groups who want predictable payouts"
           },
           "target": {
             "title": "Target Pool",
             "description": "Save together toward a shared goal. Funds unlock when the target is reached.",
-            "features": ["Shared savings goal", "Locked until target", "Equal distribution"],
+            "features": [
+              "Shared savings goal",
+              "Locked until target",
+              "Equal distribution"
+            ],
             "guideLabel": "Target:",
             "guideDescription": "Perfect for saving toward a specific goal like a wedding or business"
           },
           "flexible": {
             "title": "Flexible Pool",
             "description": "Deposit and withdraw anytime with optional yield generation.",
-            "features": ["Flexible deposits", "Anytime withdrawal", "Optional yield"],
+            "features": [
+              "Flexible deposits",
+              "Anytime withdrawal",
+              "Optional yield"
+            ],
             "guideLabel": "Flexible:",
             "guideDescription": "Ideal for emergency funds or groups with varying income"
           }
@@ -944,7 +956,32 @@
       "deploy": "Deploy",
       "processing": "Processing...",
       "harvestAndDistribute": "Harvest & Distribute Yield",
-      "harvestHint": "Harvests accumulated yield from the protocol and distributes proportionally to all members."
+      "harvestHint": "Harvests accumulated yield from the protocol and distributes proportionally to all members.",
+      "vaultTitle": "Vault Allocation",
+      "vaultEmpty": "No capital allocated to a vault yet.",
+      "vaultPosition": "Position value",
+      "vaultUnrealised": "Unrealised yield",
+      "vaultSharePrice": "Share price",
+      "vaultMaxAllocatable": "Available to allocate",
+      "vaultBuffer": "Liquidity buffer",
+      "vaultContract": "Vault:",
+      "vaultIlliquid": "Vault locked",
+      "allocateLabel": "Allocate to vault",
+      "vaultPlaceholder": "C... vault contract",
+      "deallocateLabel": "De-allocate from vault",
+      "deallocate": "De-allocate",
+      "vaultBufferPlaceholder": "Buffer (bps)",
+      "vaultSync": "Sync yield",
+      "vaultLock": "Lock vault",
+      "vaultUnlock": "Unlock vault",
+      "vaultHint": "Allocation and de-allocation are governed by member votes; syncing realises vault yield and distributes it pro-rata.",
+      "vaultAllocated": "Capital allocated to vault.",
+      "vaultDeallocated": "Capital recalled from vault.",
+      "vaultSynced": "Vault yield synced and distributed.",
+      "vaultBufferSet": "Liquidity buffer updated.",
+      "vaultLockedSuccess": "Vault locked.",
+      "vaultUnlockedSuccess": "Vault unlocked.",
+      "vaultError": "Transaction failed. Please try again."
     },
     "chat": {
       "justNow": "just now",
@@ -1055,7 +1092,9 @@
         "admin_archived": "Archived by the pool admin.",
         "emergency_withdrawn": "Archived after an emergency withdrawal."
       }
-    }
+    },
+    "flexibleWithdrawHint": "Withdraw anytime. Exit fee will be deducted. On-chain withdraws auto-deallocate from vaults when possible.",
+    "vaultIlliquidBanner": "Vault is locked with {amount} allocated shares — full withdrawal may be limited until de-allocated or unlocked."
   },
   "explore": {
     "explorePools": "Explore Pools",
@@ -1947,7 +1986,16 @@
       "AddPenalty": "Add Penalty",
       "RemovePenalty": "Remove Penalty",
       "ChangeQuorum": "Change Quorum",
-      "Custom": "Custom"
+      "Custom": "Custom",
+      "YieldAllocation": "Allocate / De-allocate Yield"
+    },
+    "yield": {
+      "alloc": "Allocate to vault",
+      "dealloc": "De-allocate from vault",
+      "actionLabel": "Action",
+      "vaultLabel": "Vault contract ID",
+      "amountLabel": "Amount",
+      "detailsLabel": "Yield allocation"
     }
   }
 }

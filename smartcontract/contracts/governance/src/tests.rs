@@ -46,12 +46,50 @@ impl TestPool {
             .get(&DataKeyTest::LastType(proposal_type))
             .unwrap_or(0)
     }
+
+    pub fn apply_yield_allocation(env: Env, caller: Address, vault: Address, amount: i128) {
+        caller.require_auth();
+        let storage = env.storage().persistent();
+        storage.set(&DataKeyTest::AllocAmount, &amount);
+        storage.set(&DataKeyTest::AllocVault, &vault);
+    }
+
+    pub fn apply_yield_deallocation(env: Env, caller: Address, amount: i128) {
+        caller.require_auth();
+        env.storage()
+            .persistent()
+            .set(&DataKeyTest::DeallocAmount, &amount);
+    }
+
+    pub fn alloc_amount(env: Env) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKeyTest::AllocAmount)
+            .unwrap_or(0)
+    }
+
+    pub fn alloc_vault(env: Env) -> Address {
+        env.storage()
+            .persistent()
+            .get(&DataKeyTest::AllocVault)
+            .expect("no vault")
+    }
+
+    pub fn dealloc_amount(env: Env) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKeyTest::DeallocAmount)
+            .unwrap_or(0)
+    }
 }
 
 #[contracttype]
 pub enum DataKeyTest {
     Members,
     LastType(Symbol),
+    AllocAmount,
+    AllocVault,
+    DeallocAmount,
 }
 
 struct Ctx {
@@ -74,6 +112,30 @@ fn params_i128(env: &Env, key: &str, value: i128) -> Map<String, Bytes> {
 
 fn empty_params(env: &Env) -> Map<String, Bytes> {
     Map::new(env)
+}
+
+/// Build the parameters for a yield-allocation `Custom` proposal.
+fn yield_params(
+    env: &Env,
+    action: &str,
+    amount: i128,
+    vault: Option<&Address>,
+) -> Map<String, Bytes> {
+    let mut m = Map::new(env);
+    m.set(
+        String::from_str(env, "action"),
+        Bytes::from_slice(env, action.as_bytes()),
+    );
+    m.set(
+        String::from_str(env, "amount"),
+        Bytes::from_array(env, &amount.to_be_bytes()),
+    );
+    if let Some(v) = vault {
+        let mut arr = [0u8; 56];
+        v.to_string().copy_into_slice(&mut arr);
+        m.set(String::from_str(env, "vault"), Bytes::from_array(env, &arr));
+    }
+    m
 }
 
 fn setup() -> Ctx {
@@ -525,4 +587,71 @@ fn active_proposals_query_rejects_wrong_pool() {
     let ctx = setup();
     let gov = GovernanceClient::new(&ctx.env, &ctx.gov_id);
     gov.get_active_proposals(&Address::generate(&ctx.env));
+}
+
+#[test]
+fn custom_yield_alloc_proposal_forwards_to_pool() {
+    let ctx = setup();
+    let gov = GovernanceClient::new(&ctx.env, &ctx.gov_id);
+    let vault = Address::generate(&ctx.env);
+
+    let id = create_and_pass(
+        &ctx,
+        ProposalType::Custom,
+        yield_params(&ctx.env, "alloc", 750, Some(&vault)),
+    );
+    gov.execute_proposal(&ctx.voters[0], &id);
+
+    let pool = TestPoolClient::new(&ctx.env, &ctx.pool_id);
+    assert_eq!(pool.alloc_amount(), 750i128);
+    assert_eq!(pool.alloc_vault(), vault);
+
+    let p = gov.get_proposal(&id);
+    assert_eq!(p.status, ProposalStatus::Executed);
+}
+
+#[test]
+fn custom_yield_dealloc_proposal_forwards_to_pool() {
+    let ctx = setup();
+    let gov = GovernanceClient::new(&ctx.env, &ctx.gov_id);
+
+    let id = create_and_pass(
+        &ctx,
+        ProposalType::Custom,
+        yield_params(&ctx.env, "dealloc", 400, None),
+    );
+    gov.execute_proposal(&ctx.voters[0], &id);
+
+    assert_eq!(
+        TestPoolClient::new(&ctx.env, &ctx.pool_id).dealloc_amount(),
+        400i128
+    );
+}
+
+#[test]
+fn custom_without_action_keeps_legacy_behaviour() {
+    let ctx = setup();
+    let gov = GovernanceClient::new(&ctx.env, &ctx.gov_id);
+
+    let id = create_and_pass(&ctx, ProposalType::Custom, params_i128(&ctx.env, "note", 7));
+    gov.execute_proposal(&ctx.voters[0], &id);
+
+    // Legacy path: nothing is forwarded to the pool.
+    let pool = TestPoolClient::new(&ctx.env, &ctx.pool_id);
+    assert_eq!(pool.alloc_amount(), 0i128);
+    assert_eq!(pool.dealloc_amount(), 0i128);
+    assert_eq!(gov.get_proposal(&id).status, ProposalStatus::Executed);
+}
+
+#[test]
+#[should_panic(expected = "missing vault")]
+fn custom_alloc_without_vault_fails() {
+    let ctx = setup();
+    let gov = GovernanceClient::new(&ctx.env, &ctx.gov_id);
+    let id = create_and_pass(
+        &ctx,
+        ProposalType::Custom,
+        yield_params(&ctx.env, "alloc", 100, None),
+    );
+    gov.execute_proposal(&ctx.voters[0], &id);
 }
