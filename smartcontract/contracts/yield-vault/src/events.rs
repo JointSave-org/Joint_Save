@@ -31,3 +31,22 @@ pub fn buffer_set(env: &Env, bps: u32) {
 pub fn lock_set(env: &Env, locked: bool) {
     env.events().publish((symbol_short!("ya_locked"),), locked);
 }
+
+/// Emitted by a vault when it mints shares for a deposit.
+pub fn deposited(env: &Env, from: &Address, amount: i128, shares: i128) {
+    env.events().publish(
+        (symbol_short!("deposited"),),
+        (from.clone(), amount, shares),
+    );
+}
+
+/// Emitted by a vault when it burns shares and pays out assets.
+pub fn withdrew(env: &Env, to: &Address, shares: i128, assets: i128) {
+    env.events()
+        .publish((symbol_short!("withdrew"),), (to.clone(), shares, assets));
+}
+
+/// Emitted by a vault when its locked (illiquid) assets change.
+pub fn vault_locked(env: &Env, amount: i128) {
+    env.events().publish((symbol_short!("v_locked"),), amount);
+}
