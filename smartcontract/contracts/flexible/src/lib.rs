@@ -676,6 +676,76 @@ impl FlexiblePool {
         jointsave_yield_vault::lock_set(&env, locked);
     }
 
+    /// Realise any gain in the vault position and credit it to members pro-rata
+    /// by their principal balance. Callable by the admin, the governance
+    /// contract, or any member.
+    ///
+    /// Returns the amount distributed. Distributions use floor division, so any
+    /// rounding remainder stays in the pot (as still-unrealised yield) rather
+    /// than over-crediting a member.
+    pub fn sync_yield(env: Env, caller: Address) -> i128 {
+        caller.require_auth();
+
+        let storage = env.storage().persistent();
+        let admin: Address = storage.get(&DataKey::Admin).unwrap();
+        let gov: Option<Address> = storage.get(&DataKey::GovernanceContract);
+        let members: Vec<Address> = storage.get(&DataKey::Members).unwrap();
+        assert!(
+            caller == admin
+                || gov.is_some_and(|g| g == caller)
+                || Self::is_member(&members, &caller),
+            "not authorized"
+        );
+
+        let vault: Option<Address> = storage.get(&DataKey::YieldVault);
+        let Some(vault) = vault else {
+            return 0;
+        };
+        let shares: i128 = storage.get(&DataKey::YieldShares).unwrap_or(0);
+        let cost_basis: i128 = storage.get(&DataKey::YieldCostBasis).unwrap_or(0);
+        if shares <= 0 {
+            return 0;
+        }
+
+        let price = VaultClient::new(&env, &vault).share_price();
+        let position = shares * price / SHARE_SCALE;
+        if position <= cost_basis {
+            // No gain to realise (flat or underwater).
+            return 0;
+        }
+        let realised = position - cost_basis;
+
+        let total: i128 = storage.get(&DataKey::TotalBalance).unwrap_or(0);
+        if total <= 0 {
+            return 0;
+        }
+
+        let mut distributed: i128 = 0;
+        for m in members.iter() {
+            let bal: i128 = storage.get(&DataKey::Balance(m.clone())).unwrap_or(0);
+            if bal > 0 {
+                let share = realised * bal / total;
+                if share > 0 {
+                    let bal_key = DataKey::Balance(m.clone());
+                    storage.set(&bal_key, &(bal + share));
+                    storage.extend_ttl(&bal_key, LEDGER_THRESHOLD, LEDGER_BUMP);
+                    distributed += share;
+                }
+            }
+        }
+
+        if distributed > 0 {
+            storage.set(&DataKey::TotalBalance, &(total + distributed));
+            // Only the cost of what we actually credited is removed from the
+            // cost basis, leaving the rounding remainder to be swept next time.
+            storage.set(&DataKey::YieldCostBasis, &(cost_basis + distributed));
+        }
+
+        Self::bump_config_state_internal(&env);
+        jointsave_yield_vault::synced(&env, distributed);
+        distributed
+    }
+
     /// Redeem up to `amount` assets from the vault. Returns the assets actually
     /// received (which may be less than `amount` if the vault is illiquid or the
     /// pool holds too few shares). Never reverts on a shortfall.
@@ -952,6 +1022,37 @@ impl FlexiblePool {
     /// Idle capital that can be allocated right now without breaching the buffer.
     pub fn max_allocatable_amount(env: Env) -> i128 {
         Self::max_allocatable(&env)
+    }
+
+    /// Current value of the pool's vault position, in assets. Reads the vault's
+    /// live share price; returns 0 when nothing is allocated.
+    pub fn yield_position(env: Env) -> i128 {
+        let storage = env.storage().persistent();
+        let vault: Option<Address> = storage.get(&DataKey::YieldVault);
+        let Some(vault) = vault else {
+            return 0;
+        };
+        let shares: i128 = storage.get(&DataKey::YieldShares).unwrap_or(0);
+        if shares <= 0 {
+            return 0;
+        }
+        let price = VaultClient::new(&env, &vault).share_price();
+        shares * price / SHARE_SCALE
+    }
+
+    /// Unrealised gain in the vault position (position value minus cost basis).
+    pub fn unrealised_yield(env: Env) -> i128 {
+        let position = Self::yield_position(env.clone());
+        let cost_basis: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::YieldCostBasis)
+            .unwrap_or(0);
+        if position > cost_basis {
+            position - cost_basis
+        } else {
+            0
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

@@ -1029,3 +1029,86 @@ fn non_admin_cannot_lock() {
     let c = setup(&env);
     c.pool.set_yield_locked(&c.member_a, &true);
 }
+
+/// Pool with two members (a: 100, b: 100), a mock vault, and 80% allocated.
+fn setup_two_members_allocated(
+    env: &Env,
+) -> (
+    FlexiblePoolClient<'static>,
+    Address,
+    Address,
+    Address,
+    Address,
+    Address,
+) {
+    let (pool, token_addr, admin, _treasury, a, b) = setup_pool(env, true);
+    let vault_id = env.register_contract(None, MockVault);
+    MockVaultClient::new(env, &vault_id).initialize(&admin, &token_addr);
+
+    let asset = token::StellarAssetClient::new(env, &token_addr);
+    asset.mint(&a, &100i128);
+    asset.mint(&b, &100i128);
+    pool.deposit(&a, &100i128);
+    pool.deposit(&b, &100i128);
+
+    // 200 pot, 20% buffer -> 160 allocatable.
+    pool.apply_yield_allocation(&admin, &vault_id, &160i128);
+    (pool, token_addr, vault_id, admin, a, b)
+}
+
+#[test]
+fn sync_yield_distributes_pro_rata() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (pool, token_addr, vault_id, _admin, a, b) = setup_two_members_allocated(&env);
+
+    // 10% gain on the deployed 160.
+    token::StellarAssetClient::new(&env, &token_addr).mint(&vault_id, &16i128);
+
+    assert_eq!(pool.yield_position(), 176i128);
+    assert_eq!(pool.unrealised_yield(), 16i128);
+
+    let distributed = pool.sync_yield(&a);
+    assert_eq!(distributed, 16i128);
+    assert_eq!(pool.balance_of(&a), 108i128);
+    assert_eq!(pool.balance_of(&b), 108i128);
+    assert_eq!(pool.total_balance(), 216i128);
+    assert_eq!(pool.yield_cost_basis(), 176i128);
+    assert_eq!(pool.unrealised_yield(), 0i128);
+}
+
+#[test]
+fn sync_yield_rounding_remainder_stays_in_pot() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (pool, token_addr, vault_id, _admin, a, _b) = setup_two_members_allocated(&env);
+
+    // 1 unit of yield across two equal members floors to 0 each.
+    token::StellarAssetClient::new(&env, &token_addr).mint(&vault_id, &1i128);
+    assert_eq!(pool.unrealised_yield(), 1i128);
+
+    let distributed = pool.sync_yield(&a);
+    assert_eq!(distributed, 0i128);
+    assert_eq!(pool.total_balance(), 200i128);
+    // The remainder is still unrealised and can be swept later.
+    assert_eq!(pool.unrealised_yield(), 1i128);
+}
+
+#[test]
+fn sync_yield_with_no_gain_is_noop() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (pool, _token, _vault, _admin, a, _b) = setup_two_members_allocated(&env);
+    assert_eq!(pool.sync_yield(&a), 0i128);
+    assert_eq!(pool.total_balance(), 200i128);
+}
+
+#[test]
+#[should_panic(expected = "not authorized")]
+fn stranger_cannot_sync_yield() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (pool, _token, _vault, _admin, _a, _b) = setup_two_members_allocated(&env);
+    let stranger = Address::generate(&env);
+    pool.sync_yield(&stranger);
+}
