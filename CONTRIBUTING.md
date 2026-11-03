@@ -72,6 +72,10 @@ Joint_Save/
 │   │   └── flexible/    # Flexible savings pool
 │   ├── scripts/         # Deploy & management scripts
 │   └── deployments/     # Deployed contract addresses
+├── sdk/                 # Standalone TypeScript SDK (@jointsave/sdk)
+│   ├── src/             # Core entry point and utilities
+│   ├── tests/           # Vitest unit & regression suites
+│   └── scripts/         # Public API guard and release tools
 ├── docs/                # Documentation & screenshots
 ├── .github/             # CI workflows & PR templates
 └── README.md
