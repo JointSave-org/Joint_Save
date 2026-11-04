@@ -346,6 +346,8 @@ export interface ReputationData {
   totalDeposits: number;
   /** Missed deposits (count). */
   missedDeposits: number;
+  /** Cumulative token amount deposited, in base units. */
+  totalDepositAmount: bigint;
   /** Unix timestamp (seconds) of the last recorded activity. */
   lastActivity: number;
   /** Unix timestamp (seconds) the score was last computed. */
@@ -388,7 +390,7 @@ export interface TxResult {
   /** Ledger the transaction was included in, when confirmed. */
   ledger?: number;
   /** Current known status. */
-  status: "pending" | "success" | "failed";
+  status: "pending" | "success" | "failed" | "timeout";
 }
 
 /** Discriminated result for read operations. */
