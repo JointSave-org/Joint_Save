@@ -29,4 +29,7 @@ export * from "./client";
 // Pure, deterministic action-eligibility gating.
 export * from "./gating";
 
+// Read-only HTTP DataClient and indexer contracts.
+export * from "./data";
+
 export { SDK_VERSION } from "./version";
