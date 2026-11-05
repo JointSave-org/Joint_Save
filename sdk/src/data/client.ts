@@ -134,7 +134,7 @@ export class DataClient {
   private readonly customFetch: typeof globalThis.fetch;
   private readonly defaultHeaders: Record<string, string>;
   private readonly timeoutMs: number;
-  private readonly onRequestId?: (requestId: string) => void;
+  private readonly onRequestId?: ((requestId: string) => void) | undefined;
 
   constructor(options: DataClientOptions) {
     if (!options || typeof options.baseUrl !== "string" || !options.baseUrl.trim()) {
@@ -147,7 +147,9 @@ export class DataClient {
       ...(options.headers ?? {}),
     };
     this.timeoutMs = options.timeoutMs ?? 10000;
-    this.onRequestId = options.onRequestId;
+    if (options.onRequestId !== undefined) {
+      this.onRequestId = options.onRequestId;
+    }
   }
 
   private async request<T>(
