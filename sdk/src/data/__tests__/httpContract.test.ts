@@ -210,9 +210,18 @@ describe("DataClient & HTTP Contract", () => {
 
   describe("OpenAPI 3.1 Contract Validation", () => {
     it("validates openapi.json contains required paths and schemas", () => {
-      const openApiSpecPath = path.resolve(__dirname, "../../../../../docs/api/openapi.json");
-      expect(fs.existsSync(openApiSpecPath)).toBe(true);
-      const openApiSpec = JSON.parse(fs.readFileSync(openApiSpecPath, "utf-8"));
+      // Candidate paths depending on whether test runs from repo root or sdk/ package root
+      const candidates = [
+        path.resolve(process.cwd(), "docs/api/openapi.json"),
+        path.resolve(process.cwd(), "../docs/api/openapi.json"),
+        path.resolve(__dirname, "../../../../docs/api/openapi.json"),
+        path.resolve(__dirname, "../../../../../docs/api/openapi.json"),
+      ];
+
+      const foundPath = candidates.find((p) => fs.existsSync(p));
+      expect(foundPath).toBeDefined();
+
+      const openApiSpec = JSON.parse(fs.readFileSync(foundPath as string, "utf-8"));
 
       expect(openApiSpec.openapi).toBe("3.1.0");
       expect(openApiSpec.paths).toHaveProperty("/pools");
