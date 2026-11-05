@@ -1,0 +1,667 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "JointSave REST & Indexer API",
+    "version": "1.0.0",
+    "description": "Versioned HTTP contract for JointSave read models consumed by @jointsave/sdk DataClient."
+  },
+  "servers": [
+    {
+      "url": "https://jointsave.org/api",
+      "description": "Production App / Indexer Base"
+    }
+  ],
+  "paths": {
+    "/pools": {
+      "get": {
+        "summary": "List pools with pagination and status/type filter",
+        "operationId": "listPools",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of pools",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagePoolSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pools/{id}": {
+      "get": {
+        "summary": "Get pool detail by contract id",
+        "operationId": "getPool",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pool detail record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pool not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pools/history": {
+      "get": {
+        "summary": "Get batched pool events/sparkline history",
+        "operationId": "getPoolHistory",
+        "parameters": [
+          {
+            "name": "poolId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated pool events history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagePoolEvent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/protocol/summary": {
+      "get": {
+        "summary": "Get aggregate protocol metrics and TVL",
+        "operationId": "getProtocolSummary",
+        "responses": {
+          "200": {
+            "description": "Protocol summary analytics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtocolSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reputation": {
+      "get": {
+        "summary": "Get user reputation score and activity history",
+        "operationId": "getReputation",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User reputation data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReputationData"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reputation/leaderboard": {
+      "get": {
+        "summary": "Get top reputation scores leaderboard",
+        "operationId": "getReputationLeaderboard",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            },
+            "required": false
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reputation leaderboard page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageReputationLeaderboard"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/governance": {
+      "get": {
+        "summary": "Get off-chain mirrored governance votes and proposals",
+        "operationId": "getGovernanceProposals",
+        "parameters": [
+          {
+            "name": "pool_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "proposal_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of governance proposals/votes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "proposals": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GovernanceProposal"
+                      }
+                    }
+                  },
+                  "required": [
+                    "proposals"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/portfolio/summary": {
+      "get": {
+        "summary": "Get wallet portfolio balance, active pools, and earnings",
+        "operationId": "getPortfolioSummary",
+        "parameters": [
+          {
+            "name": "wallet",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Portfolio summary details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PagePoolSummary": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PoolSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor",
+          "hasMore"
+        ]
+      },
+      "PoolSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "poolType": {
+            "type": "string",
+            "enum": [
+              "rotational",
+              "target",
+              "flexible"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "totalDeposited": {
+            "type": "string"
+          },
+          "memberCount": {
+            "type": "integer"
+          },
+          "creatorAddress": {
+            "type": "string"
+          },
+          "tokenSymbol": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "poolType",
+          "status"
+        ]
+      },
+      "PoolDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PoolSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "contractAddress": {
+                "type": "string"
+              },
+              "tokenAddress": {
+                "type": "string"
+              },
+              "members": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "cycleDurationLedgers": {
+                "type": "integer"
+              },
+              "currentRound": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      },
+      "PagePoolEvent": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PoolEvent"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor",
+          "hasMore"
+        ]
+      },
+      "PoolEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "poolId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "amount": {
+            "type": [
+              "string",
+              "number",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "integer"
+          },
+          "txHash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "poolId",
+          "type",
+          "timestamp"
+        ]
+      },
+      "ProtocolSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ProtocolSummary"
+          }
+        },
+        "required": [
+          "success",
+          "data"
+        ]
+      },
+      "ProtocolSummary": {
+        "type": "object",
+        "properties": {
+          "protocols": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "totalValueLockedUSD": {
+                  "type": "string"
+                },
+                "totalVolumeUSD": {
+                  "type": "string"
+                },
+                "activePoolsCount": {
+                  "type": "integer"
+                },
+                "totalMembers": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "protocolDayDatas": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "pools": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "protocols"
+        ]
+      },
+      "ReputationData": {
+        "type": "object",
+        "properties": {
+          "totalScore": {
+            "type": "number"
+          },
+          "depositReliability": {
+            "type": "number"
+          },
+          "poolsCompleted": {
+            "type": "number"
+          },
+          "poolsJoined": {
+            "type": "number"
+          },
+          "totalDeposits": {
+            "type": "number"
+          },
+          "missedDeposits": {
+            "type": "number"
+          },
+          "lastActivity": {
+            "type": "number"
+          },
+          "isProvisional": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "totalScore",
+          "isProvisional"
+        ]
+      },
+      "PageReputationLeaderboard": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReputationData"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor",
+          "hasMore"
+        ]
+      },
+      "GovernanceProposal": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "proposer": {
+            "type": "string"
+          },
+          "proposalType": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "votesFor": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "votesAgainst": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "proposer",
+          "proposalType",
+          "status"
+        ]
+      },
+      "PortfolioSummary": {
+        "type": "object",
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "totalBalanceUSD": {
+            "type": "number"
+          },
+          "activePoolsCount": {
+            "type": "integer"
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "wallet"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "default": false
+          },
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      }
+    }
+  }
+}
