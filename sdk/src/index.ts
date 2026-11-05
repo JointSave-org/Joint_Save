@@ -17,4 +17,13 @@ export * from "./config";
 // Utilities — pure, tree-shakeable, no network code.
 export * from "./utils";
 
+// ScVal encoders for building custom contract calls.
+export * from "./scval";
+
+// Typed errors.
+export * from "./errors";
+
+// Soroban contract clients and the JointSaveClient facade.
+export * from "./client";
+
 export { SDK_VERSION } from "./version";
