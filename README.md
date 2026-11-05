@@ -49,7 +49,7 @@ JointSave uses a light on-chain / off-chain split:
 - **Pool contracts** – Rotational (fixed deposits, rotating payouts), Target (goal + deadline), Flexible (variable deposits with yield options)
 - **Supporting contracts** – Reputation (on-chain trust scores), Microloan (P2P lending), Governance (vote-weighted proposals), Yield Strategy (yield routing), Yield Vault (vault adapter + mock vault for vault-backed yield allocation)
 - **Frontend** – Next.js 16 (App Router) + Tailwind + shadcn/ui, connecting to Stellar via Stellar SDK and Wallets Kit
-- **SDK** – [`@jointsave/sdk`](sdk/), a typed TypeScript client for third-party integrations (under active development)
+- **SDK** – [`@jointsave/sdk`](sdk/), a typed TypeScript client for third-party integrations, documented in the [SDK integration guide](docs/sdk.md)
 - **Off-chain** – Supabase (Postgres) for user metadata, pool titles, notifications, and reusable views, with Row-Level Security
 - **Safeguards** – incident response / pause-authorization flows, pool archival, and dispute resolution (see [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md))
 
@@ -81,9 +81,10 @@ A full technical walkthrough — contract layer, flows, and database schema — 
 
 ### SDK
 
-- **TypeScript** client (`@jointsave/sdk`) with typed contract bindings and BigInt-safe helpers
+- **TypeScript** client ([`@jointsave/sdk`](sdk/)) with typed contract bindings and BigInt-safe helpers
 - **`@stellar/stellar-sdk`** for Soroban transaction building and RPC access
 - **Vitest** for unit tests and a public-API guard for the package barrel
+- **OpenAPI 3.1** contract for the SDK's HTTP read models
 
 ### Infrastructure
 
@@ -107,6 +108,35 @@ _Deployed on April 16, 2026 — see [`smartcontract/deployments/stellar-testnet.
 The full suite also includes **governance**, **microloan**, **reputation**, **yield-strategy**, and **yield-vault** contracts. Reputation and the mock yield-vault are deployed by [`smartcontract/scripts/deploy.sh`](smartcontract/scripts/deploy.sh); governance, microloan, yield-strategy, and the yield-vault have no testnet deployment recorded yet. Microloan and reputation are feature-gated through the `NEXT_PUBLIC_MICROLOAN_CONTRACT_ID` / `NEXT_PUBLIC_REPUTATION_CONTRACT_ID` env vars (leave blank to disable).
 
 For complete API documentation — functions, events, storage keys, error conditions, and CLI examples — see **[docs/contract-api.md](docs/contract-api.md)**.
+
+## SDK
+
+Build integrations without reverse-engineering the contracts or the app's API:
+
+```bash
+pnpm add @jointsave/sdk
+```
+
+```ts
+import { JointSaveClient } from "@jointsave/sdk";
+
+const member = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7";
+// Replace with a pool contract id from your deployment.
+const poolId = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+
+const client = new JointSaveClient({
+  network: "testnet",
+  contractIds: { factory: "CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI" },
+});
+
+const state = await client.pool.getRotationalState(poolId, member);
+console.log(state.isActive, state.currentRound);
+```
+
+The SDK covers typed contract clients, BigInt-safe amounts, action gating,
+diagnostics/recovery, and paginated HTTP reads. Start with the **[SDK quick start](sdk/README.md)**
+or the **[integration guide](docs/sdk.md)**. Runnable examples live in
+[`sdk/examples/`](sdk/examples/).
 
 ## Getting Started
 
@@ -221,11 +251,6 @@ JointSave demonstrates several advanced Soroban patterns:
 ![CI/CD Pipeline](docs/ci-screenshot.png)
 _Automated testing and deployment_
 
-### Transaction Export
-
-![Transaction History with CSV Export](docs/transactions-screenshot.png)
-_Filter by date, pool, or activity type — then export to CSV_
-
 </div>
 
 ## Roadmap
@@ -285,11 +310,15 @@ We welcome contributions from the community! Here's how you can help:
 
 ## Documentation
 
+- **[Documentation Index](docs/README.md)** – All guides in one place
 - **[Architecture Guide](ARCHITECTURE.md)** – Detailed technical documentation
-- **[Smart Contract API](smartcontract/README.md)** – Contract interfaces and usage
+- **[SDK Integration Guide](docs/sdk.md)** – Signer contract, errors, networks, security, and frontend parity
+- **[SDK Quick Start](sdk/README.md)** – Install, clients, examples, and versioning policy
+- **[HTTP API Reference](docs/api/README.md)** – Read models, pagination, and the OpenAPI 3.1 contract
+- **[Contract API](docs/contract-api.md)** – Contract interfaces and usage
 - **[Yield Allocation Threat Model](docs/security/yield-allocation-threat-model.md)** – Risks and mitigations for vault-backed yield
 - **[Deployment Guide](smartcontract/scripts/deploy.sh)** – How to deploy contracts
-- **[Frontend Setup](frontend/README.md)** – Development environment setup
+- **[Frontend Setup](frontend/)** – Development environment setup
 
 ## Security
 
@@ -303,7 +332,7 @@ Please refer to [SECURITY.md](SECURITY.md) for our security policy, in-scope com
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [MIT license text](https://opensource.org/licenses/MIT) for details.
 
 ---
 
