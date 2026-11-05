@@ -6,8 +6,6 @@ export {
   type SignTransaction,
   type SignTransactionOptions,
   type SorobanServer,
-  type TxLogEvent,
-  type TxLogger,
 } from "./base";
 export {
   FactoryClient,
