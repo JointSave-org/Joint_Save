@@ -1,6 +1,7 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it, vi } from "vitest";
 import { DataClient, DataClientError } from "../client";
-import openApiSpec from "../../../../../docs/api/openapi.json";
 
 describe("DataClient & HTTP Contract", () => {
   const baseUrl = "https://jointsave.org";
@@ -51,21 +52,34 @@ describe("DataClient & HTTP Contract", () => {
       });
 
       await client.getProtocolSummary();
-      expect(capturedId).toBeTruthy();
+      expect(capturedId.length).toBeGreaterThan(0);
       expect(sentHeader).toBe(capturedId);
     });
   });
 
-  describe("API Methods & Pagination", () => {
-    it("listPools parses paginated responses correctly", async () => {
+  describe("Route Methods & Pagination", () => {
+    it("listPools returns standard Page structure with default params", async () => {
       const mockPayload = {
         items: [
-          { id: "pool-1", poolType: "rotational", status: "active" },
-          { id: "pool-2", poolType: "flexible", status: "active" },
+          {
+            id: "pool-1",
+            poolType: "rotational",
+            status: "active",
+            currentCycle: 1,
+            totalCycles: 5,
+            contributionAmount: "100.00",
+            cycleDuration: 604800,
+            yieldStrategy: "none",
+            autoYieldEnabled: false,
+            memberCount: 5,
+            currentRound: 1,
+            roundDurationDays: 7,
+            totalYieldUSD: "0.00",
+          },
         ],
-        nextCursor: "cursor_abc",
+        nextCursor: "cursor_abc123",
         hasMore: true,
-        total: 24,
+        total: 15,
       };
 
       const customFetch = vi.fn().mockResolvedValue({
@@ -75,36 +89,34 @@ describe("DataClient & HTTP Contract", () => {
       });
 
       const client = new DataClient({ baseUrl, fetch: customFetch });
-      const page = await client.listPools({ status: "active", limit: 2 });
+      const page = await client.listPools({ status: "active", limit: 1 });
 
-      expect(page.items).toHaveLength(2);
-      expect(page.nextCursor).toBe("cursor_abc");
+      expect(page.items).toHaveLength(1);
+      expect(page.items[0]?.id).toBe("pool-1");
+      expect(page.nextCursor).toBe("cursor_abc123");
       expect(page.hasMore).toBe(true);
-      expect(page.total).toBe(24);
+      expect(page.total).toBe(15);
     });
 
-    it("getPool fetches pool detail", async () => {
-      const mockDetail = {
-        id: "pool-123",
-        name: "Community Savings",
-        poolType: "target",
-        status: "active",
-        targetAmount: "1000000000",
-      };
-
-      const customFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => mockDetail,
+    it("getPool returns detailed pool payload and encodes id parameter", async () => {
+      let requestedUrl = "";
+      const customFetch = vi.fn().mockImplementation(async (url: string) => {
+        requestedUrl = url;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ id: "pool-123", poolType: "rotational" }),
+        };
       });
 
       const client = new DataClient({ baseUrl, fetch: customFetch });
-      const detail = await client.getPool("pool-123");
-      expect(detail.id).toBe("pool-123");
-      expect(detail.poolType).toBe("target");
+      const pool = await client.getPool("special/pool#1");
+
+      expect(requestedUrl).toBe("https://jointsave.org/api/pools/special%2Fpool%231");
+      expect(pool.id).toBe("pool-123");
     });
 
-    it("getProtocolSummary unpacks standard summary fixture", async () => {
+    it("getProtocolSummary parses wrapper payload", async () => {
       const mockSummary = {
         success: true,
         data: {
@@ -127,8 +139,9 @@ describe("DataClient & HTTP Contract", () => {
 
       const client = new DataClient({ baseUrl, fetch: customFetch });
       const summary = await client.getProtocolSummary();
-      expect(summary.protocols[0].activePoolsCount).toBe(18);
-      expect(summary.protocols[0].totalMembers).toBe(142);
+      const firstProto = summary.protocols?.[0];
+      expect(firstProto?.activePoolsCount).toBe(18);
+      expect(firstProto?.totalMembers).toBe(142);
     });
 
     it("getPortfolioSummary passes wallet param and returns data", async () => {
@@ -158,12 +171,11 @@ describe("DataClient & HTTP Contract", () => {
       });
 
       const client = new DataClient({ baseUrl, fetch: customFetch });
-      await expect(client.getPool("missing-id")).rejects.toThrow(DataClientError);
 
+      await expect(client.getPool("missing")).rejects.toThrow(DataClientError);
       try {
-        await client.getPool("missing-id");
+        await client.getPool("missing");
       } catch (err) {
-        expect(err).toBeInstanceOf(DataClientError);
         const dataErr = err as DataClientError;
         expect(dataErr.status).toBe(404);
         expect(dataErr.code).toBe("POOL_NOT_FOUND");
@@ -171,14 +183,20 @@ describe("DataClient & HTTP Contract", () => {
       }
     });
 
-    it("handles timeout aborts gracefully", async () => {
-      const customFetch = vi.fn().mockImplementation(async () => {
-        const err = new Error("The operation was aborted");
-        err.name = "AbortError";
-        throw err;
+    it("handles timeout error gracefully", async () => {
+      const customFetch = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
+        return new Promise((_, reject) => {
+          if (init.signal) {
+            init.signal.addEventListener("abort", () => {
+              const err = new Error("The operation was aborted");
+              err.name = "AbortError";
+              reject(err);
+            });
+          }
+        });
       });
 
-      const client = new DataClient({ baseUrl, fetch: customFetch });
+      const client = new DataClient({ baseUrl, timeoutMs: 10, fetch: customFetch });
       await expect(client.getProtocolSummary()).rejects.toThrow(DataClientError);
       try {
         await client.getProtocolSummary();
@@ -192,6 +210,10 @@ describe("DataClient & HTTP Contract", () => {
 
   describe("OpenAPI 3.1 Contract Validation", () => {
     it("validates openapi.json contains required paths and schemas", () => {
+      const openApiSpecPath = path.resolve(__dirname, "../../../../../docs/api/openapi.json");
+      expect(fs.existsSync(openApiSpecPath)).toBe(true);
+      const openApiSpec = JSON.parse(fs.readFileSync(openApiSpecPath, "utf-8"));
+
       expect(openApiSpec.openapi).toBe("3.1.0");
       expect(openApiSpec.paths).toHaveProperty("/pools");
       expect(openApiSpec.paths).toHaveProperty("/pools/{id}");
