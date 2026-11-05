@@ -35,4 +35,7 @@ export * from "./diagnostics";
 // Retry classification and transaction-hash recovery.
 export * from "./recovery";
 
+// Typed HTTP read client for the app/indexer.
+export * from "./data";
+
 export { SDK_VERSION } from "./version";

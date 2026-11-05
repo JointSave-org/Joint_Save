@@ -1,0 +1,636 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "JointSave Read API",
+    "version": "0.1.0",
+    "description": "Versioned HTTP contract for the read models consumed by @jointsave/sdk DataClient. The app and indexer serve the same JSON shapes.",
+    "license": { "name": "MIT" }
+  },
+  "servers": [
+    { "url": "https://jointsave.app", "description": "Production app" },
+    { "url": "http://localhost:3000", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "pools" },
+    { "name": "protocol" },
+    { "name": "reputation" },
+    { "name": "governance" },
+    { "name": "portfolio" }
+  ],
+  "paths": {
+    "/api/pools": {
+      "get": {
+        "tags": ["pools"],
+        "summary": "List pools",
+        "operationId": "listPools",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "$ref": "#/components/schemas/PoolStatus" } },
+          { "name": "type", "in": "query", "schema": { "$ref": "#/components/schemas/PoolType" } },
+          { "name": "cursor", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of pools. Legacy servers may return a bare array.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/PoolPage" },
+                    { "type": "array", "items": { "$ref": "#/components/schemas/PoolSummary" } }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/pools/{id}": {
+      "get": {
+        "tags": ["pools"],
+        "summary": "Get a pool by id",
+        "operationId": "getPool",
+        "x-experimental": true,
+        "description": "Preferred detail route. The current app also accepts GET /api/pools?id={id}; DataClient falls back to that on 404.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pool detail",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/PoolDetail" } }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/pools/history": {
+      "get": {
+        "tags": ["pools"],
+        "summary": "Get a pool activity history",
+        "operationId": "getPoolHistory",
+        "x-experimental": true,
+        "description": "Canonical history route. Legacy servers return daily sparkline balances; DataClient falls back to GET /api/pools/{id}/activity for event rows.",
+        "parameters": [
+          { "name": "poolId", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "cursor", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of pool events",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/PoolEventPage" } }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/pools/{id}/activity": {
+      "get": {
+        "tags": ["pools"],
+        "summary": "Get a pool activity feed",
+        "operationId": "getPoolActivity",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1 } },
+          { "name": "activity_type", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of activity rows",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/PoolActivityResponse" } }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/v1/protocol/summary": {
+      "get": {
+        "tags": ["protocol"],
+        "summary": "Get protocol analytics",
+        "operationId": "getProtocolSummary",
+        "responses": {
+          "200": {
+            "description": "Protocol analytics envelope",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ProtocolSummaryEnvelope" } }
+            }
+          },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/reputation": {
+      "get": {
+        "tags": ["reputation"],
+        "summary": "Get a wallet reputation profile",
+        "operationId": "getReputation",
+        "x-experimental": true,
+        "description": "Reputation profile route; the current app exposes leaderboard data only.",
+        "parameters": [
+          { "name": "address", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reputation profile",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ReputationProfile" } }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/reputation/leaderboard": {
+      "get": {
+        "tags": ["reputation"],
+        "summary": "Get the reputation leaderboard",
+        "operationId": "getReputationLeaderboard",
+        "parameters": [
+          { "name": "top", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Leaderboard rows",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ReputationLeaderboardResponse" } }
+            }
+          },
+          "502": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/governance": {
+      "get": {
+        "tags": ["governance"],
+        "summary": "List governance proposals",
+        "operationId": "getGovernanceProposals",
+        "x-experimental": true,
+        "description": "Canonical proposal collection. The current app mirrors individual votes on this route; clients should treat missing proposal fields as defaults.",
+        "parameters": [
+          { "name": "pool_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "proposal_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "$ref": "#/components/schemas/GovernanceProposalStatus" } },
+          { "name": "cursor", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of proposals",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/GovernanceProposalPage" } }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/portfolio/summary": {
+      "get": {
+        "tags": ["portfolio"],
+        "summary": "Get a wallet portfolio summary",
+        "operationId": "getPortfolioSummary",
+        "parameters": [
+          { "name": "wallet", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Portfolio summary",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/PortfolioSummary" } }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "RequestId": {
+        "name": "x-request-id",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string", "format": "uuid" },
+        "description": "Generated by DataClient when Web Crypto is available. Never contains wallet identity."
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } }
+        }
+      },
+      "NotFound": {
+        "description": "Not found",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } }
+        }
+      },
+      "ServerError": {
+        "description": "Server error",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } }
+        }
+      }
+    },
+    "schemas": {
+      "PoolType": {
+        "type": "string",
+        "enum": ["rotational", "target", "flexible"]
+      },
+      "PoolStatus": {
+        "type": "string",
+        "enum": ["pending_deployment", "active", "paused", "completed", "archived"]
+      },
+      "GovernanceProposalType": {
+        "type": "string",
+        "enum": [
+          "ChangeDepositAmount",
+          "ExtendDeadline",
+          "AddPenalty",
+          "RemovePenalty",
+          "ChangeQuorum",
+          "Custom",
+          "YieldAllocation"
+        ]
+      },
+      "GovernanceProposalStatus": {
+        "type": "string",
+        "enum": ["Active", "Passed", "Executed", "Expired", "Rejected"]
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": { "type": "string" },
+          "code": { "type": "string" }
+        },
+        "additionalProperties": true
+      },
+      "PoolSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "contractAddress",
+          "name",
+          "description",
+          "type",
+          "status",
+          "creatorAddress",
+          "tokenAddress",
+          "tokenSymbol",
+          "tokenDecimals",
+          "membersCount",
+          "contributionAmount",
+          "targetAmount",
+          "totalSaved",
+          "minimumDeposit",
+          "yieldEnabled",
+          "deadline",
+          "nextPayout",
+          "createdAt",
+          "archivedAt"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "contractAddress": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "type": { "$ref": "#/components/schemas/PoolType" },
+          "status": { "$ref": "#/components/schemas/PoolStatus" },
+          "creatorAddress": { "type": "string" },
+          "tokenAddress": { "type": ["string", "null"] },
+          "tokenSymbol": { "type": ["string", "null"] },
+          "tokenDecimals": { "type": "integer", "minimum": 0 },
+          "membersCount": { "type": "integer", "minimum": 0 },
+          "contributionAmount": { "type": ["number", "null"] },
+          "targetAmount": { "type": ["number", "null"] },
+          "totalSaved": { "type": "number" },
+          "minimumDeposit": { "type": ["number", "null"] },
+          "yieldEnabled": { "type": "boolean" },
+          "deadline": { "type": ["string", "null"] },
+          "nextPayout": { "type": ["string", "null"] },
+          "createdAt": { "type": ["string", "null"] },
+          "archivedAt": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      },
+      "PoolMemberSummary": {
+        "type": "object",
+        "required": ["id", "address", "contributionAmount", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "address": { "type": "string" },
+          "contributionAmount": { "type": "number" },
+          "status": { "type": "string" }
+        },
+        "additionalProperties": true
+      },
+      "PoolActivityItem": {
+        "type": "object",
+        "required": ["id", "activityType", "userAddress", "amount", "description", "createdAt", "txHash"],
+        "properties": {
+          "id": { "type": "string" },
+          "activityType": { "type": "string" },
+          "userAddress": { "type": ["string", "null"] },
+          "amount": { "type": ["number", "null"] },
+          "description": { "type": ["string", "null"] },
+          "createdAt": { "type": "string" },
+          "txHash": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      },
+      "PoolDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PoolSummary" },
+          {
+            "type": "object",
+            "required": ["members", "activity"],
+            "properties": {
+              "members": { "type": "array", "items": { "$ref": "#/components/schemas/PoolMemberSummary" } },
+              "activity": { "type": "array", "items": { "$ref": "#/components/schemas/PoolActivityItem" } }
+            }
+          }
+        ]
+      },
+      "PoolEvent": {
+        "type": "object",
+        "required": ["id", "poolId", "activityType", "userAddress", "amount", "description", "createdAt", "txHash"],
+        "properties": {
+          "id": { "type": "string" },
+          "poolId": { "type": "string" },
+          "activityType": { "type": "string" },
+          "userAddress": { "type": ["string", "null"] },
+          "amount": { "type": ["number", "null"] },
+          "description": { "type": ["string", "null"] },
+          "createdAt": { "type": "string" },
+          "txHash": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      },
+      "PoolPage": {
+        "type": "object",
+        "required": ["items", "nextCursor", "hasMore"],
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/PoolSummary" } },
+          "nextCursor": { "type": ["string", "null"] },
+          "hasMore": { "type": "boolean" },
+          "total": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": true
+      },
+      "PoolEventPage": {
+        "type": "object",
+        "required": ["items", "nextCursor", "hasMore"],
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/PoolEvent" } },
+          "nextCursor": { "type": ["string", "null"] },
+          "hasMore": { "type": "boolean" },
+          "total": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": true
+      },
+      "PoolActivityResponse": {
+        "type": "object",
+        "required": ["activities", "page", "pageSize", "total", "hasMore"],
+        "properties": {
+          "activities": { "type": "array", "items": { "$ref": "#/components/schemas/PoolEvent" } },
+          "page": { "type": "integer", "minimum": 1 },
+          "pageSize": { "type": "integer", "minimum": 1 },
+          "total": { "type": "integer", "minimum": 0 },
+          "hasMore": { "type": "boolean" },
+          "lastIndexed": {
+            "type": ["object", "null"],
+            "properties": {
+              "ledger": { "type": "integer" },
+              "indexedAt": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "ProtocolDayData": {
+        "type": "object",
+        "required": ["date", "tvlUsd", "dailyVolumeUsd"],
+        "properties": {
+          "date": { "type": "string" },
+          "tvlUsd": { "type": "number" },
+          "dailyVolumeUsd": { "type": "number" }
+        },
+        "additionalProperties": true
+      },
+      "ProtocolPoolSummary": {
+        "type": "object",
+        "required": ["id", "totalValueLockedUsd", "volumeUsd", "isActive"],
+        "properties": {
+          "id": { "type": "string" },
+          "totalValueLockedUsd": { "type": "number" },
+          "volumeUsd": { "type": "number" },
+          "isActive": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      },
+      "ProtocolSummary": {
+        "type": "object",
+        "required": ["totalValueLockedUsd", "totalVolumeUsd", "activePools", "totalMembers", "days", "topPools"],
+        "properties": {
+          "totalValueLockedUsd": { "type": "number" },
+          "totalVolumeUsd": { "type": "number" },
+          "activePools": { "type": "integer", "minimum": 0 },
+          "totalMembers": { "type": "integer", "minimum": 0 },
+          "days": { "type": "array", "items": { "$ref": "#/components/schemas/ProtocolDayData" } },
+          "topPools": { "type": "array", "items": { "$ref": "#/components/schemas/ProtocolPoolSummary" } }
+        },
+        "additionalProperties": true
+      },
+      "ProtocolSummaryEnvelope": {
+        "type": "object",
+        "required": ["success", "data"],
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": { "$ref": "#/components/schemas/ProtocolSummary" }
+        },
+        "additionalProperties": true
+      },
+      "ReputationProfile": {
+        "type": "object",
+        "required": [
+          "address",
+          "totalScore",
+          "depositReliability",
+          "poolsCompleted",
+          "poolsJoined",
+          "totalDeposits",
+          "missedDeposits",
+          "lastActivity",
+          "scoreUpdatedAt",
+          "isProvisional"
+        ],
+        "properties": {
+          "address": { "type": "string" },
+          "totalScore": { "type": "number" },
+          "depositReliability": { "type": "number" },
+          "poolsCompleted": { "type": "integer", "minimum": 0 },
+          "poolsJoined": { "type": "integer", "minimum": 0 },
+          "totalDeposits": { "type": "integer", "minimum": 0 },
+          "missedDeposits": { "type": "integer", "minimum": 0 },
+          "lastActivity": { "type": "number" },
+          "scoreUpdatedAt": { "type": "number" },
+          "isProvisional": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      },
+      "ReputationLeaderboardEntry": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ReputationProfile" },
+          {
+            "type": "object",
+            "required": ["rank"],
+            "properties": { "rank": { "type": "integer", "minimum": 1 } }
+          }
+        ]
+      },
+      "ReputationLeaderboardResponse": {
+        "type": "object",
+        "required": ["data", "total"],
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/ReputationLeaderboardEntry" } },
+          "total": { "type": "integer", "minimum": 0 },
+          "topN": { "type": "integer", "minimum": 1 }
+        },
+        "additionalProperties": true
+      },
+      "GovernanceProposalSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "poolId",
+          "proposalType",
+          "description",
+          "status",
+          "votesFor",
+          "votesAgainst",
+          "createdAt",
+          "expiresAt"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "poolId": { "type": ["string", "null"] },
+          "proposalType": { "$ref": "#/components/schemas/GovernanceProposalType" },
+          "description": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/GovernanceProposalStatus" },
+          "votesFor": { "type": "integer", "minimum": 0 },
+          "votesAgainst": { "type": "integer", "minimum": 0 },
+          "createdAt": { "type": ["number", "null"] },
+          "expiresAt": { "type": ["number", "null"] },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        },
+        "additionalProperties": true
+      },
+      "GovernanceProposalPage": {
+        "type": "object",
+        "required": ["items", "nextCursor", "hasMore"],
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/GovernanceProposalSummary" } },
+          "nextCursor": { "type": ["string", "null"] },
+          "hasMore": { "type": "boolean" },
+          "total": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": true
+      },
+      "UpcomingCommitment": {
+        "type": "object",
+        "required": ["poolId", "poolName", "amount", "deadline", "type"],
+        "properties": {
+          "poolId": { "type": "string" },
+          "poolName": { "type": "string" },
+          "amount": { "type": "number" },
+          "deadline": { "type": "string" },
+          "type": { "type": "string" }
+        },
+        "additionalProperties": true
+      },
+      "PortfolioPoolSummary": {
+        "type": "object",
+        "required": ["id", "name", "type", "status", "contribution", "totalBalance", "healthScore", "nextAction"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "$ref": "#/components/schemas/PoolType" },
+          "status": { "$ref": "#/components/schemas/PoolStatus" },
+          "contribution": { "type": "number" },
+          "totalBalance": { "type": "number" },
+          "healthScore": { "type": ["number", "null"] },
+          "nextAction": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      },
+      "PortfolioReputationSummary": {
+        "type": "object",
+        "required": ["totalDeposits", "averageOnTimeRate", "poolsCompleted"],
+        "properties": {
+          "totalDeposits": { "type": "number" },
+          "averageOnTimeRate": { "type": "number" },
+          "poolsCompleted": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": true
+      },
+      "PortfolioSummary": {
+        "type": "object",
+        "required": [
+          "totalSaved",
+          "totalSavedByToken",
+          "totalPools",
+          "totalYieldEarned",
+          "upcomingCommitments",
+          "reputationSummary",
+          "pools"
+        ],
+        "properties": {
+          "totalSaved": { "type": "number" },
+          "totalSavedByToken": {
+            "type": "object",
+            "additionalProperties": { "type": "number" }
+          },
+          "totalPools": {
+            "type": "object",
+            "required": ["rotational", "target", "flexible", "total"],
+            "properties": {
+              "rotational": { "type": "integer", "minimum": 0 },
+              "target": { "type": "integer", "minimum": 0 },
+              "flexible": { "type": "integer", "minimum": 0 },
+              "total": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": true
+          },
+          "totalYieldEarned": { "type": "number" },
+          "upcomingCommitments": { "type": "array", "items": { "$ref": "#/components/schemas/UpcomingCommitment" } },
+          "reputationSummary": { "$ref": "#/components/schemas/PortfolioReputationSummary" },
+          "pools": { "type": "array", "items": { "$ref": "#/components/schemas/PortfolioPoolSummary" } }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

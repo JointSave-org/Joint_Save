@@ -22,6 +22,29 @@ console.log(SDK_VERSION);
 
 Deep imports (`@jointsave/sdk/dist/...`) are unsupported and may change without a major version bump.
 
+## Read API
+
+`DataClient` wraps the versioned HTTP read models served by the app/indexer.
+It accepts your own `fetch` and works in Node 18+ and browsers.
+
+```ts
+import { DataClient } from "@jointsave/sdk";
+
+const api = new DataClient({ baseUrl: "https://jointsave.app" });
+
+const page = await api.listPools({ status: "active", limit: 20 });
+const detail = await api.getPool(page.items[0].id);
+const history = await api.getPoolHistory(page.items[0].id);
+const analytics = await api.getProtocolSummary();
+```
+
+Monetary fields from the HTTP API are display-unit numbers, not base-unit
+`bigint`. The HTTP contract lives in [`docs/api/openapi.json`](../docs/api/openapi.json)
+and is covered by an Ajv contract test. Routes marked `x-experimental` may
+change shape; `DataClient` normalizes missing optional fields to documented
+defaults. Failures raise `DataClientError` with `status`, `code`, and
+`requestId`.
+
 ## Reliability
 
 Before retrying anything that writes, check whether the first attempt may have
