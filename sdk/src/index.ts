@@ -26,4 +26,16 @@ export * from "./errors";
 // Soroban contract clients and the JointSaveClient facade.
 export * from "./client";
 
+// Pure, deterministic action-eligibility gating.
+export * from "./gating";
+
+// Read-only HTTP DataClient and indexer contracts.
+export * from "./data";
+
+// Diagnostics and structured transaction logging.
+export * from "./diagnostics";
+
+// Recovery, retry classification, and transaction lookup.
+export * from "./recovery";
+
 export { SDK_VERSION } from "./version";
