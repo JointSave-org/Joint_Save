@@ -49,6 +49,7 @@ JointSave uses a light on-chain / off-chain split:
 - **Pool contracts** – Rotational (fixed deposits, rotating payouts), Target (goal + deadline), Flexible (variable deposits with yield options)
 - **Supporting contracts** – Reputation (on-chain trust scores), Microloan (P2P lending), Governance (vote-weighted proposals), Yield Strategy (yield routing), Yield Vault (vault adapter + mock vault for vault-backed yield allocation)
 - **Frontend** – Next.js 16 (App Router) + Tailwind + shadcn/ui, connecting to Stellar via Stellar SDK and Wallets Kit
+- **SDK** – [`@jointsave/sdk`](sdk/), a typed TypeScript client for third-party integrations (under active development)
 - **Off-chain** – Supabase (Postgres) for user metadata, pool titles, notifications, and reusable views, with Row-Level Security
 - **Safeguards** – incident response / pause-authorization flows, pool archival, and dispute resolution (see [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md))
 
@@ -58,7 +59,7 @@ A full technical walkthrough — contract layer, flows, and database schema — 
 
 - **On-chain:** factory + Rotational/Target/Flexible WASMs deployed to **Stellar Testnet** (see [Deployed Contracts](#deployed-contracts)). Governance, Microloan, Yield Strategy, and the Yield Vault have **no recorded deployment yet** – they are feature-gated via env vars.
 - **Frontend:** `joint-save-y4yx.vercel.app` is hosted on Vercel, linked to `JointSave-org/Joint_Save` (root directory `frontend`) — pushes to `main` auto-deploy to Production.
-- **CI/CD:** 4 GitHub Actions workflows – contracts build/test, frontend lint + format + build + component tests, Node unit tests, Playwright E2E (pull requests), plus a manual contract-deploy dispatcher.
+- **CI/CD:** 5 GitHub Actions workflows – contracts build/test, frontend lint + format + build + component tests, Node unit tests, Playwright E2E (pull requests), SDK typecheck/build/test/API-guard, plus a manual contract-deploy dispatcher.
 - **Known gaps under active work:** the admin emergency-withdrawal flow is still awaiting contract execution support ([#263](https://github.com/JointSave-org/Joint_Save/issues/263)); the admin incident-review UI is in progress ([#261](https://github.com/JointSave-org/Joint_Save/issues/261)).
 
 ## Technology Stack
@@ -77,6 +78,12 @@ A full technical walkthrough — contract layer, flows, and database schema — 
 - **shadcn/ui** for consistent component library
 - **Stellar SDK** for blockchain interactions
 - **Stellar Wallets Kit** for multi-wallet support
+
+### SDK
+
+- **TypeScript** client (`@jointsave/sdk`) with typed contract bindings and BigInt-safe helpers
+- **`@stellar/stellar-sdk`** for Soroban transaction building and RPC access
+- **Vitest** for unit tests and a public-API guard for the package barrel
 
 ### Infrastructure
 

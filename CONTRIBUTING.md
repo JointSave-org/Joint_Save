@@ -9,6 +9,7 @@ Thank you for your interest in JointSave! We welcome contributions from everyone
 - [Project Structure](#project-structure)
 - [Smart Contract Development](#smart-contract-development)
 - [Frontend Development](#frontend-development)
+- [SDK Development](#sdk-development)
 - [Coding Conventions](#coding-conventions)
 - [PR Process](#pr-process)
 - [Issue Labels](#issue-labels)
@@ -72,6 +73,10 @@ Joint_Save/
 │   │   └── flexible/    # Flexible savings pool
 │   ├── scripts/         # Deploy & management scripts
 │   └── deployments/     # Deployed contract addresses
+├── sdk/                 # @jointsave/sdk TypeScript package (standalone)
+│   ├── src/             # Source; src/index.ts is the public barrel
+│   ├── scripts/         # Public-API guard
+│   └── README.md        # SDK usage & development
 ├── docs/                # Documentation & screenshots
 ├── .github/             # CI workflows & PR templates
 └── README.md
@@ -177,6 +182,23 @@ pnpm lint:fix      # auto-fix where possible
 pnpm format        # auto-fix formatting with Prettier
 pnpm format:check  # check formatting without writing (used in CI)
 ```
+
+## SDK Development
+
+The `sdk/` package is standalone with its own lockfile (not a pnpm workspace).
+
+```bash
+cd sdk
+pnpm install
+pnpm typecheck     # tsc --noEmit
+pnpm build         # emit dist/ + declarations
+pnpm test          # vitest
+pnpm check:api     # public-API guard (run after build)
+```
+
+- `sdk/src/index.ts` is the only public entry point. Integrators import from `@jointsave/sdk`; deep imports are unsupported.
+- Add exports deliberately. Internal helpers must stay out of the root barrel — `pnpm check:api` fails if a denylisted symbol leaks.
+- Breaking changes to the public API require a major version bump and a note in `sdk/CHANGELOG.md`.
 
 ## Coding Conventions
 
