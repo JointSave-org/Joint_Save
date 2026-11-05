@@ -22,6 +22,35 @@ console.log(SDK_VERSION);
 
 Deep imports (`@jointsave/sdk/dist/...`) are unsupported and may change without a major version bump.
 
+## Reliability
+
+Before retrying anything that writes, check whether the first attempt may have
+reached the network. `isRetryable()` classifies transient vs. deterministic
+failures; `mayHaveReachedServer()` flags ambiguous transport errors.
+
+```ts
+import { withRpcRetry } from "@jointsave/sdk";
+
+const pools = await withRpcRetry(() => client.factory.getPools(), { retries: 3 });
+```
+
+A send that times out returns its hash. **Look the hash up before resubmitting**:
+
+```ts
+const result = await client.pool.deposit("rotational", poolId, { member }, options);
+
+if (result.status === "timeout") {
+  const lookup = await client.lookupTransaction(result.hash);
+  // success | failed | pending | not_found | timeout
+  // pending: wait and look up again; never resubmit blindly.
+}
+```
+
+`summarizeSimulation()` and `classifyContractError()` turn raw simulation and
+host output into log-safe values. Inject `consoleTxLogger` (or your own
+`TxLogger`) to receive redacted `build`/`simulate`/`sign`/`submit`/`confirm`/
+`error` events; addresses and secrets are removed by default.
+
 ## Development
 
 This package is standalone and has its own lockfile.
