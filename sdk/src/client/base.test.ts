@@ -1,7 +1,8 @@
 import { Account, StrKey, nativeToScVal, rpc, type Transaction } from "@stellar/stellar-sdk";
 import { describe, expect, it, vi } from "vitest";
+import type { TxLogEvent } from "../diagnostics/logger";
 import { JointSaveError } from "../errors";
-import { JointSaveClient, type SorobanServer, type TxLogEvent } from "./base";
+import { JointSaveClient, type SorobanServer } from "./base";
 
 const ACCOUNT = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7";
 const FACTORY = StrKey.encodeContract(Buffer.alloc(32, 1));
@@ -105,6 +106,15 @@ describe("JointSaveClient construction", () => {
     const client = buildClient(new FakeServer());
     expect(() => client.requireContractId("microloan")).toThrow(/not configured/);
   });
+
+  it("looks up transactions through the facade", async () => {
+    const client = buildClient(new FakeServer());
+    await expect(client.lookupTransaction("abc")).resolves.toEqual({
+      hash: "abc",
+      state: "success",
+      ledger: 7,
+    });
+  });
 });
 
 describe("JointSaveClient.read", () => {
@@ -146,7 +156,7 @@ describe("JointSaveClient.send", () => {
 
     expect(result).toEqual({ hash: "abc", status: "success", ledger: 7 });
     expect(server.prepared).toBeDefined();
-    expect(phases).toEqual(["sign", "submit", "confirm"]);
+    expect(phases).toEqual(["build", "simulate", "sign", "submit", "confirm"]);
   });
 
   it("returns failed when submission is rejected", async () => {

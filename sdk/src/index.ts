@@ -29,4 +29,10 @@ export * from "./client";
 // Pure, deterministic action-eligibility gating.
 export * from "./gating";
 
+// Log-safe diagnostics: error taxonomy, simulation summary, redacted logging.
+export * from "./diagnostics";
+
+// Retry classification and transaction-hash recovery.
+export * from "./recovery";
+
 export { SDK_VERSION } from "./version";
