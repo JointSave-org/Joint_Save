@@ -10,4 +10,7 @@
  * out of this barrel.
  */
 
+export * from "./constants";
+export * from "./types";
+export * from "./config";
 export { SDK_VERSION } from "./version";

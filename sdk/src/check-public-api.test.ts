@@ -6,15 +6,22 @@ import { describe, expect, it } from "vitest";
 
 const script = path.resolve(__dirname, "..", "scripts", "check-public-api.cjs");
 
-function runGuard(dts: string, denylist: string[]) {
+function runGuard(files: Record<string, string>, denylist: string[]) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jointsave-api-"));
-  const dtsPath = path.join(dir, "index.d.ts");
+  for (const [name, content] of Object.entries(files)) {
+    fs.writeFileSync(path.join(dir, name), content);
+  }
   const denylistPath = path.join(dir, "denylist.json");
-  fs.writeFileSync(dtsPath, dts);
   fs.writeFileSync(denylistPath, JSON.stringify(denylist));
   return execFileSync(
     process.execPath,
-    [script, "--dts", dtsPath, "--denylist", denylistPath],
+    [
+      script,
+      "--dts",
+      path.join(dir, "index.d.ts"),
+      "--denylist",
+      denylistPath,
+    ],
     { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
   );
 }
@@ -22,15 +29,28 @@ function runGuard(dts: string, denylist: string[]) {
 describe("public API guard", () => {
   it("passes when only public symbols are exported", () => {
     const output = runGuard(
-      'export declare const SDK_VERSION = "0.1.0";\n',
+      {
+        "index.d.ts": 'export declare const SDK_VERSION = "0.1.0";\n',
+      },
       ["internal"],
     );
     expect(output).toContain("Public API OK");
   });
 
-  it("passes for re-exported public symbols", () => {
+  it("passes for explicitly re-exported public symbols", () => {
     const output = runGuard(
-      'export { SDK_VERSION } from "./version";\n',
+      { "index.d.ts": 'export { SDK_VERSION } from "./version";\n' },
+      ["internal"],
+    );
+    expect(output).toContain("Public API OK");
+  });
+
+  it("passes when an `export *` barrel contains only public symbols", () => {
+    const output = runGuard(
+      {
+        "index.d.ts": 'export * from "./constants";\n',
+        "constants.d.ts": "export declare const SDK_VERSION: string;\n",
+      },
       ["internal"],
     );
     expect(output).toContain("Public API OK");
@@ -39,7 +59,23 @@ describe("public API guard", () => {
   it("fails when an internal symbol is exported from the root", () => {
     expect(() =>
       runGuard(
-        'export declare function internal(): void;\nexport { SDK_VERSION } from "./version";\n',
+        {
+          "index.d.ts":
+            'export declare function internal(): void;\nexport { SDK_VERSION } from "./version";\n',
+        },
+        ["internal"],
+      ),
+    ).toThrow();
+  });
+
+  it("fails when an `export *` barrel leaks an internal symbol", () => {
+    expect(() =>
+      runGuard(
+        {
+          "index.d.ts": 'export * from "./internals";\n',
+          "internals.d.ts":
+            "export declare const SDK_VERSION: string;\nexport declare function internal(): void;\n",
+        },
         ["internal"],
       ),
     ).toThrow();
