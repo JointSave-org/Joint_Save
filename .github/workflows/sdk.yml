@@ -48,6 +48,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Typecheck examples against dist
+        run: pnpm typecheck:examples
+
       - name: Test
         run: pnpm test
 

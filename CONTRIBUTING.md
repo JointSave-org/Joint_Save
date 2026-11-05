@@ -190,15 +190,19 @@ The `sdk/` package is standalone with its own lockfile (not a pnpm workspace).
 ```bash
 cd sdk
 pnpm install
-pnpm typecheck     # tsc --noEmit
-pnpm build         # emit dist/ + declarations
-pnpm test          # vitest
-pnpm check:api     # public-API guard (run after build)
+pnpm typecheck            # tsc --noEmit
+pnpm build                # emit dist/ + declarations
+pnpm typecheck:examples   # examples compile against dist
+pnpm test                 # vitest
+pnpm check:api            # public-API guard (run after build)
 ```
 
-- `sdk/src/index.ts` is the only public entry point. Integrators import from `@jointsave/sdk`; deep imports are unsupported.
-- Add exports deliberately. Internal helpers must stay out of the root barrel — `pnpm check:api` fails if a denylisted symbol leaks.
-- Breaking changes to the public API require a major version bump and a note in `sdk/CHANGELOG.md`.
+- `sdk/src/index.ts` is the only public entry point. Integrators import from `@jointsave/sdk`; deep imports (`@jointsave/sdk/dist/...`) are unsupported.
+- Add exports deliberately. Internal helpers must stay out of the root barrel — `pnpm check:api` fails if a denylisted symbol leaks. This check is **required** for any PR that touches `sdk/src/index.ts` or an exported module.
+- Update `sdk/README.md`, `docs/sdk.md`, and `sdk/CHANGELOG.md` when the public surface changes.
+- `sdk/examples/*.ts` must compile with `pnpm typecheck:examples`, import only from the package root, and never contain real secrets or private keys.
+- Deprecations use `@deprecated` TSDoc plus a `CHANGELOG.md` entry. Keep the API for at least one minor release before removal.
+- Breaking changes to the public API follow `sdk/CHANGELOG.md`: before `1.0` they may land in a minor (`0.x.0`); after `1.0` they require a major version bump.
 
 ## Coding Conventions
 
@@ -269,7 +273,7 @@ Examples:
 ### Before Submitting
 
 1. Ensure the project builds successfully
-2. Run tests: `cargo test` (contracts) and `pnpm build` (frontend)
+2. Run tests: `cargo test` (contracts), `pnpm build` (frontend), and `pnpm typecheck && pnpm test && pnpm check:api` (SDK)
 3. **Run lint and format check before committing:**
    ```bash
    cd frontend
