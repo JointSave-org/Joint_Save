@@ -13,4 +13,8 @@
 export * from "./constants";
 export * from "./types";
 export * from "./config";
+
+// Utilities — pure, tree-shakeable, no network code.
+export * from "./utils";
+
 export { SDK_VERSION } from "./version";
