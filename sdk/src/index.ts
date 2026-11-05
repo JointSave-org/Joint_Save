@@ -26,4 +26,7 @@ export * from "./errors";
 // Soroban contract clients and the JointSaveClient facade.
 export * from "./client";
 
+// Pure, deterministic action-eligibility gating.
+export * from "./gating";
+
 export { SDK_VERSION } from "./version";
