@@ -23,6 +23,7 @@ import { GovernanceClient } from "./governance";
 import { PoolClient } from "./pool";
 import { ReputationClient } from "./reputation";
 import { YieldVaultClient } from "./yield-vault";
+import type { TxLogEvent, TxLogger } from "../diagnostics/logger";
 
 const DUMMY_ACCOUNT = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7";
 
@@ -52,16 +53,7 @@ export interface SendOptions {
   confirmTimeoutMs?: number;
 }
 
-export interface TxLogEvent {
-  phase: "build" | "sign" | "submit" | "confirm" | "error";
-  contract?: string | undefined;
-  method?: string | undefined;
-  hash?: string | undefined;
-  durationMs?: number | undefined;
-  message?: string | undefined;
-}
-
-export type TxLogger = (event: TxLogEvent) => void;
+export type { TxLogEvent, TxLogger };
 
 export interface JointSaveClientOptions {
   network?: NetworkName;
@@ -184,7 +176,7 @@ export class JointSaveClient implements ContractCaller {
         phase: "error",
         contract: contractId,
         method,
-        message: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error),
       });
       throw toJointSaveError(error, {
         code: "RPC_ERROR",
