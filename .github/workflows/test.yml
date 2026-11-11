@@ -99,6 +99,18 @@ jobs:
         working-directory: smartcontract
         run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/governance/Cargo.toml
 
+      - name: Build Reputation contract
+        working-directory: smartcontract
+        run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/reputation/Cargo.toml
+
+      - name: Build Microloan contract
+        working-directory: smartcontract
+        run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/microloan/Cargo.toml
+
+      - name: Build Yield Strategy contract
+        working-directory: smartcontract
+        run: cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/yield-strategy/Cargo.toml
+
       - name: Build Yield Vault contract
         working-directory: smartcontract
         run: cargo build --target wasm32-unknown-unknown --release --features mock --manifest-path=contracts/yield-vault/Cargo.toml

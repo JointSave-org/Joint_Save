@@ -3,18 +3,59 @@
   "rpc": "https://soroban-testnet.stellar.org",
   "horizon": "https://horizon-testnet.stellar.org",
   "passphrase": "Test SDF Network ; September 2015",
+  "deployer": "GDZYQRSSGE7CFUZMNMCAJDS6IJI2CSBVAS7G7YCZHEO3JDE477T5LPD7",
+  "timestamp": "2026-11-11T14:17:25Z",
+  "verificationStatus": "verified",
   "contracts": {
     "JointSaveFactory": {
       "contractId": "CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI",
-      "deployedAt": "2026-04-16"
+      "wasmHash": "83e66fde59be4f4a77a1b4c9dbe94ccd4647de288d20bd3158bda49b57d6ca75",
+      "deployedAt": "2026-04-16",
+      "verified": true
+    },
+    "ReputationTracker": {
+      "contractId": "CCVZ43L4INMEXD6VECM4VZBGPHFFVOWY6BBCDU2VYV6PPXLV5SZAS6MF",
+      "wasmHash": "23c8c003f4a7d0ad0c49e81f6165c56d0d3edeeb1783b4b41b5534d0b468faa7",
+      "deployedAt": "2026-11-11",
+      "verified": true
+    },
+    "Governance": {
+      "contractId": "CDPCNYHPV3H7O4B5EI7EJG5EK6N4CTRFFTCTSKRP4F6UQ2JR33QUGHF7",
+      "wasmHash": "ef8feb86b8e266f13807ad9cfd5b3fc451468e7acd165a7fea2951df7db8adf3",
+      "deployedAt": "2026-11-11",
+      "verified": true
+    },
+    "Microloan": {
+      "contractId": "CB7WSC4AVUP4ZFLHO2DIUWL2OR7I4ZQI5N72L2KYQAS6D5BVUNTMIX3V",
+      "wasmHash": "3804cb853fc108a9d375a7779077ecc5bfee223d7619e06c564f58557fabe8b6",
+      "deployedAt": "2026-11-11",
+      "verified": true
+    },
+    "YieldVault": {
+      "contractId": "CAT7EL6WMHJHXZB5CPPDTPO6E73WBQOXOBMMIZPNF2Z6M7VJSLWZMIYX",
+      "wasmHash": "8ee3509ee9aa3b187c38b0a61086fff0c108a3cbcf22a812796f776abe4cd0a5",
+      "deployedAt": "2026-11-11",
+      "verified": true
+    },
+    "YieldStrategy": {
+      "contractId": "CATFNUIXU3YIAOZHCMAH4FLLN2NNPYPK4YXWMCL6MJPAOLOHO5AX32KH",
+      "wasmHash": "c0926e64e4aa55294e60dcf806bfed1d425f834005b35cfcca7396c2171c7845",
+      "deployedAt": "2026-11-11",
+      "verified": true
     },
     "RotationalWasmHash": "d350a325d8734263a3d7150c875555d8956e13a527fb3497d5141b8b3f3d2c74",
     "TargetWasmHash": "133a62226501fc5443e70007d79deeeb0b33fdf8c85c7fcd3cf16293bb5c7292",
     "FlexibleWasmHash": "df6ff088fd79f13d8d03e72160434517fdb4a83b8c7bfdd887be4369805e0d6b",
-    "YieldVaultWasmHash": null,
-    "YieldVaultContractId": null
+    "YieldVaultWasmHash": "8ee3509ee9aa3b187c38b0a61086fff0c108a3cbcf22a812796f776abe4cd0a5",
+    "YieldVaultContractId": "CAT7EL6WMHJHXZB5CPPDTPO6E73WBQOXOBMMIZPNF2Z6M7VJSLWZMIYX",
+    "ReputationContractId": "CCVZ43L4INMEXD6VECM4VZBGPHFFVOWY6BBCDU2VYV6PPXLV5SZAS6MF",
+    "GovernanceContractId": "CDPCNYHPV3H7O4B5EI7EJG5EK6N4CTRFFTCTSKRP4F6UQ2JR33QUGHF7",
+    "MicroloanContractId": "CB7WSC4AVUP4ZFLHO2DIUWL2OR7I4ZQI5N72L2KYQAS6D5BVUNTMIX3V",
+    "YieldStrategyContractId": "CATFNUIXU3YIAOZHCMAH4FLLN2NNPYPK4YXWMCL6MJPAOLOHO5AX32KH"
   },
   "notes": {
-    "YieldVault": "Mock VaultAdapter implementation, built with the `mock` cargo feature. Both fields are populated by smartcontract/scripts/deploy.sh; null until a mock vault is deployed to testnet."
+    "YieldVault": "Mock VaultAdapter implementation, built with the `mock` cargo feature. Populated with verified testnet deployment.",
+    "Templates": "Rotational, Target, and Flexible pool contracts are deployed per pool using their uploaded WASM hashes.",
+    "Verification": "Every deployed contract and template WASM hash has been verified on-chain against Soroban testnet."
   }
 }

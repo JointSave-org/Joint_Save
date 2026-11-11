@@ -36,14 +36,6 @@ jobs:
           cargo update darling_macro@0.23.0 --precise 0.21.3 || true
           cargo update indexmap@2.14.0 --precise 2.6.0 || true
 
-      - name: Build contracts
-        working-directory: smartcontract
-        run: |
-          cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/factory/Cargo.toml
-          cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/rotational/Cargo.toml
-          cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/target/Cargo.toml
-          cargo build --target wasm32-unknown-unknown --release --manifest-path=contracts/flexible/Cargo.toml
-
       - name: Install Stellar CLI
         run: cargo install stellar-cli
 
@@ -51,56 +43,16 @@ jobs:
         run: |
           stellar keys add deployer --secret-key <<< "${{ secrets.DEPLOYER_SECRET_KEY }}"
 
-      - name: Deploy Factory contract
-        id: factory
+      - name: Execute Unified 9-Contract Deployment
+        working-directory: smartcontract
+        env:
+          STELLAR_SOURCE: deployer
+          STELLAR_NETWORK: testnet
+        run: |
+          chmod +x scripts/deploy.sh scripts/verify.sh
+          ./scripts/deploy.sh
+
+      - name: Verify All 9 Contracts On-Chain
         working-directory: smartcontract
         run: |
-          FACTORY_ID=$(stellar contract deploy \
-            --wasm target/wasm32-unknown-unknown/release/jointsave_factory.wasm \
-            --source deployer \
-            --network testnet)
-          echo "factory_id=$FACTORY_ID" >> $GITHUB_OUTPUT
-          echo "Factory: $FACTORY_ID"
-
-      - name: Upload Rotational wasm
-        id: rotational
-        working-directory: smartcontract
-        run: |
-          HASH=$(stellar contract upload \
-            --wasm target/wasm32-unknown-unknown/release/jointsave_rotational.wasm \
-            --source deployer \
-            --network testnet)
-          echo "hash=$HASH" >> $GITHUB_OUTPUT
-          echo "Rotational hash: $HASH"
-
-      - name: Upload Target wasm
-        id: target
-        working-directory: smartcontract
-        run: |
-          HASH=$(stellar contract upload \
-            --wasm target/wasm32-unknown-unknown/release/jointsave_target.wasm \
-            --source deployer \
-            --network testnet)
-          echo "hash=$HASH" >> $GITHUB_OUTPUT
-          echo "Target hash: $HASH"
-
-      - name: Upload Flexible wasm
-        id: flexible
-        working-directory: smartcontract
-        run: |
-          HASH=$(stellar contract upload \
-            --wasm target/wasm32-unknown-unknown/release/jointsave_flexible.wasm \
-            --source deployer \
-            --network testnet)
-          echo "hash=$HASH" >> $GITHUB_OUTPUT
-          echo "Flexible hash: $HASH"
-
-      - name: Print deployment summary
-        run: |
-          echo "========================================"
-          echo "Deployment complete. Add to frontend/.env:"
-          echo "========================================"
-          echo "NEXT_PUBLIC_FACTORY_CONTRACT_ID=${{ steps.factory.outputs.factory_id }}"
-          echo "NEXT_PUBLIC_ROTATIONAL_WASM_HASH=${{ steps.rotational.outputs.hash }}"
-          echo "NEXT_PUBLIC_TARGET_WASM_HASH=${{ steps.target.outputs.hash }}"
-          echo "NEXT_PUBLIC_FLEXIBLE_WASM_HASH=${{ steps.flexible.outputs.hash }}"
+          ./scripts/verify.sh deployments/stellar-testnet.json

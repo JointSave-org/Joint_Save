@@ -8,8 +8,25 @@ Complete API reference for the four Soroban contracts powering JointSave on Stel
 
 ---
 
+## Verified Testnet Deployments
+
+| Contract            | Address / WASM Hash                                                | Status   |
+| ------------------- | ------------------------------------------------------------------ | -------- |
+| **Factory**         | `CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI`         | Verified |
+| **Reputation**      | `CCVZ43L4INMEXD6VECM4VZBGPHFFVOWY6BBCDU2VYV6PPXLV5SZAS6MF`         | Verified |
+| **Governance**      | `CDPCNYHPV3H7O4B5EI7EJG5EK6N4CTRFFTCTSKRP4F6UQ2JR33QUGHF7`         | Verified |
+| **Microloan**       | `CB7WSC4AVUP4ZFLHO2DIUWL2OR7I4ZQI5N72L2KYQAS6D5BVUNTMIX3V`         | Verified |
+| **Yield Vault**     | `CAT7EL6WMHJHXZB5CPPDTPO6E73WBQOXOBMMIZPNF2Z6M7VJSLWZMIYX`         | Verified |
+| **Yield Strategy**  | `CATFNUIXU3YIAOZHCMAH4FLLN2NNPYPK4YXWMCL6MJPAOLOHO5AX32KH`         | Verified |
+| **Rotational WASM** | `d350a325d8734263a3d7150c875555d8956e13a527fb3497d5141b8b3f3d2c74` | Verified |
+| **Target WASM**     | `133a62226501fc5443e70007d79deeeb0b33fdf8c85c7fcd3cf16293bb5c7292` | Verified |
+| **Flexible WASM**   | `df6ff088fd79f13d8d03e72160434517fdb4a83b8c7bfdd887be4369805e0d6b` | Verified |
+
+---
+
 ## Table of Contents
 
+- [Verified Testnet Deployments](#verified-testnet-deployments)
 - [Factory Contract](#factory-contract)
 - [Rotational Pool Contract](#rotational-pool-contract)
 - [Target Pool Contract](#target-pool-contract)

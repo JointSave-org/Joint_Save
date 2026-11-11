@@ -37,4 +37,4 @@ const nextConfig = {
   },
 }
 
-export default withNextIntl(withBundleAnalyzer(nextConfig))
+export default withNextIntl(withBundleAnalyzer(nextConfig));

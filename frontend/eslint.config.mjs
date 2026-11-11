@@ -49,4 +49,4 @@ export default tseslint.config(
   {
     ignores: ["node_modules/**", ".next/**", "out/**", "e2e/**", "playwright.config.ts"],
   }
-)
+);
