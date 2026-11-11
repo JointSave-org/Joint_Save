@@ -96,16 +96,21 @@ A full technical walkthrough — contract layer, flows, and database schema — 
 
 The codebase ships a **9-contract Soroban suite**. The following are deployed/uploaded on **Stellar Testnet**:
 
-| Contract            | Address                                                            |
+| Contract            | Address / Hash                                                     |
 | ------------------- | ------------------------------------------------------------------ |
 | **Factory**         | `CBZNGP52FLFZ4BOGC265FUAMP5KFMAYPQK3KTI5UHMYVMM3QCST3IMRI`         |
+| **Reputation**      | `CCVZ43L4INMEXD6VECM4VZBGPHFFVOWY6BBCDU2VYV6PPXLV5SZAS6MF`         |
+| **Governance**      | `CDPCNYHPV3H7O4B5EI7EJG5EK6N4CTRFFTCTSKRP4F6UQ2JR33QUGHF7`         |
+| **Microloan**       | `CB7WSC4AVUP4ZFLHO2DIUWL2OR7I4ZQI5N72L2KYQAS6D5BVUNTMIX3V`         |
+| **Yield Vault**     | `CAT7EL6WMHJHXZB5CPPDTPO6E73WBQOXOBMMIZPNF2Z6M7VJSLWZMIYX`         |
+| **Yield Strategy**  | `CATFNUIXU3YIAOZHCMAH4FLLN2NNPYPK4YXWMCL6MJPAOLOHO5AX32KH`         |
 | **Rotational WASM** | `d350a325d8734263a3d7150c875555d8956e13a527fb3497d5141b8b3f3d2c74` |
 | **Target WASM**     | `133a62226501fc5443e70007d79deeeb0b33fdf8c85c7fcd3cf16293bb5c7292` |
 | **Flexible WASM**   | `df6ff088fd79f13d8d03e72160434517fdb4a83b8c7bfdd887be4369805e0d6b` |
 
-_Deployed on April 16, 2026 — see [`smartcontract/deployments/stellar-testnet.json`](smartcontract/deployments/stellar-testnet.json) for the source of truth._
+_Verified on Stellar Testnet — see [`smartcontract/deployments/stellar-testnet.json`](smartcontract/deployments/stellar-testnet.json) for the source of truth._
 
-The full suite also includes **governance**, **microloan**, **reputation**, **yield-strategy**, and **yield-vault** contracts. Reputation and the mock yield-vault are deployed by [`smartcontract/scripts/deploy.sh`](smartcontract/scripts/deploy.sh); governance, microloan, yield-strategy, and the yield-vault have no testnet deployment recorded yet. Microloan and reputation are feature-gated through the `NEXT_PUBLIC_MICROLOAN_CONTRACT_ID` / `NEXT_PUBLIC_REPUTATION_CONTRACT_ID` env vars (leave blank to disable).
+The full 9-contract suite is deployed, initialized, and verified on Stellar testnet. All contract IDs and template WASM hashes can be verified with `./smartcontract/scripts/verify.sh`. Microloan and reputation features are configured via `NEXT_PUBLIC_MICROLOAN_CONTRACT_ID` and `NEXT_PUBLIC_REPUTATION_CONTRACT_ID`.
 
 For complete API documentation — functions, events, storage keys, error conditions, and CLI examples — see **[docs/contract-api.md](docs/contract-api.md)**.
 
@@ -276,7 +281,7 @@ _Automated testing and deployment_
 - **DeFi Integration** – Connect flexible pools to Stellar DeFi protocols for yield (yield-strategy contract scaffolded; wire liquidity paths)
 - **Advanced Analytics** – Protocol-wide analytics dashboard (telemetry + insights beyond per-pool health)
 - **Group Communication** – In-app messaging and notifications
-- **Mainnet Hardening** – Deploy the 9-contract suite to Stellar mainnet (governance, microloan, yield-strategy, and the yield vault still have no testnet deployment recorded)
+- **Mainnet Hardening** – Deploy the 9-contract suite to Stellar mainnet with production key custody (full 9-contract suite already verified on testnet)
 - **Admin Emergency Console** – Self-service pause/resume/emergency-withdraw UI with SEP-53 proof (backend exists; UI on the way)
 
 ### 🌍 Phase 3 - Scale

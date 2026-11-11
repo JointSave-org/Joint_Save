@@ -4,13 +4,17 @@ Soroban smart contracts powering JointSave on the Stellar network.
 
 ## Contracts
 
-| Contract     | Description                                                     |
-| ------------ | --------------------------------------------------------------- |
-| `factory`    | Registry for all deployed JointSave pools                       |
-| `rotational` | Rotational savings pool – members take turns receiving payouts  |
-| `target`     | Goal-based savings pool – funds unlock when target is reached   |
-| `flexible`   | Flexible deposit/withdraw pool with optional yield distribution |
-| `yield-vault`| Vault adapter + mock vault for vault-backed yield allocation    |
+| Contract         | Description                                                     |
+| ---------------- | --------------------------------------------------------------- |
+| `factory`        | Registry for all deployed JointSave pools                       |
+| `rotational`     | Rotational savings pool – members take turns receiving payouts  |
+| `target`         | Goal-based savings pool – funds unlock when target is reached   |
+| `flexible`       | Flexible deposit/withdraw pool with optional yield distribution |
+| `yield-vault`    | Vault adapter + mock vault for vault-backed yield allocation    |
+| `governance`     | DAO-style voting and pool parameter proposals                   |
+| `microloan`      | Peer-to-peer lending marketplace with reputation gating         |
+| `reputation`     | On-chain credit scoring and tier metrics                        |
+| `yield-strategy` | DeFi liquidity routing and yield aggregation                    |
 
 ## Prerequisites
 
@@ -24,16 +28,22 @@ rustup target add wasm32-unknown-unknown
 ## Build
 
 ```bash
-stellar contract build
+cargo build --target wasm32-unknown-unknown --release
 ```
 
 Compiled `.wasm` files land in `target/wasm32-unknown-unknown/release/`.
 
-## Deploy (Testnet)
+## Deploy & Verify (Testnet)
 
 ```bash
-chmod +x scripts/deploy.sh
+chmod +x scripts/deploy.sh scripts/verify.sh
 ./scripts/deploy.sh
+```
+
+To verify the recorded testnet deployment at any time:
+
+```bash
+./scripts/verify.sh deployments/stellar-testnet.json
 ```
 
 Copy the output contract IDs into your frontend `.env`.
