@@ -28,7 +28,15 @@ export function TransactionRecoveryProvider({ children }: { children: ReactNode 
       scanInFlight.current = true
 
       try {
-        const outcomes = await reconcilePendingTransactions(address, server)
+        const outcomes = await reconcilePendingTransactions(address, {
+          async getTransaction(hash: string) {
+            const tx = await server.getTransaction(hash)
+            return {
+              status: tx.status,
+              resultXdr: "resultXdr" in tx && tx.resultXdr ? String(tx.resultXdr) : undefined,
+            }
+          },
+        })
         if (cancelled) return
 
         for (const outcome of outcomes) {

@@ -185,6 +185,23 @@ or the **[integration guide](docs/sdk.md)**. Runnable examples live in
 5. **Access the application**
    Open [http://localhost:3000](http://localhost:3000) in your browser
 
+### Frontend Quality Checks
+
+Run these before opening a frontend pull request:
+
+```bash
+cd frontend
+pnpm typecheck       # tsc --noEmit
+pnpm lint
+pnpm test:unit
+pnpm test:components
+pnpm build
+```
+
+CI runs the typecheck in `.github/workflows/test.yml` and fails the build on any
+TypeScript error. `next build` also enforces type correctness because
+`ignoreBuildErrors` is no longer enabled.
+
 ### Running E2E Tests
 
 The frontend has a Playwright end-to-end suite covering the critical user flows

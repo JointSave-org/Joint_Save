@@ -84,7 +84,7 @@ export function PoolHealthBadge({
           className={chipBase(cn(styles ? styles.chip : NEUTRAL_CHIP, className))}
           role="status"
           aria-label={
-            isNew ? t("ariaNew") : t("ariaScored", { score: health.score, label: bandLabel })
+            isNew ? t("ariaNew") : t("ariaScored", { score: health.score ?? 0, label: bandLabel })
           }
         >
           {isNew ? (

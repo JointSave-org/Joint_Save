@@ -9,7 +9,7 @@ function PoolConsumer() {
     <div>
       <p data-testid="loading">{loading ? "Loading" : "Loaded"}</p>
       <p data-testid="error">{error || "No Error"}</p>
-      <p data-testid="count">{pools.length}</p>
+      <p data-testid="count">{pools?.length ?? 0}</p>
       <p data-testid="polling">{isPolling ? "Polling On" : "Polling Off"}</p>
       <button onClick={startPolling}>Start Polling</button>
       <button onClick={stopPolling}>Stop Polling</button>

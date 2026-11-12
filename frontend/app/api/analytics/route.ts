@@ -271,7 +271,14 @@ export async function GET(req: NextRequest) {
         .select("pool_id, pools(*)")
         .eq("member_address", lower)
 
-      const userPools = (memberships || []).map((m: { pools: unknown }) => m.pools).filter(Boolean)
+      const userPools = (memberships || [])
+        .map((m: { pools: unknown }) => m.pools)
+        .filter(Boolean) as Array<{
+        id: string
+        name: string
+        type: string
+        status: string
+      }>
 
       if (userPools.length === 0) {
         if (isDev && useMock) {

@@ -39,7 +39,7 @@ export default function NotificationSettingsPage() {
         setFrequency((data.frequency as Frequency) ?? "off")
       })
       .catch(() => {
-        toast({ title: t("couldNotLoadPreferences"), variant: "destructive" })
+        toast({ title: t("couldNotLoadPreferences"), variant: "error" })
       })
       .finally(() => setLoading(false))
   }, [address])
@@ -59,13 +59,13 @@ export default function NotificationSettingsPage() {
     try {
       const res = await fetch("/api/notifications/digest-preferences", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "x-wallet-address": address },
+        headers: { "Content-Type": "application/json", "x-wallet-address": address ?? "" },
         body: JSON.stringify({ wallet_address: address, email, frequency }),
       })
       if (!res.ok) throw new Error()
       toast({ title: t("preferencesSaved") })
     } catch {
-      toast({ title: t("couldNotSavePreferences"), variant: "destructive" })
+      toast({ title: t("couldNotSavePreferences"), variant: "error" })
     } finally {
       setSaving(false)
     }

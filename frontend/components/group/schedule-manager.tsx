@@ -130,7 +130,7 @@ export function ScheduleManager({
       toast({
         title: "Error",
         description: err instanceof Error ? err.message : "Failed to update schedule",
-        variant: "destructive",
+        variant: "error",
       })
     } finally {
       setLoading(false)

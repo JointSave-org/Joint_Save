@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
       total_saved: number
       contribution_amount: number | null
       next_payout: string | null
+      deadline: string | null
       target_amount: number | null
       members_count: number
       token_symbol: string | null

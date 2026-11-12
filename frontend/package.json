@@ -11,6 +11,8 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "typecheck:ci": "tsc --noEmit --pretty false",
     "start": "next start",
     "test:unit": "tsx --test \"lib/**/*.test.ts\" \"hooks/**/*.test.ts\" \"components/**/*.test.ts\" \"app/**/*.test.ts\"",
     "test:components": "vitest run",

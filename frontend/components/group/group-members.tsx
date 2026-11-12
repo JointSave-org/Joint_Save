@@ -72,7 +72,7 @@ export function GroupMembers({ groupId, contractAddress, poolType }: GroupMember
       toast({
         title: t("copyFailedTitle"),
         description: t("copyFailedDescription"),
-        variant: "destructive",
+        variant: "error",
       })
     }
   }

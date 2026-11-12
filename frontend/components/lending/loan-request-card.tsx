@@ -224,7 +224,9 @@ export function LoanRequestCard({
                   {t.rich("confirmFundingDesc", {
                     strong: (chunks) => <strong>{chunks}</strong>,
                     amount: formatTokenAmount(loan.amount),
-                    borrower: <span className="font-mono">{shortAddress(loan.borrower)}</span>,
+                    borrower: () => (
+                      <span className="font-mono">{shortAddress(loan.borrower)}</span>
+                    ),
                     days: loan.termDays,
                     rate: formatInterestRate(loan.interestRateBps),
                   })}

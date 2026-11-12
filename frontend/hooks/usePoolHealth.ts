@@ -47,7 +47,7 @@ export function usePoolHealth(
       setReputations({})
       // Only "done" loading reps once the underlying pool data has loaded;
       // otherwise an empty members list is just the not-yet-fetched state.
-      setRepsLoading(poolLoading)
+      setRepsLoading(!!poolLoading)
       return
     }
     let cancelled = false

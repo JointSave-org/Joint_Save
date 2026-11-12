@@ -37,13 +37,15 @@ async function fetchProfileStats(address: string): Promise<ProfileStats> {
     .select("pool_id, pools(id, type, contract_address, target_amount, token_decimals)")
     .eq("member_address", lower)
 
-  const pools: {
+  const pools = (memberships || [])
+    .map((m: { pools: unknown }) => m.pools)
+    .filter(Boolean) as Array<{
     id: string
     type: string
     contract_address: string
     target_amount: number | null
     token_decimals: number | null
-  }[] = (memberships || []).map((m: { pools: unknown }) => m.pools).filter(Boolean)
+  }>
 
   // Fetch activity for reputation signals
   const { data: activity } = await supabase

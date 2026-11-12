@@ -36,8 +36,38 @@ export interface PoolData {
   updated_at: string
 }
 
+export interface PoolDbRow {
+  id: string
+  name: string
+  type: string
+  status: string
+  contract_address: string
+  token_address?: string
+  token_symbol?: string
+  token_decimals?: number
+  target_amount?: number | null
+  contribution_amount?: number | null
+  minimum_deposit?: number | null
+  deadline?: string | null
+  total_saved?: number
+  next_payout?: string | null
+  members_count?: number
+  creator_address?: string
+  governance_contract_id?: string | null
+  yield_enabled?: boolean
+  pool_members?: {
+    id: string
+    member_address: string
+    contribution_amount: number
+    status: "pending" | "paid" | "late"
+    joined_at: string
+  }[]
+  pool_activity?: unknown[]
+  [key: string]: unknown
+}
+
 export interface PoolStateCache {
-  db: Record<string, unknown> | null
+  db: PoolDbRow | null
   onchain: RotationalPoolState | TargetPoolState | FlexiblePoolState | null
   isPaused: boolean
   poolAdmin: string | null
@@ -65,7 +95,7 @@ interface PoolDataContextType {
   getCache: (contractId: string) => PoolStateCache | undefined
   getStats: (contractId: string) => CacheStats | undefined
   fetchPool: (contractId: string, isBackground?: boolean) => Promise<void>
-  seedCache: (contractId: string, dbData: Record<string, unknown>) => void
+  seedCache: (contractId: string, dbData: PoolDbRow) => void
   registerInterest: (contractId: string) => void
   unregisterInterest: (contractId: string) => void
   subscribe: (listener: () => void) => () => void
@@ -146,7 +176,7 @@ export function PoolDataProvider({
   }
 
   const seedCache = useCallback(
-    (contractId: string, dbData: Record<string, unknown>) => {
+    (contractId: string, dbData: PoolDbRow) => {
       if (!contractId || !dbData) return
       if (!cacheRef.current[contractId]?.lastFetched) {
         cacheRef.current[contractId] = {
@@ -212,7 +242,7 @@ export function PoolDataProvider({
 
           const dbRes = await fetch(url)
           if (!dbRes.ok) throw new Error("Failed to load pool from database")
-          const dbData = (await dbRes.json()) as { type?: string; contract_address?: string }
+          const dbData = (await dbRes.json()) as PoolDbRow
 
           let onchainState = null
           let isPaused = false
@@ -238,7 +268,8 @@ export function PoolDataProvider({
             promises.push(fetchPoolTtl(contractAddr))
 
             const [stateVal, pausedVal, adminVal, ttlVal] = await Promise.all(promises)
-            onchainState = stateVal
+            onchainState = stateVal as
+              RotationalPoolState | TargetPoolState | FlexiblePoolState | null
             isPaused = pausedVal as boolean
             poolAdmin = adminVal as string | null
             ttlDays = ttlVal as number | null
@@ -247,7 +278,7 @@ export function PoolDataProvider({
           const fetchTime = Date.now()
           cacheRef.current[contractId] = {
             db: dbData,
-            onchain: onchainState as Record<string, unknown>,
+            onchain: onchainState,
             isPaused,
             poolAdmin,
             ttlDays,

@@ -1883,8 +1883,12 @@ function parseProposal(val: xdr.ScVal): GovernanceProposal | null {
       votesFor: field("votes_for")?.vec()?.map(scValToString) ?? [],
       votesAgainst: field("votes_against")?.vec()?.map(scValToString) ?? [],
       status: (PROPOSAL_STATUSES.has(statusRaw) ? statusRaw : "Active") as GovernanceProposalStatus,
-      createdAt: Number(scValToBigInt(field("created_at") ?? xdr.ScVal.scvU64(0))),
-      expiresAt: Number(scValToBigInt(field("expires_at") ?? xdr.ScVal.scvU64(0))),
+      createdAt: Number(
+        scValToBigInt(field("created_at") ?? xdr.ScVal.scvU64(xdr.Uint64.fromString("0")))
+      ),
+      expiresAt: Number(
+        scValToBigInt(field("expires_at") ?? xdr.ScVal.scvU64(xdr.Uint64.fromString("0")))
+      ),
       parameters,
     }
   } catch {
@@ -1994,10 +1998,7 @@ export function useGovernanceVote(govContractId: string) {
   return { vote, isLoading }
 }
 
-
-export async function fetchYieldAllocationState(
-  contractId: string,
-): Promise<YieldAllocationState> {
+export async function fetchYieldAllocationState(contractId: string): Promise<YieldAllocationState> {
   const [vaultVal, sharesVal, costVal, bufVal, lockedVal, posVal, unrealVal, maxVal] =
     await Promise.all([
       viewCall(contractId, "yield_vault"),
@@ -2055,11 +2056,11 @@ export function useApplyYieldAllocation(contractId: string) {
               "apply_yield_allocation",
               addressVal(address),
               addressVal(vaultId),
-              i128Val(amount),
-            ),
+              i128Val(amount)
+            )
           )
           .setTimeout(TX_TIMEOUT)
-          .build(),
+          .build()
       )
     } finally {
       setIsLoading(false)
@@ -2086,11 +2087,11 @@ export function useDeallocateYield(contractId: string) {
             new Contract(normalizeId(contractId)).call(
               "apply_yield_deallocation",
               addressVal(address),
-              i128Val(amount),
-            ),
+              i128Val(amount)
+            )
           )
           .setTimeout(TX_TIMEOUT)
-          .build(),
+          .build()
       )
     } finally {
       setIsLoading(false)
@@ -2114,10 +2115,10 @@ export function useSyncYield(contractId: string) {
           networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
         })
           .addOperation(
-            new Contract(normalizeId(contractId)).call("sync_yield", addressVal(address)),
+            new Contract(normalizeId(contractId)).call("sync_yield", addressVal(address))
           )
           .setTimeout(TX_TIMEOUT)
-          .build(),
+          .build()
       )
     } finally {
       setIsLoading(false)
@@ -2144,11 +2145,11 @@ export function useSetYieldBuffer(contractId: string) {
             new Contract(normalizeId(contractId)).call(
               "set_yield_buffer",
               addressVal(address),
-              xdr.ScVal.scvU32(bps),
-            ),
+              xdr.ScVal.scvU32(bps)
+            )
           )
           .setTimeout(TX_TIMEOUT)
-          .build(),
+          .build()
       )
     } finally {
       setIsLoading(false)
@@ -2175,11 +2176,11 @@ export function useSetYieldLocked(contractId: string) {
             new Contract(normalizeId(contractId)).call(
               "set_yield_locked",
               addressVal(address),
-              xdr.ScVal.scvBool(locked),
-            ),
+              xdr.ScVal.scvBool(locked)
+            )
           )
           .setTimeout(TX_TIMEOUT)
-          .build(),
+          .build()
       )
     } finally {
       setIsLoading(false)

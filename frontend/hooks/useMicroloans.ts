@@ -225,8 +225,7 @@ async function submitTransaction(
   walletAddress: string,
   contractId: string,
   method: string,
-  args: xdr.ScVal[],
-  kitSignFn: (xdr: string) => Promise<string>
+  args: xdr.ScVal[]
 ): Promise<string> {
   const account = await server.getAccount(walletAddress)
   const contract = new Contract(contractId)
@@ -244,8 +243,10 @@ async function submitTransaction(
   }
 
   const preparedTx = rpc.assembleTransaction(tx, simResult).build()
-  const signedXdr = await enqueueSign(preparedTx.toXDR(), kitSignFn)
-  const signedTx = TransactionBuilder.fromXDR(signedXdr, STELLAR_NETWORK_PASSPHRASE)
+  const { signedTxXdr } = await enqueueSign(preparedTx.toXDR(), {
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+  })
+  const signedTx = TransactionBuilder.fromXDR(signedTxXdr, STELLAR_NETWORK_PASSPHRASE)
 
   const sendResult = await server.sendTransaction(signedTx)
   if (sendResult.status === "ERROR") {
@@ -320,7 +321,7 @@ interface UseMicroloansResult {
 
 export function useMicroloans(poolId: string | null | undefined): UseMicroloansResult {
   const t = useTranslations("lending.hook")
-  const { address, kit } = useStellar()
+  const { address } = useStellar()
 
   const [poolLoans, setPoolLoans] = useState<Loan[]>([])
   const [myLoans, setMyLoans] = useState<Loan[]>([])
@@ -380,19 +381,6 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
     fetchLoans()
   }, [fetchLoans])
 
-  // ── Mutation helpers ────────────────────────────────────────────────────
-
-  const kitSign = useCallback(
-    async (xdrStr: string): Promise<string> => {
-      if (!kit) throw new Error(t("walletNotConnected"))
-      const { signedTxXdr } = await kit.signTransaction(xdrStr, {
-        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      })
-      return signedTxXdr
-    },
-    [kit, t]
-  )
-
   // ── createLoanRequest ───────────────────────────────────────────────────
 
   const createLoanRequest = useCallback(
@@ -416,8 +404,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
             u32Val(params.interestRateBps),
             u64Val(BigInt(params.termDays)),
             vecAddressVal(null, params.poolMembers),
-          ],
-          kitSign
+          ]
         )
         toastManager.success(t("requestCreated"), 5000, txHash)
         await fetchLoans()
@@ -430,7 +417,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
         setIsMutating(false)
       }
     },
-    [address, kitSign, fetchLoans, t]
+    [address, fetchLoans, t]
   )
 
   // ── acceptLoan ──────────────────────────────────────────────────────────
@@ -454,8 +441,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
             addressVal(address),
             addressVal(params.tokenAddress),
             vecAddressVal(null, params.poolMembers),
-          ],
-          kitSign
+          ]
         )
         toastManager.success(t("loanAccepted"), 5000, txHash)
         await fetchLoans()
@@ -468,7 +454,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
         setIsMutating(false)
       }
     },
-    [address, kitSign, fetchLoans, t]
+    [address, fetchLoans, t]
   )
 
   // ── repayLoan ───────────────────────────────────────────────────────────
@@ -492,8 +478,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
             addressVal(address),
             i128Val(params.repayAmount),
             addressVal(params.tokenAddress),
-          ],
-          kitSign
+          ]
         )
         toastManager.success(t("repaymentSubmitted"), 5000, txHash)
         await fetchLoans()
@@ -506,7 +491,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
         setIsMutating(false)
       }
     },
-    [address, kitSign, fetchLoans, t]
+    [address, fetchLoans, t]
   )
 
   // ── cancelLoanRequest ───────────────────────────────────────────────────
@@ -525,8 +510,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
           address,
           MICROLOAN_CONTRACT_ID,
           "cancel_loan_request",
-          [bytesN32Val(loanId), addressVal(address)],
-          kitSign
+          [bytesN32Val(loanId), addressVal(address)]
         )
         toastManager.success(t("requestCancelled"), 5000, txHash)
         await fetchLoans()
@@ -539,7 +523,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
         setIsMutating(false)
       }
     },
-    [address, kitSign, fetchLoans, t]
+    [address, fetchLoans, t]
   )
 
   // ── defaultLoan ─────────────────────────────────────────────────────────
@@ -558,8 +542,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
           address,
           MICROLOAN_CONTRACT_ID,
           "default_loan",
-          [bytesN32Val(loanId)],
-          kitSign
+          [bytesN32Val(loanId)]
         )
         toastManager.success(t("markedDefaulted"), 5000, txHash)
         await fetchLoans()
@@ -572,7 +555,7 @@ export function useMicroloans(poolId: string | null | undefined): UseMicroloansR
         setIsMutating(false)
       }
     },
-    [address, kitSign, fetchLoans, t]
+    [address, fetchLoans, t]
   )
 
   return {
