@@ -582,7 +582,9 @@ export function AnalyticsDashboard() {
                     {poolData?.metrics.prediction.daysToTarget > 0 && (
                       <div className="pt-2">
                         <span className="text-xs font-semibold text-muted-foreground block mb-1">
-                          {t("progressTowardTarget", { amount: poolData.pool.target_amount })}
+                          {t("progressTowardTarget", {
+                            amount: poolData.pool.target_amount ?? 0,
+                          })}
                         </span>
                         <Progress
                           value={Math.min(

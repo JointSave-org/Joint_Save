@@ -48,16 +48,21 @@ export async function GET(req: NextRequest) {
     let totalDeposit = 0
     let depositCount = 0
 
-    if (pastMemberships) {
-      for (const m of pastMemberships) {
-        pastPoolIds.add(m.pool_id)
-        if (m.pools && !Array.isArray(m.pools) && m.pools.status === "completed") {
-          completedTypes.add(m.pools.type)
-        }
-        if (m.contribution_amount > 0) {
-          totalDeposit += m.contribution_amount
-          depositCount++
-        }
+    type PastMembership = {
+      pool_id: string
+      contribution_amount: number
+      pools: { type: string; status: string } | null
+    }
+    const memberships = (pastMemberships ?? []) as unknown as PastMembership[]
+
+    for (const m of memberships) {
+      pastPoolIds.add(m.pool_id)
+      if (m.pools && !Array.isArray(m.pools) && m.pools.status === "completed") {
+        completedTypes.add(m.pools.type)
+      }
+      if (m.contribution_amount > 0) {
+        totalDeposit += m.contribution_amount
+        depositCount++
       }
     }
 

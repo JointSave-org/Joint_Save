@@ -62,7 +62,7 @@ function VersionWarning({
     return (
       <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 mb-4 text-sm font-medium">
         <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-        <span>{t("versionWarning", { version: cv })}</span>
+        <span>{t("versionWarning", { version: cv ?? "unknown" })}</span>
       </div>
     )
   }
@@ -163,12 +163,12 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
           title: t("storageExtended"),
           description: t("storageExtendedDescription"),
         })
-        refetch()
+        refetch?.()
       } else {
         toast({
           title: t("extendStorageFailed"),
           description: t("extendStorageFailedDescription"),
-          variant: "destructive",
+          variant: "error",
         })
       }
     } catch (err: unknown) {
@@ -176,7 +176,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
       toast({
         title: t("extendStorageError"),
         description: (err as Error).message || t("unexpectedError"),
-        variant: "destructive",
+        variant: "error",
       })
     }
   }
@@ -201,7 +201,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
       toast({
         title: t("copyFailedTitle"),
         description: t("copyFailedDescription"),
-        variant: "destructive",
+        variant: "error",
       })
     }
   }
@@ -224,7 +224,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
       toast({
         title: t("copyFailedTitle"),
         description: t("copyInviteFailedDescription"),
-        variant: "destructive",
+        variant: "error",
       })
     }
   }
@@ -508,7 +508,10 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
               <Badge variant="secondary" aria-label={"Pool type: " + tPool(`type.${group.type}`)}>
                 {tPool(`type.${group.type}`)}
               </Badge>
-              <Badge className="bg-primary/10 text-primary hover:bg-primary/20" aria-label={"Pool status: " + tPool(`status.${group.status}`)}>
+              <Badge
+                className="bg-primary/10 text-primary hover:bg-primary/20"
+                aria-label={"Pool status: " + tPool(`status.${group.status}`)}
+              >
                 {tPool(`status.${group.status}`)}
               </Badge>
               {onchainState && (
@@ -517,11 +520,15 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
                 </Badge>
               )}
               {hasAutoTrigger && (
-                <Badge variant="outline" className="text-xs text-blue-600 border-blue-400" aria-label="Status: Auto-trigger enabled">
+                <Badge
+                  variant="outline"
+                  className="text-xs text-blue-600 border-blue-400"
+                  aria-label="Status: Auto-trigger enabled"
+                >
                   {t("autoTriggerEnabled")}
                 </Badge>
               )}
-              {ttlDays !== null && (
+              {ttlDays != null && (
                 <Badge
                   variant="outline"
                   className={`text-xs ${
@@ -533,7 +540,11 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
                 </Badge>
               )}
               {isStale && !isLoading && (
-                <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/40" aria-label="Status: Stale data">
+                <Badge
+                  variant="outline"
+                  className="text-xs text-amber-500 border-amber-500/40"
+                  aria-label="Status: Stale data"
+                >
                   {t("stale")}
                 </Badge>
               )}
@@ -576,7 +587,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
           </div>
         )}
 
-        {ttlDays !== null && ttlDays < 7 && !isPending(group.contract_address) && (
+        {ttlDays != null && ttlDays < 7 && !isPending(group.contract_address) && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-destructive/10 text-destructive mb-4 text-sm font-medium">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
@@ -687,7 +698,7 @@ export function GroupDetails({ groupId, contractAddress, poolAdmin }: GroupDetai
               isAdmin={isAdmin || isCreator}
               currentRoundDuration={604800}
               currentRound={(onchainState as RotationalPoolState)?.currentRound || 0}
-              onScheduleUpdated={() => refetch()}
+              onScheduleUpdated={() => refetch?.()}
             />
           </div>
         )}

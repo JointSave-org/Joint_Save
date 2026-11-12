@@ -71,6 +71,8 @@ export function pendingTxLabel(type: PendingTxType, t?: (key: PendingTxType) => 
       return "join"
     case "create":
       return "pool creation"
+    case "set_supported_tokens":
+      return "token settings update"
   }
 }
 

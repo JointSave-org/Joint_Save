@@ -80,7 +80,7 @@ export function Transactions() {
             token_symbol: row.pools?.token_symbol ?? null,
           })
         )
-        setActivities(rows)
+        setActivities(rows as Activity[])
       } catch (err) {
         console.error("Failed to fetch activities:", err)
       } finally {

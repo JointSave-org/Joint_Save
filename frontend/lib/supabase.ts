@@ -44,6 +44,7 @@ export type Database = {
           contribution_amount: number | null
           round_duration: number | null
           frequency: string | null
+          governance_contract_id: string | null
           pause_reason: string | null
           paused_at: string | null
           deadline: string | null
@@ -75,6 +76,7 @@ export type Database = {
           contribution_amount?: number | null
           round_duration?: number | null
           frequency?: string | null
+          governance_contract_id?: string | null
           pause_reason?: string | null
           paused_at?: string | null
           deadline?: string | null
@@ -106,6 +108,7 @@ export type Database = {
           contribution_amount?: number | null
           round_duration?: number | null
           frequency?: string | null
+          governance_contract_id?: string | null
           pause_reason?: string | null
           paused_at?: string | null
           deadline?: string | null
@@ -335,6 +338,7 @@ export type Database = {
           pool_id: string | null
           activity_type: string
           message: string
+          priority: "normal" | "high" | "urgent"
           read: boolean
           created_at: string
         }
@@ -344,10 +348,12 @@ export type Database = {
           pool_id?: string | null
           activity_type: string
           message: string
+          priority?: "normal" | "high" | "urgent"
           read?: boolean
           created_at?: string
         }
         Update: {
+          priority?: "normal" | "high" | "urgent"
           read?: boolean
         }
         Relationships: []
@@ -800,6 +806,53 @@ export type Database = {
           resolution_notes?: string | null
           resolved_at?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      email_digests: {
+        Row: {
+          wallet_address: string
+          email: string
+          frequency: "daily" | "weekly" | "off"
+          last_sent_at: string | null
+          unsubscribe_token: string
+          created_at: string
+        }
+        Insert: {
+          wallet_address: string
+          email: string
+          frequency?: "daily" | "weekly" | "off"
+          last_sent_at?: string | null
+          unsubscribe_token?: string
+          created_at?: string
+        }
+        Update: {
+          email?: string
+          frequency?: "daily" | "weekly" | "off"
+          last_sent_at?: string | null
+          unsubscribe_token?: string
+        }
+        Relationships: []
+      }
+      governance_votes: {
+        Row: {
+          id: string
+          proposal_id: string
+          pool_id: string
+          voter_address: string
+          vote: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          proposal_id: string
+          pool_id: string
+          voter_address: string
+          vote: boolean
+          created_at?: string
+        }
+        Update: {
+          vote?: boolean
         }
         Relationships: []
       }

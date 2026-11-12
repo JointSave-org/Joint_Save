@@ -33,6 +33,20 @@ jobs:
         working-directory: frontend
         run: pnpm lint
 
+      - name: Run TypeScript typecheck
+        working-directory: frontend
+        run: pnpm typecheck:ci
+
+      - name: Verify typecheck gate rejects type errors
+        working-directory: frontend
+        run: |
+          trap 'rm -f typecheck-regression.ts' EXIT
+          printf 'const regression: number = "not a number"\n' > typecheck-regression.ts
+          if pnpm typecheck:ci; then
+            echo "::error::typecheck passed with an intentional type error"
+            exit 1
+          fi
+
       - name: Format files automatically
         working-directory: frontend
         run: pnpm format --write

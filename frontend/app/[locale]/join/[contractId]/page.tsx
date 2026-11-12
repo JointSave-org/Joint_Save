@@ -52,6 +52,7 @@ interface GroupData {
   token_symbol?: string
   token_decimals?: number
   creator_address?: string
+  yield_enabled?: boolean
   pool_members?: { member_address: string }[]
 }
 
@@ -115,7 +116,7 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
       toast({
         title: t("toastErrorTitle"),
         description: err instanceof Error ? err.message : t("toastErrorGeneric"),
-        variant: "destructive",
+        variant: "error",
       })
     } finally {
       setSubmitting(false)
@@ -136,7 +137,7 @@ export default function JoinPage({ params }: { params: Promise<{ contractId: str
       toast({
         title: t("toastCopyFailedTitle"),
         description: t("toastCopyFailedBody"),
-        variant: "destructive",
+        variant: "error",
       })
     }
   }

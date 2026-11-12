@@ -134,10 +134,7 @@ export async function POST(req: NextRequest) {
     const criticalAlerts = alerts.filter((a) => a.severity === "critical")
     if (criticalAlerts.length > 0) {
       // Fetch all platform admins (users with admin pools)
-      const { data: adminAddresses } = await admin
-        .from("pools")
-        .select("creator_address")
-        .distinct()
+      const { data: adminAddresses } = await admin.from("pools").select("creator_address")
 
       if (adminAddresses) {
         const uniqueAdmins = [...new Set(adminAddresses.map((a) => a.creator_address))]

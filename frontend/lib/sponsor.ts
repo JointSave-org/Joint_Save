@@ -92,11 +92,13 @@ export async function checkEligibility(
 
     // Soroban transactions have soroban_meta attached. If the account has
     // ever submitted one, conservatively treat it as a returning user.
-    const hasSorobanHistory = transactions.records.some(
-      (tx: { soroban_meta?: unknown; asset_balance_changes?: unknown[] }) => {
-        return tx.soroban_meta != null || tx.asset_balance_changes?.length
+    const hasSorobanHistory = transactions.records.some((tx) => {
+      const record = tx as typeof tx & {
+        soroban_meta?: unknown
+        asset_balance_changes?: unknown[]
       }
-    )
+      return record.soroban_meta != null || record.asset_balance_changes?.length
+    })
 
     if (hasSorobanHistory) {
       return { eligible: false, reason: "This wallet has prior blockchain activity." }

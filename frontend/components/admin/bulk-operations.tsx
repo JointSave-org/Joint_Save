@@ -54,7 +54,7 @@ export function BulkOperations({
       toast({
         title: t("toastExportFailedTitle"),
         description: err instanceof Error ? err.message : t("toastExportFailedBody"),
-        variant: "destructive",
+        variant: "error",
       })
     } finally {
       setIsExporting(false)
@@ -80,7 +80,7 @@ export function BulkOperations({
       toast({
         title: t("toastSendFailedTitle"),
         description: err instanceof Error ? err.message : t("toastSendFailedBody"),
-        variant: "destructive",
+        variant: "error",
       })
     } finally {
       setIsSending(false)

@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
     // Query active rotational pools
     const { data: pools, error: poolsError } = await supabase
       .from("pools")
-      .select("id, name, contract_address, pool_type, next_payout_time, deadline, is_active")
-      .or("pool_type.eq.rotational,pool_type.eq.Rotational")
+      .select("id, name, contract_address, type, next_payout, deadline")
+      .in("type", ["rotational"])
 
     if (poolsError) {
       return NextResponse.json({ error: poolsError.message }, { status: 500 })
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     for (const pool of pools || []) {
       // Determine deadline timestamp
-      const deadlineVal = pool.next_payout_time || pool.deadline
+      const deadlineVal = pool.next_payout || pool.deadline
       if (!deadlineVal) continue
 
       const deadlineMs =
@@ -60,14 +60,12 @@ export async function POST(req: NextRequest) {
       // Query members who haven't deposited for current round
       const { data: members, error: membersError } = await supabase
         .from("pool_members")
-        .select("member_address, status, has_deposited")
+        .select("member_address, status")
         .eq("pool_id", pool.id)
 
       if (membersError) continue
 
-      const pendingMembers = (members || []).filter(
-        (m) => m.has_deposited === false || m.status !== "deposited"
-      )
+      const pendingMembers = (members || []).filter((m) => m.status !== "paid")
 
       const notificationsToInsert: {
         wallet_address: string

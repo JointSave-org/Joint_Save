@@ -206,8 +206,11 @@ export async function GET(req: NextRequest) {
       return jsonPrivate({ pools: [], totalAnomalies: 0 })
     }
 
+    type AdminPoolQueryRow = Omit<AdminPoolData, "health_score" | "health_band" | "anomalies">
+    const poolRows = pools as unknown as AdminPoolQueryRow[]
+
     // Compute health scores and detect anomalies for each pool
-    const enrichedPools: AdminPoolData[] = pools.map((pool) => {
+    const enrichedPools: AdminPoolData[] = poolRows.map((pool) => {
       const members = (pool.pool_members as { member_address: string; status: string }[]) ?? []
       const activities =
         (pool.pool_activity as {

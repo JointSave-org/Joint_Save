@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
 import { writeLimiter } from "@/lib/rate-limit"
 import { blockIfArchived } from "@/lib/server/archival-guard"
+import { humanToBaseUnits } from "@/lib/deposit-token"
 
 const HORIZON_URL =
   process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL || "https://horizon-testnet.stellar.org"
