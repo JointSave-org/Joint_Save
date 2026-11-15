@@ -1,0 +1,59 @@
+name: CI – Supply-Chain & Security Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  supply-chain-gates:
+    name: Secret Scan, Dependabot Validation & SBOM Generation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Run secret detector self-test
+        run: node scripts/check-secrets.mjs --self-test
+
+      - name: Scan repository for committed secrets
+        run: node scripts/check-secrets.mjs
+
+      - name: Validate Dependabot configuration
+        run: |
+          node -e '
+            const fs = require("fs");
+            const content = fs.readFileSync(".github/dependabot.yml", "utf8");
+            for (const eco of ["npm", "cargo", "github-actions"]) {
+              if (!content.includes(`package-ecosystem: "${eco}"`)) {
+                console.error(`Missing Dependabot ecosystem: ${eco}`);
+                process.exit(1);
+              }
+            }
+            console.log("Dependabot configuration verified for npm, cargo, and github-actions.");
+          '
+
+      - name: Generate and validate CycloneDX 1.5 SBOM
+        run: |
+          node scripts/generate-sbom.mjs --self-test
+          node scripts/generate-sbom.mjs --output /tmp/jointsave-sbom.cdx.json
+
+      - name: Upload CycloneDX SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jointsave-cyclonedx-sbom
+          path: /tmp/jointsave-sbom.cdx.json
+          retention-days: 30
