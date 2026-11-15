@@ -1,0 +1,73 @@
+name: Release – SDK (@jointsave/sdk)
+
+on:
+  push:
+    tags:
+      - "sdk-v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run release gates and npm publish in --dry-run mode without publishing"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release-sdk:
+    name: Verify gates, pack smoke test & publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sdk
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: sdk/package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+          cache-dependency-path: sdk/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Typecheck examples against dist
+        run: pnpm typecheck:examples
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Enforce public API surface guard
+        run: pnpm check:api
+
+      - name: Run tarball pack & clean consumer smoke test
+        run: pnpm test:pack
+
+      - name: Publish dry-run verification
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        run: npm publish --dry-run --access public
+
+      - name: Publish @jointsave/sdk with npm provenance
+        if: startsWith(github.ref, 'refs/tags/sdk-v') || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public

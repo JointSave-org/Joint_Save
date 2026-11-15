@@ -3,6 +3,30 @@
   "version": "0.1.0",
   "description": "TypeScript SDK for JointSave savings pools on Stellar Soroban.",
   "license": "MIT",
+  "homepage": "https://github.com/JointSave-org/Joint_Save/tree/main/sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JointSave-org/Joint_Save.git",
+    "directory": "sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/JointSave-org/Joint_Save/issues"
+  },
+  "keywords": [
+    "stellar",
+    "soroban",
+    "jointsave",
+    "rosca",
+    "savings-pool",
+    "defi",
+    "typescript",
+    "sdk"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
   "packageManager": "pnpm@9.15.9",
   "sideEffects": false,
   "main": "./dist/index.js",
@@ -30,7 +54,8 @@
     "test": "vitest --run",
     "test:watch": "vitest",
     "check:api": "node scripts/check-public-api.cjs",
-    "prepublishOnly": "npm run build && npm run check:api"
+    "test:pack": "node scripts/pack-smoke.cjs",
+    "prepublishOnly": "npm run build && npm run check:api && npm run test:pack"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^15.1.0"
