@@ -1,0 +1,46 @@
+name: Nightly – Full-Stack Testnet Smoke Suite
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+    inputs:
+      rpc_url:
+        description: "Stellar Soroban Testnet RPC URL"
+        required: false
+        default: "https://soroban-testnet.stellar.org"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  testnet-smoke:
+    name: Full-Stack Testnet Smoke Suite (Opt-In)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Verify smoke harness self-test
+        run: node scripts/testnet-smoke-suite.mjs --self-test
+
+      - name: Execute full-stack Testnet smoke suite
+        env:
+          RUN_TESTNET_SMOKE: "true"
+          TESTNET_SOROBAN_RPC_URL: ${{ inputs.rpc_url || 'https://soroban-testnet.stellar.org' }}
+        run: node scripts/testnet-smoke-suite.mjs --artifacts-dir /tmp/testnet-smoke-artifacts
+
+      - name: Upload smoke manifests and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testnet-smoke-artifacts
+          path: /tmp/testnet-smoke-artifacts
+          retention-days: 14
