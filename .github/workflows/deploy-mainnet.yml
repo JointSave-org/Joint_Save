@@ -1,0 +1,62 @@
+name: Deploy Soroban Contracts (Mainnet Readiness & Verification)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run preflight, reproducible build, hash recording, and smoke rehearsal without broadcasting to Mainnet"
+        required: false
+        default: true
+        type: boolean
+      approver_ticket:
+        description: "Multi-party key ceremony & change-control approval reference (e.g. MAINNET-GO-2026-01)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  preflight-and-build:
+    name: 1. Mainnet Preflight & Reproducible WASM Hashes
+    runs-on: ubuntu-latest
+    outputs:
+      manifest_digest: ${{ steps.preflight.outputs.manifest_digest }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Run Mainnet preflight verification
+        id: preflight
+        run: |
+          node scripts/mainnet-verify.mjs --self-test
+          node scripts/mainnet-verify.mjs --preflight
+
+  mainnet-approval-gate:
+    name: 2. Mainnet Human Approval Gate & Post-Deploy Verification
+    needs: preflight-and-build
+    runs-on: ubuntu-latest
+    environment: mainnet-production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Verify approval ticket and execute smoke verification
+        env:
+          APPROVER_TICKET: ${{ inputs.approver_ticket }}
+          MAINNET_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ -z "$APPROVER_TICKET" ]; then
+            echo "::error::Approver ticket reference is required for Mainnet gate."
+            exit 1
+          fi
+          node scripts/mainnet-verify.mjs --preflight
+          node scripts/mainnet-verify.mjs --post-deploy --dry-run
