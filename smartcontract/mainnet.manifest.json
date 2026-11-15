@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0.0",
+  "network": {
+    "name": "mainnet",
+    "networkPassphrase": "Public Global Stellar Network ; September 2015",
+    "rpcUrl": "https://mainnet.sorobanrpc.com",
+    "horizonUrl": "https://horizon.stellar.org"
+  },
+  "toolchain": {
+    "rustVersion": "1.85.0",
+    "stellarCliVersion": "22.8.1",
+    "target": "wasm32-unknown-unknown"
+  },
+  "governanceAndCustody": {
+    "adminCustodyModel": "multisig-3-of-5",
+    "requiredApprovals": 3,
+    "totalSigners": 5,
+    "emergencyPauseThreshold": 2,
+    "ttlPolicy": {
+      "minInstanceLedgers": 535680,
+      "extendToInstanceLedgers": 1071360,
+      "minPersistentLedgers": 535680,
+      "extendToPersistentLedgers": 2142720
+    }
+  },
+  "approvalGate": {
+    "environment": "mainnet-production",
+    "requireHumanApproval": true,
+    "securityReviewCompleted": true,
+    "testnetRollbackRehearsed": true,
+    "approvers": []
+  },
+  "contracts": {
+    "factory": {
+      "cratePath": "contracts/factory/Cargo.toml",
+      "wasmName": "jointsave_factory.wasm",
+      "expectedSha256": null,
+      "contractId": null
+    },
+    "rotational": {
+      "cratePath": "contracts/rotational/Cargo.toml",
+      "wasmName": "jointsave_rotational.wasm",
+      "expectedSha256": null,
+      "contractId": null
+    },
+    "target": {
+      "cratePath": "contracts/target/Cargo.toml",
+      "wasmName": "jointsave_target.wasm",
+      "expectedSha256": null,
+      "contractId": null
+    },
+    "flexible": {
+      "cratePath": "contracts/flexible/Cargo.toml",
+      "wasmName": "jointsave_flexible.wasm",
+      "expectedSha256": null,
+      "contractId": null
+    },
+    "governance": {
+      "cratePath": "contracts/governance/Cargo.toml",
+      "wasmName": "jointsave_governance.wasm",
+      "expectedSha256": null,
+      "contractId": null
+    },
+    "reputation": {
+      "cratePath": "contracts/reputation/Cargo.toml",
+      "wasmName": "jointsave_reputation.wasm",
+      "expectedSha256": null,
+      "contractId": null
+    }
+  }
+}
